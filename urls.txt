@@ -1,0 +1,15 @@
+				   XLATTICE
+			  <http://xlattice.sf.net/>
+
+XLattice is a communications infrastructure for peer-to-peer (p2p) networks.
+These networks may be server-assisted. XLattice is a modular system consisting
+of components intended to be usable for a wide variety of purposes, ranging
+from p2p chat to distributed software development environments.
+
+
+
+			KADEMLIA DESIGN SPECIFICATION
+       <http://xlattice.sf.net/components/protocol/kademlia/specs.html>
+
+Kademlia is a communications protocol for peer-to-peer networks. It is one of
+many versions of a DHT, a Distributed Hash Table.
