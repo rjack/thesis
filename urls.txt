@@ -1,10 +1,11 @@
-				   XLATTICE
-			  <http://xlattice.sf.net/>
+				   FREENET
+			 <http://freenetproject.org/>
 
-XLattice is a communications infrastructure for peer-to-peer (p2p) networks.
-These networks may be server-assisted. XLattice is a modular system consisting
-of components intended to be usable for a wide variety of purposes, ranging
-from p2p chat to distributed software development environments.
+Freenet is free software which lets you publish and obtain information on the
+Internet without fear of censorship. To achieve this freedom, the network is
+entirely decentralized and publishers and consumers of information are
+anonymous. Without anonymity there can never be true freedom of speech, and
+without decentralization the network will be vulnerable to attack.
 
 
 
@@ -13,3 +14,13 @@ from p2p chat to distributed software development environments.
 
 Kademlia is a communications protocol for peer-to-peer networks. It is one of
 many versions of a DHT, a Distributed Hash Table.
+
+
+
+				   XLATTICE
+			  <http://xlattice.sf.net/>
+
+XLattice is a communications infrastructure for peer-to-peer (p2p) networks.
+These networks may be server-assisted. XLattice is a modular system consisting
+of components intended to be usable for a wide variety of purposes, ranging
+from p2p chat to distributed software development environments.

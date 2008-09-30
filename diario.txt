@@ -3,3 +3,8 @@
 Inizio a guardare i protocolli p2p.
 
 Occhiata a GNUnet e Kademlia.
+
+
+30 settembre 2008
+
+Guardato xlattice. Putroppo sembra fermo dal 2006 / 2007.
