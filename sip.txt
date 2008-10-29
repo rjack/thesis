@@ -1,0 +1,78 @@
+				 Appunti SIP.
+
+		     http://www.ietf.org/rfc/rfc3261.txt
+
+  Introduzione
+
+Sessione: scambio di dati tra un'associazione di partecipanti.
+
+Problemi possibili: i partecipanti
+
+- si spostano da un endpoint all'altro
+- sono raggiungibili da più nomi
+- usano media differenti, anche simultaneamente (es. audio e video)
+
+SIP permette agli user agent di concordare sulle caratteristiche di una
+sessione, in modo indipendente dal tipo di sessione da stabilire.
+
+
+  Panoramica delle funzionalità
+
+SIP è un protocollo di controllo di livello applicazione.
+
+Può:
+
+- stabilire, modificare e terminare sessioni multimediali (videochiamate,
+  telefonia, etc.)
+- permettere inviti a sessioni esistenti (multiconferenze)
+- aggiunta e rimozione di media in corso di sessione
+- gestione trasparente di associazioni dei nomi e servizi di redirezione
+  (utente può mantenere lo stesso identificativo esterno a prescindere dalla
+  rete di appartenenza)
+
+Cinque aspetti per creazione sessione:
+
+1. posizione: a quale endsystem connettersi?
+2. disponibilità: vuole ricevere la comunicazione?
+3. capacità: quale media si usa, con quali parametri?
+4. impostazione: attuare le scelte da entrambe le parti
+5. gestione: trasferimento, terminazione, modifica di parametri, invocazioni di
+   servizi, etc.
+
+SIP può (deve?) lavorare con altri protocolli:
+
+- RTP e RTSP per trasportare dati audio e video
+- SDP per descrivere la sessione
+- MEGACO per i gateway dei nodi di telefonia
+
+SIP non offre servizi, ma primitive da usare per implementare servizi.
+Es: SIP trova un utente e gli manda un oggetto (primitiva). Il servizio
+dipende dall'oggetto spedito.
+
+SIP supporta crittografia, autenticazione e prevenzione dei DoS, etc.
+
+
+  Panoramica di funzionamento
+
+Funzionalità di base: stabilire e terminare una sessione.
+
+Alice <alice@example.com> chiama Bob <bob@example.net>:
+
+  Alice --INVITE-> proxy.example.com
+
+  Alice <-TRYING-- proxy.example.com --INVITE-> proxy.example.net
+
+  proxy.example.com <-TRYING-- proxy.example.net --INVITE-> Bob
+
+  Alice <-RINGING-- proxy.example.com <-RINGING-- proxy.example.net <-RINGING-- Bob
+
+  Alice <-OK-- proxy.example.com <-OK-- proxy.example.net <-OK-- Bob
+
+Il messaggio INVITE di Alice contiene i parametri proposti per la sessione,
+magari scritti in SDP. L'OK di Bob contiene la risposta a questi parametri.
+
+  Alice --ACK-> Bob
+
+  Alice <=bla bla=> Bob
+
+Segnalibro: pagina 15
