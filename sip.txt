@@ -75,4 +75,29 @@ magari scritti in SDP. L'OK di Bob contiene la risposta a questi parametri.
 
   Alice <=bla bla=> Bob
 
-Segnalibro: pagina 15
+Note: l'instaurazione passa per i proxy, la comunicazione è diretta tra gli
+endpoint.
+
+Opzionalmente i proxy possono continuare a rimanere in mezzo alla sessione,
+per gestire funzionalità durante la chiamata, gestendo però solo i messaggi di
+sessione, non i dati della chiamata.
+
+Registrazione: come gli utenti si registrano al proprio proxy.
+Il messaggio REGISTER associa il nome di Bob, cioè <bob@example.net>
+all'indirizzo fisico della macchina che sta utilizzando. Database proxy
+associa nomi a indirizzi.
+
+Il server che gestisce i binding nome-indirizzo si chiama registrar.
+
+Un singolo utente può registrarsi a con più dispositivi.
+Un singolo dispositivo può essere registrato da più utenti.
+
+Registrazione solo per localizzare utente, non per autenticazione e
+autorizzazione!
+
+
+  Struttura del protocollo
+
+TODO
+_____________________
+Segnalibro: pagina 17
