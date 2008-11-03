@@ -98,6 +98,49 @@ autorizzazione!
 
   Struttura del protocollo
 
-TODO
+Strutturato a strati:
+
+1. sintassi e codifica (sintassi BNF estesa)
+2. trasporto: definisce come un client (server) spedisce (riceve) richieste e
+   riceve (spedisce) risposte.
+3. transazione: concetto di transazione nello scambio di messaggi tra client e
+   server.
+4. transazione utente
+
+Ruolo centrale: metodo INVITE, per cominciare una sessione.
+
+
+  Definizioni
+
+Address-of-Record (AOR): URI che punta a un altro URI effettivo di un
+utente (AOR = "indirizzo pubblico")
+
+
+Back-to-Back User Agent (B2BUA): entità logica che riceve come un server e
+richiede come un client.
+
+
+  Messaggi SIP
+
+SIP protocollo testuale, codifica dei caratteri UTF-8.
+Molto simile ad HTTP, ma *non* è una sua estensione.
+
+Due tipi:
+
+- richiesta da client a server
+- risposta da server a client
+
+A differenza di HTTP, i messaggi SIP possono viaggiare su datagram UDP.
+
+
+  Comportamento generale degli User Agent
+
+Comportamento, indipendente dal metodo, al di fuori di un dialog.
+
+UAC: richieste
+
+Campi obbligatori: To, From, CSeq, Call-ID, Max-Forwards, Via.
+Esempi: INVITE e OPTIONS (per conoscere le funzionalità supportate).
+   
 _____________________
 Segnalibro: pagina 17
