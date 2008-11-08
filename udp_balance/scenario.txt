@@ -1,0 +1,29 @@
+            +-----------------+           +----------+
+EKIGA       |          iface0 +----AP0----+          |
+  |         |                 |           |          |
+  |         |          iface1 +----AP1----+          |
+  +-loop----+ LOAD            |           | INTERNET +----- PROXY
+            | BALANCER   ...  | ...AP2... |          |
+  +---------+                 |           |          |
+  |         |          ifacen +----APn----+          |
+KERNEL      +-----------------+           +----------+
+
+
+Protocolli: RTP e SIP entrambi su UDP.
+
+Interfacce dicono al kernel quando un pacchetto non e' arrivato all'AP.
+Il kernel notifica il LOAD BALANCER con il risultato della send.
+
+Eventuale ritrasmissione traffico RTP solo entro 150ms.
+
+INTERNET = fw + nat vari.
+
+Serve keepalive per
+* manterenere i nat attivi
+* far conoscere al proxy le interfacce sveglie, cosi' puo' scegliere a quale
+  rispondere.
+
+
+Necessario:
+
+- distinguere traffico SIP (non urgente) da traffico RTP (urgente)
