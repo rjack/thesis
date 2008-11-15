@@ -38,7 +38,7 @@ static const char *program_name = NULL;
 ****************************************************************************/
 
 static void print_usage (void);
-static bool done (void);
+static bool is_done (void);
 
 
 /****************************************************************************
@@ -54,16 +54,28 @@ main (const int argc, const char *argv[])
 	program_name = argv[0];
 
 	/*
-	 * Dipendenze eventi (SP = softphone, PX = proxy):
+	 * Legenda:
+	 * SP = softphone, PX = proxy, TED = trasmission error detector,
+	 * IM = interface monitor
+	 *
+	 * Eventi:
 	 *
 	 * leggo da SP -> dati outward
+	 *
 	 * leggo da PX -> dati inward
-	 * leggo da TED -> dati netconf
-	 * timeout keepalive -> outward
+	 *
+	 * tmout keepalive -> dati outward
+	 *
 	 * dati inward -> scrivo a SP
+	 *
 	 * dati outward -> scrivo a PX
-	 * dati netconf -> chiudo / apro socket
-	 * timeout 150ms -> tolti pacchetti vecchi da outward
+	 *
+	 * dati netconf -> fix socket
+	 *
+	 * tmout 150ms -> pulizia dati vecchi outward
+	 *
+	 * scrivo a PX -> reset tmout keepalive
+	 *             -> datagram nel limbo, con associato tmout 30ms
 	 */
 
 	if (argc != 1) {
@@ -71,7 +83,7 @@ main (const int argc, const char *argv[])
 		exit (EXIT_FAILURE);
 	}
 
-	while (!done ()) {
+	while (!is_done ()) {
 	}
 
 	return 0;
@@ -91,7 +103,7 @@ print_usage (void)
 
 
 static bool
-done (void)
+is_done (void)
 {
 	return FALSE;
 }
