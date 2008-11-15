@@ -53,7 +53,7 @@ main (const int argc, const char *argv[])
 	 */
 	program_name = argv[0];
 
-	/* 
+	/*
 	 * Dipendenze eventi (SP = softphone, PX = proxy):
 	 *
 	 * leggo da SP -> dati outward
