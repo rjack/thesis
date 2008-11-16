@@ -6,9 +6,11 @@
 #include <errno.h>
 #include <linux/types.h>     /* workaround bug ubuntu: serve per errueue.h */
 #include <linux/errqueue.h>
+#include <netdb.h>
 #include <netinet/in.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -77,6 +79,8 @@ static void *my_alloc (size_t nbytes);
 static void print_usage (void);
 static bool is_done (void);
 static void collect_garbage (void);
+static struct chan *new_chan (const char *ip_bind, const char *port_bind,
+		              const char *ip_peer, const char *port_peer);
 
 
 /****************************************************************************
@@ -131,16 +135,17 @@ main (const int argc, const char *argv[])
 	/*
 	 * Allocazione canali per:
 	 * - softphone
-	 * - trasmission error detector
 	 * - interface monitor
 	 */
 	assert (channels_num == 2);
 	channels = (struct chan **)my_alloc (channels_num * sizeof(struct chan *));
 
-	channels[SP_I] = new_chan ("127.0.0.1", 7777, "127.0.0.1", 8888);
-	channels[IM_I] = new_chan ("127.0.0.1", 5656, NULL, -1);
+	/* TODO: argomenti specificati da riga di comando */
+	channels[SP_I] = new_chan ("127.0.0.1", "7777", "127.0.0.1", "8888");
+	channels[IM_I] = new_chan ("127.0.0.1", "5656", NULL, NULL);
 
 	while (!is_done ()) {
+		break;
 	}
 
 	return 0;
@@ -155,6 +160,36 @@ static void
 collect_garbage (void)
 {
 	;
+}
+
+
+static struct chan *
+new_chan (const char *ip_bind, const char *port_bind,
+          const char *ip_peer, const char *port_peer)
+{
+	struct chan *new_chan;
+
+	/*
+	 * Allocazione e inizializzazione.
+	 */
+	new_chan = my_alloc (sizeof(struct chan));
+	memset (new_chan, 0, sizeof(struct chan));
+
+	/*
+	 * TODO loop getaddrinfo
+	 */
+
+	/*
+	 * Socket UDP.
+	 */
+	new_chan->ch_sfd = socket (AF_INET, SOCK_DGRAM, 0);
+	if (new_chan->ch_sfd == -1)
+		goto socket_err;
+
+	return new_chan;
+
+socket_err:
+	return NULL;
 }
 
 
