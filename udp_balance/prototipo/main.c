@@ -10,6 +10,7 @@
 #include <linux/errqueue.h>
 #include <netdb.h>
 #include <netinet/in.h>
+#include <poll.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -39,13 +40,14 @@ typedef int fd_t;
 
 
 /*
- * Canali.
+ * Array di struct polldf.
  */
+#define     MAXIFACENUM     16
 
-/* Indici canali importanti */
+/* Indici importanti */
 #define     SP_I                0         /* softphone */
 #define     IM_I                1         /* interface monitor */
-#define     CURRENT_IFACE_I     2
+#define     CURRENT_IFACE_I     2         /* interfaccia in uso */
 
 
 /* XXX C'e' modo di scoprire a runtime la dimensione di allocazione per il
@@ -55,18 +57,6 @@ typedef int fd_t;
  * XXX traceroute <http://traceroute.sf.net/> */
 #define     CONTROLBUFLEN     1024
 
-
-struct chan {
-	/* socket file descriptor */
-	fd_t ch_sfd;
-
-	/* indirizzi locale e remoto */
-	struct sockaddr_in ch_bind_addr;
-	struct sockaddr_in ch_remote_addr;
-
-	/* buffer per campo msg_control di struct msghdr */
-	char ch_controlbuf[CONTROLBUFLEN];
-};
 
 #define     SP_BIND_IP       "127.0.0.1"
 #define     SP_BIND_PORT     "7777"
@@ -81,8 +71,9 @@ struct chan {
 
 static const char *program_name = NULL;
 
-struct chan **chans;
-size_t chans_num = CURRENT_IFACE_I;
+struct polldf fds[MAXIFACENUM];
+size_t fds_used = 2;
+size_t fds_len = MAXIFACENUM;
 
 
 /****************************************************************************
@@ -93,8 +84,7 @@ static void *my_alloc (size_t nbytes);
 static void print_usage (void);
 static bool is_done (void);
 static void collect_garbage (void);
-static fd_t socket_bound (const char *bind_ip, const char *bind_port,
-                          struct sockaddr_in *bound_addr);
+static fd_t socket_bound (const char *bind_ip, const char *bind_port);
 
 
 /****************************************************************************
@@ -145,26 +135,25 @@ main (const int argc, const char *argv[])
 	/*
 	 * Setup iniziale.
 	 */
-
-	/*
-	 * Allocazione canali per:
-	 * - softphone
-	 * - interface monitor
-	 */
-	assert (chans_num == 2);
-	chans = my_alloc (chans_num * sizeof(struct chan *));
-
-	chans[SP_I] = my_alloc (sizeof(struct chan));
-	chans[IM_I] = my_alloc (sizeof(struct chan));
-
-	chans[SP_I]->ch_sfd = socket_bound (SP_BIND_IP, SP_BIND_PORT,
-					    &chans[SP_I]->ch_bind_addr);
-	if (chans[SP_I]->ch_sfd == -1)
+	fds[SP_I].fd = socket_bound (SP_BIND_IP, SP_BIND_PORT);
+	fds[IM_I].fd = socket_bound (IM_BIND_IP, IM_BIND_PORT);
+	if (chans[SP_I]->ch_sfd == -1 || chans[IM_I]->ch_sfd == -1)
 		goto socket_bound_err;
 
+	fds[SP_I].events = POLLIN | POLLERR;
+	fds[IM_I].events = POLLIN | POLLERR;
 
 	while (!is_done ()) {
-		break;
+		int nready;
+
+		/* se inward_data > 0
+		 *    fds[SP_I].events |= POLLOUT;
+		 * altrimenti
+		 *    fds[SP_I].events &= ~POLLOUT; */
+
+		do {
+			nready = poll (fds, fds_used, get_nearest_tmout());
+		} while (nready == -1 && errno == EINTR);
 	}
 
 	return 0;
@@ -186,8 +175,7 @@ collect_garbage (void)
 
 
 static fd_t
-socket_bound (const char *bind_ip, const char *bind_port,
-              struct sockaddr_in *bound_addr)
+socket_bound (const char *bind_ip, const char *bind_port)
 {
 	int err;
 	fd_t new_sfd;
@@ -234,11 +222,7 @@ socket_bound (const char *bind_ip, const char *bind_port,
 	if (new_sfd == -1)
 		goto bind_err;
 
-	/* Copia struct sockaddr ritornata */
-	assert (res->ai_addrlen == sizeof(struct sockaddr_in));
-	memcpy (bound_addr, res->ai_addr, res->ai_addrlen);
 	freeaddrinfo (addr_results);
-
 	return new_sfd;
 
 bind_err:
