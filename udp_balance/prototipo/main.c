@@ -2,6 +2,8 @@
  * udp_balancer: prototipo.
  */
 
+#define     _POSIX_C_SOURCE     1     /* per getaddrinfo */
+
 #include <assert.h>
 #include <errno.h>
 #include <linux/types.h>     /* workaround bug ubuntu: serve per errueue.h */
@@ -33,8 +35,14 @@ typedef int bool;
 #define TRUE (!FALSE)
 
 
-/* Indici canali importanti */
+typedef int fd_t;
 
+
+/*
+ * Canali.
+ */
+
+/* Indici canali importanti */
 #define     SP_I                0         /* softphone */
 #define     IM_I                1         /* interface monitor */
 #define     CURRENT_IFACE_I     2
@@ -50,7 +58,7 @@ typedef int bool;
 
 struct chan {
 	/* socket file descriptor */
-	int ch_sfd;
+	fd_t ch_sfd;
 
 	/* indirizzi locale e remoto */
 	struct sockaddr_in ch_bind_addr;
@@ -60,6 +68,12 @@ struct chan {
 	char ch_controlbuf[CONTROLBUFLEN];
 };
 
+#define     SP_BIND_IP       "127.0.0.1"
+#define     SP_BIND_PORT     "7777"
+
+#define     IM_BIND_IP       "127.0.0.1"
+#define     IM_BIND_PORT     "8888"
+
 
 /****************************************************************************
 			       Variabili locali
@@ -67,8 +81,8 @@ struct chan {
 
 static const char *program_name = NULL;
 
-struct chan **channels;
-size_t channels_num = CURRENT_IFACE_I;
+struct chan **chans;
+size_t chans_num = CURRENT_IFACE_I;
 
 
 /****************************************************************************
@@ -79,8 +93,8 @@ static void *my_alloc (size_t nbytes);
 static void print_usage (void);
 static bool is_done (void);
 static void collect_garbage (void);
-static struct chan *new_chan (const char *ip_bind, const char *port_bind,
-		              const char *ip_peer, const char *port_peer);
+static fd_t socket_bound (const char *bind_ip, const char *bind_port,
+                          struct sockaddr_in *bound_addr);
 
 
 /****************************************************************************
@@ -137,18 +151,26 @@ main (const int argc, const char *argv[])
 	 * - softphone
 	 * - interface monitor
 	 */
-	assert (channels_num == 2);
-	channels = (struct chan **)my_alloc (channels_num * sizeof(struct chan *));
+	assert (chans_num == 2);
+	chans = my_alloc (chans_num * sizeof(struct chan *));
 
-	/* TODO: argomenti specificati da riga di comando */
-	channels[SP_I] = new_chan ("127.0.0.1", "7777", "127.0.0.1", "8888");
-	channels[IM_I] = new_chan ("127.0.0.1", "5656", NULL, NULL);
+	chans[SP_I] = my_alloc (sizeof(struct chan));
+	chans[IM_I] = my_alloc (sizeof(struct chan));
+
+	chans[SP_I]->ch_sfd = socket_bound (SP_BIND_IP, SP_BIND_PORT,
+					    &chans[SP_I]->ch_bind_addr);
+	if (chans[SP_I]->ch_sfd == -1)
+		goto socket_bound_err;
+
 
 	while (!is_done ()) {
 		break;
 	}
 
 	return 0;
+
+socket_bound_err:
+	return 1;
 }
 
 
@@ -163,33 +185,66 @@ collect_garbage (void)
 }
 
 
-static struct chan *
-new_chan (const char *ip_bind, const char *port_bind,
-          const char *ip_peer, const char *port_peer)
+static fd_t
+socket_bound (const char *bind_ip, const char *bind_port,
+              struct sockaddr_in *bound_addr)
 {
-	struct chan *new_chan;
+	int err;
+	fd_t new_sfd;
+	struct addrinfo addr_hints;
+	struct addrinfo *addr_results;
+	struct addrinfo *res;
 
-	/*
-	 * Allocazione e inizializzazione.
-	 */
-	new_chan = my_alloc (sizeof(struct chan));
-	memset (new_chan, 0, sizeof(struct chan));
+	/* getaddrinfo hints */
+	addr_hints.ai_family = AF_INET;
+	addr_hints.ai_socktype = SOCK_DGRAM;
+	addr_hints.ai_protocol = IPPROTO_UDP;
+	addr_hints.ai_flags = AI_NUMERICSERV;
+	addr_hints.ai_next = NULL;
+	addr_hints.ai_addr = NULL;
+	addr_hints.ai_addrlen = 0;
+	addr_hints.ai_canonname = NULL;
 
-	/*
-	 * TODO loop getaddrinfo
-	 */
+	/* getaddrinfo */
+	err = getaddrinfo (bind_ip, bind_port, &addr_hints, &addr_results);
+	if (err) {
+		fprintf (stderr, "getaddrinfo: %s\n", gai_strerror (err));
+		goto getaddrinfo_err;
+	}
 
-	/*
-	 * Socket UDP.
-	 */
-	new_chan->ch_sfd = socket (AF_INET, SOCK_DGRAM, 0);
-	if (new_chan->ch_sfd == -1)
-		goto socket_err;
+	/* Prova gli addrinfo ritornati. */
+	new_sfd = -1;
+	res = addr_results;
+	while (new_sfd == -1 && res != NULL) {
+		assert (res->ai_family == AF_INET);
+		assert (res->ai_socktype == SOCK_DGRAM);
+		assert (res->ai_protocol == IPPROTO_UDP);
 
-	return new_chan;
+		new_sfd = socket (AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+		if (new_sfd == -1)
+			continue;
 
-socket_err:
-	return NULL;
+		err = bind (new_sfd, res->ai_addr, res->ai_addrlen);
+		if (err) {
+			close (new_sfd);
+			new_sfd = -1;
+			res = res->ai_next;
+		}
+	}
+	if (new_sfd == -1)
+		goto bind_err;
+
+	/* Copia struct sockaddr ritornata */
+	assert (res->ai_addrlen == sizeof(struct sockaddr_in));
+	memcpy (bound_addr, res->ai_addr, res->ai_addrlen);
+	freeaddrinfo (addr_results);
+
+	return new_sfd;
+
+bind_err:
+	freeaddrinfo (addr_results);
+getaddrinfo_err:
+	return -1;
 }
 
 
