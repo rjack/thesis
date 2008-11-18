@@ -15,6 +15,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
+#include <sys/time.h>
 #include <sys/types.h>
 #include <unistd.h>
 
@@ -22,6 +23,10 @@
 /****************************************************************************
 			Definizioni di tipo e costanti
 ****************************************************************************/
+
+#define     MIN(a,b)     ((a) < (b) ? (a) : (b))
+
+#define     ONE_MILLION     1000000
 
 typedef int bool;
 
@@ -49,12 +54,23 @@ typedef int fd_t;
 #define     IM_I                1         /* interface monitor */
 #define     CURRENT_IFACE_I     2         /* interfaccia in uso */
 
+/*
+ * Datagram.
+ */
+struct dgram {
+	struct timeval dg_tstamp;  /* istante di arrivo */
+	char *dg_data;             /* dati letti da recvmsg */
+	size_t dg_datalen;         /* lunghezza dati */
+	struct dgram *dg_next;     /* prossimo dgram in coda */
+};
+
 
 /* XXX C'e' modo di scoprire a runtime la dimensione di allocazione per il
- * XXX msg_control delle struct msghdr e poterlo cosi' allocare dinamicamente
- * XXX senza rischiare un MSG_TRUNC quando si fa una recvmsg con flag MSG_ERRQUEUE?
- * XXX Nell'attesa di scoprirlo uso la costante trovata nel sorgente di
- * XXX traceroute <http://traceroute.sf.net/> */
+ * msg_control delle struct msghdr e poterlo cosi' allocare dinamicamente
+ * senza rischiare un MSG_TRUNC quando si fa una recvmsg con flag
+ * MSG_ERRQUEUE?
+ * Nell'attesa di scoprirlo uso la costante trovata nel sorgente di traceroute
+ * <http://traceroute.sf.net/> */
 #define     CONTROLBUFLEN     1024
 
 
@@ -71,9 +87,27 @@ typedef int fd_t;
 
 static const char *program_name = NULL;
 
-struct polldf fds[MAXIFACENUM];
-size_t fds_used = 2;
-size_t fds_len = MAXIFACENUM;
+static struct pollfd fds[MAXIFACENUM];
+static size_t fds_used = 2;
+static size_t fds_len = MAXIFACENUM;
+
+/*
+ * Code per i datagram.
+ */
+/* da softphone a server */
+static struct dgram *data_out = NULL;
+
+/* da server a softphone */
+static struct dgram *data_in = NULL;
+
+/* spediti, da confermare */
+static struct dgram *data_unakd = NULL;
+
+/* msg config interfacce */
+static struct dgram *data_iface = NULL;
+
+/* datagram scartati, pronti per essere riutilizzati */
+static struct dgram *data_discarded = NULL;
 
 
 /****************************************************************************
@@ -85,6 +119,13 @@ static void print_usage (void);
 static bool is_done (void);
 static void collect_garbage (void);
 static fd_t socket_bound (const char *bind_ip, const char *bind_port);
+static void gettime (struct timeval *tv);
+static bool must_be_discarded (struct dgram *dg);
+static bool must_be_retransmitted (struct dgram *dg);
+static struct dgram *list_cat (struct dgram *fst, struct dgram *snd);
+static struct dgram *list_remove_if (bool (*test)(struct dgram *),
+                                     struct dgram **lst);
+static int min_timeout (struct dgram *lst);
 
 
 /****************************************************************************
@@ -94,6 +135,8 @@ static fd_t socket_bound (const char *bind_ip, const char *bind_port);
 int
 main (const int argc, const char *argv[])
 {
+	int i;
+
 	/*
 	 * Init variabili locali al modulo.
 	 */
@@ -137,23 +180,64 @@ main (const int argc, const char *argv[])
 	 */
 	fds[SP_I].fd = socket_bound (SP_BIND_IP, SP_BIND_PORT);
 	fds[IM_I].fd = socket_bound (IM_BIND_IP, IM_BIND_PORT);
-	if (chans[SP_I]->ch_sfd == -1 || chans[IM_I]->ch_sfd == -1)
+	if (fds[SP_I].fd == -1 || fds[IM_I].fd == -1)
 		goto socket_bound_err;
 
-	fds[SP_I].events = POLLIN | POLLERR;
-	fds[IM_I].events = POLLIN | POLLERR;
+	/* TODO setsockopt IP_RECVERR */
 
 	while (!is_done ()) {
 		int nready;
+		int next_tmout;
+		struct timeval now;
+		struct dgram *dg;
 
-		/* se inward_data > 0
-		 *    fds[SP_I].events |= POLLOUT;
-		 * altrimenti
-		 *    fds[SP_I].events &= ~POLLOUT; */
+		/* Azzera eventi */
+		for (i = 0; i < fds_used; i++) {
+			fds[i].events = 0;
+			fds[i].revents = 0;
+		}
 
-		do {
-			nready = poll (fds, fds_used, get_nearest_tmout());
-		} while (nready == -1 && errno == EINTR);
+		/*
+		 * Gestione dei timeout
+		 */
+
+		/* Trasferimento in data_out dei pacchetti non confermati da
+		 * TED. */
+		data_out = list_cat (list_remove_if (must_be_retransmitted,
+		                                     &data_unakd),
+		                     data_out);
+
+		/* Eliminazione datagram vecchi. */
+		data_discarded = list_cat (list_remove_if (must_be_discarded,
+		                                           &data_out),
+		                           data_discarded);
+
+		next_tmout = ONE_MILLION;
+		next_tmout = MIN (next_tmout, min_timeout (data_out));
+		next_tmout = MIN (next_tmout, min_timeout (data_unakd));
+
+
+		/* data_out: rimozione datagram piu' vecchi di 150 ms. */
+
+
+		/*
+		 * Impostazione eventi attesi.
+		 */
+
+		/* se data_in != NULL 
+		 * 	fds[SP_I].events |= POLLOUT; */
+
+		/* se c'è almeno un'interfaccia attiva && data_out != NULL
+		 * 	fds[CURRENT_IFACE_I] |= POLLOUT; */
+
+		nready = poll (fds, fds_used, next_tmout);
+		
+		/* Eventi softphone. */
+		if (fds[SP_I].revents & POLLIN) {
+			/* leggi datagram da fds[SP_I].fd */
+			/* aggiungi timestamp */
+			/* mettilo in data_in */
+		}
 	}
 
 	return 0;
@@ -166,6 +250,90 @@ socket_bound_err:
 /****************************************************************************
 			       Funzioni locali
 ****************************************************************************/
+
+static bool
+must_be_discarded (struct dgram *dg)
+{
+	return FALSE;
+}
+
+
+static bool
+must_be_retransmitted (struct dgram *dg)
+{
+	return FALSE;
+}
+
+
+static int
+min_timeout (struct dgram *lst)
+{
+	struct dgram *min;
+	struct dgram *dg;
+
+	assert (lst != NULL);
+
+	for (dg = lst, min = lst; dg != NULL; dg = dg->dg_next)
+		/* TODO */;
+
+	return -1;
+}
+
+
+static struct dgram *
+list_cat (struct dgram *fst, struct dgram *snd)
+{
+	struct dgram *tail;
+
+	assert (fst != NULL);
+	assert (snd != NULL);
+
+	for (tail = fst; tail->dg_next != NULL; tail = tail->dg_next);
+	tail->dg_next = snd;
+
+	return fst;
+}
+
+
+static struct dgram *
+list_remove_if (bool (*test)(struct dgram *), struct dgram **lst)
+{
+	struct dgram *cur;
+	struct dgram *rmvd = NULL;
+	struct dgram **rmvd_tp = &rmvd;
+	struct dgram *passd = NULL;
+	struct dgram **passd_tp = &passd;
+
+	assert (lst != NULL);
+	assert (*lst != NULL);
+
+	for (cur = *lst; cur != NULL; cur = cur->dg_next)
+		if (test (cur)) {
+			*rmvd_tp = cur;
+			rmvd_tp = &cur->dg_next;
+		} else {
+			*passd_tp = cur;
+			passd_tp = &cur->dg_next;
+		}
+
+	*rmvd_tp = NULL;
+	*passd_tp = NULL;
+
+	*lst = passd;
+	return rmvd;
+}
+
+
+static void
+gettime (struct timeval *tv)
+{
+	gettimeofday (tv, NULL);
+	while (tv->tv_usec > ONE_MILLION) {
+		tv->tv_sec++;
+		tv->tv_usec -= ONE_MILLION;
+	}
+}
+
 
 static void
 collect_garbage (void)
