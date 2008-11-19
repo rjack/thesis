@@ -19,30 +19,13 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "types.h"
+#include "crono.h"
+
 
 /****************************************************************************
-			Definizioni di tipo e costanti
+				   Costanti
 ****************************************************************************/
-
-#define     MIN(a,b)     ((a) < (b) ? (a) : (b))
-
-#define     ONE_MILLION     1000000
-
-typedef int bool;
-
-#ifdef FALSE
-#  undef FALSE
-#endif
-#define FALSE ((bool)0)
-
-#ifdef TRUE
-#  undef TRUE
-#endif
-#define TRUE (!FALSE)
-
-
-typedef int fd_t;
-
 
 /*
  * Array di struct polldf.
@@ -53,16 +36,6 @@ typedef int fd_t;
 #define     SP_I                0         /* softphone */
 #define     IM_I                1         /* interface monitor */
 #define     CURRENT_IFACE_I     2         /* interfaccia in uso */
-
-/*
- * Datagram.
- */
-struct dgram {
-	struct timeval dg_tstamp;  /* istante di arrivo */
-	char *dg_data;             /* dati letti da recvmsg */
-	size_t dg_datalen;         /* lunghezza dati */
-	struct dgram *dg_next;     /* prossimo dgram in coda */
-};
 
 
 /* XXX C'e' modo di scoprire a runtime la dimensione di allocazione per il
@@ -109,148 +82,23 @@ static struct dgram *data_iface = NULL;
 /* datagram scartati, pronti per essere riutilizzati */
 static struct dgram *data_discarded = NULL;
 
-
-/****************************************************************************
-			  Prototipi funzioni locali
-****************************************************************************/
-
-static void *my_alloc (size_t nbytes);
-static void print_usage (void);
-static bool is_done (void);
-static void collect_garbage (void);
-static fd_t socket_bound (const char *bind_ip, const char *bind_port);
-static void gettime (struct timeval *tv);
-static bool must_be_discarded (struct dgram *dg);
-static bool must_be_retransmitted (struct dgram *dg);
-static struct dgram *list_cat (struct dgram *fst, struct dgram *snd);
-static struct dgram *list_remove_if (bool (*test)(struct dgram *),
-                                     struct dgram **lst);
-static int min_timeout (struct dgram *lst);
+static struct timeval now;
 
 
 /****************************************************************************
-			      Funzioni esportate
-****************************************************************************/
-
-int
-main (const int argc, const char *argv[])
-{
-	int i;
-
-	/*
-	 * Init variabili locali al modulo.
-	 */
-	program_name = argv[0];
-
-	/*
-	 * Legenda:
-	 * SP = softphone, PX = proxy, TED = trasmission error detector,
-	 * IM = interface monitor
-	 *
-	 * Eventi:
-	 *
-	 * leggo da SP -> dati outward
-	 *
-	 * leggo da PX -> dati inward
-	 *
-	 * tmout keepalive -> dati outward
-	 *
-	 * dati inward -> scrivo a SP
-	 *
-	 * dati outward -> scrivo a PX
-	 *
-	 * dati netconf -> fix socket
-	 *
-	 * tmout qualita' conversazione (150ms) -> pulizia dati vecchi outward
-	 *
-	 * scrivo a PX -> reset tmout keepalive
-	 *             -> datagram nel limbo, con associato tmout 30ms
-	 *
-	 * tmout limbo -> pacchetto scaduto in outward
-	 *                (XXX in coda o in testa?)
-	 */
-
-	if (argc != 1) {
-		print_usage ();
-		exit (EXIT_FAILURE);
-	}
-
-	/*
-	 * Setup iniziale.
-	 */
-	fds[SP_I].fd = socket_bound (SP_BIND_IP, SP_BIND_PORT);
-	fds[IM_I].fd = socket_bound (IM_BIND_IP, IM_BIND_PORT);
-	if (fds[SP_I].fd == -1 || fds[IM_I].fd == -1)
-		goto socket_bound_err;
-
-	/* TODO setsockopt IP_RECVERR */
-
-	while (!is_done ()) {
-		int nready;
-		int next_tmout;
-		struct timeval now;
-		struct dgram *dg;
-
-		/* Azzera eventi */
-		for (i = 0; i < fds_used; i++) {
-			fds[i].events = 0;
-			fds[i].revents = 0;
-		}
-
-		/*
-		 * Gestione dei timeout
-		 */
-
-		/* Trasferimento in data_out dei pacchetti non confermati da
-		 * TED. */
-		data_out = list_cat (list_remove_if (must_be_retransmitted,
-		                                     &data_unakd),
-		                     data_out);
-
-		/* Eliminazione datagram vecchi. */
-		data_discarded = list_cat (list_remove_if (must_be_discarded,
-		                                           &data_out),
-		                           data_discarded);
-
-		next_tmout = ONE_MILLION;
-		next_tmout = MIN (next_tmout, min_timeout (data_out));
-		next_tmout = MIN (next_tmout, min_timeout (data_unakd));
-
-
-		/*
-		 * Impostazione eventi attesi.
-		 */
-
-		/* se data_in != NULL
-		 * 	fds[SP_I].events |= POLLOUT; */
-
-		/* se c'è almeno un'interfaccia attiva && data_out != NULL
-		 * 	fds[CURRENT_IFACE_I] |= POLLOUT; */
-
-		nready = poll (fds, fds_used, next_tmout);
-
-		/* Eventi softphone. */
-		if (fds[SP_I].revents & POLLIN) {
-			/* leggi datagram da fds[SP_I].fd */
-			/* aggiungi timestamp */
-			/* mettilo in data_in */
-		}
-	}
-
-	return 0;
-
-socket_bound_err:
-	return 1;
-}
-
-
-/****************************************************************************
-			       Funzioni locali
+				   Funzioni
 ****************************************************************************/
 
 static bool
 must_be_discarded (struct dgram *dg)
 {
+	struct timeval left;
+	struct timeval zero = {0, 0};
+
+	timeout_left (dg->dg_life_to, &now, &left);
+
+	if (tv_cmp (&left, &zero) <= 0)
+		return TRUE;
 	return FALSE;
 }
 
@@ -258,22 +106,17 @@ must_be_discarded (struct dgram *dg)
 static bool
 must_be_retransmitted (struct dgram *dg)
 {
+	struct timeval left;
+	struct timeval zero = {0, 0};
+
+	timeout_left (dg->dg_retry_to, &now, &left);
+
+	if (tv_cmp (&left, &zero) <= 0) {
+		free (dg->dg_retry_to);
+		dg->dg_retry_to = NULL;
+		return TRUE;
+	}
 	return FALSE;
-}
-
-
-static int
-min_timeout (struct dgram *lst)
-{
-	struct dgram *min;
-	struct dgram *dg;
-
-	assert (lst != NULL);
-
-	for (dg = lst, min = lst; dg != NULL; dg = dg->dg_next)
-		/* TODO */;
-
-	return -1;
 }
 
 
@@ -282,8 +125,10 @@ list_cat (struct dgram *fst, struct dgram *snd)
 {
 	struct dgram *tail;
 
-	assert (fst != NULL);
-	assert (snd != NULL);
+	if (fst == NULL)
+		return snd;
+	if (snd == NULL)
+		return fst;
 
 	for (tail = fst; tail->dg_next != NULL; tail = tail->dg_next);
 	tail->dg_next = snd;
@@ -302,7 +147,9 @@ list_remove_if (bool (*test)(struct dgram *), struct dgram **lst)
 	struct dgram **passd_tp = &passd;
 
 	assert (lst != NULL);
-	assert (*lst != NULL);
+
+	if (*lst == NULL)
+		return NULL;
 
 	for (cur = *lst; cur != NULL; cur = cur->dg_next)
 		if (test (cur)) {
@@ -318,17 +165,6 @@ list_remove_if (bool (*test)(struct dgram *), struct dgram **lst)
 
 	*lst = passd;
 	return rmvd;
-}
-
-
-static void
-gettime (struct timeval *tv)
-{
-	gettimeofday (tv, NULL);
-	while (tv->tv_usec > ONE_MILLION) {
-		tv->tv_sec++;
-		tv->tv_usec -= ONE_MILLION;
-	}
 }
 
 
@@ -430,4 +266,147 @@ static bool
 is_done (void)
 {
 	return FALSE;
+}
+
+
+/****************************************************************************
+			      Funzioni esportate
+****************************************************************************/
+
+int
+main (const int argc, const char *argv[])
+{
+	int i;
+
+	/*
+	 * Init variabili locali al modulo.
+	 */
+	program_name = argv[0];
+
+	/*
+	 * Legenda:
+	 * SP = softphone, PX = proxy, TED = trasmission error detector,
+	 * IM = interface monitor
+	 *
+	 * Eventi:
+	 *
+	 * leggo da SP -> dati outward
+	 *
+	 * leggo da PX -> dati inward
+	 *
+	 * tmout keepalive -> dati outward
+	 *
+	 * dati inward -> scrivo a SP
+	 *
+	 * dati outward -> scrivo a PX
+	 *
+	 * dati netconf -> fix socket
+	 *
+	 * tmout qualita' conversazione (150ms) -> pulizia dati vecchi outward
+	 *
+	 * scrivo a PX -> reset tmout keepalive
+	 *             -> datagram nel limbo, con associato tmout 30ms
+	 *
+	 * tmout limbo -> pacchetto scaduto in outward
+	 *                (XXX in coda o in testa?)
+	 */
+
+	if (argc != 1) {
+		print_usage ();
+		exit (EXIT_FAILURE);
+	}
+
+	/*
+	 * Setup iniziale.
+	 */
+	fds[SP_I].fd = socket_bound (SP_BIND_IP, SP_BIND_PORT);
+	fds[IM_I].fd = socket_bound (IM_BIND_IP, IM_BIND_PORT);
+	if (fds[SP_I].fd == -1 || fds[IM_I].fd == -1)
+		goto socket_bound_err;
+
+	/* TODO setsockopt IP_RECVERR */
+
+	while (!is_done ()) {
+		int nready;
+		int next_tmout;
+
+		/* Azzera eventi */
+		for (i = 0; i < fds_used; i++) {
+			fds[i].events = 0;
+			fds[i].revents = 0;
+		}
+
+		/*
+		 * Gestione dei timeout
+		 */
+		gettime (&now);
+
+		/* Trasferimento in data_out dei pacchetti non confermati da
+		 * TED. */
+		data_out = list_cat (list_remove_if (must_be_retransmitted,
+		                                     &data_unakd),
+		                     data_out);
+
+		/* Eliminazione datagram vecchi. */
+		data_discarded = list_cat (list_remove_if (must_be_discarded,
+		                                           &data_out),
+		                           data_discarded);
+
+		/* Calcolo minimo timeout. */
+		{
+			struct dgram *dg;
+			struct timeval min;
+			struct timeval left;
+
+			min.tv_sec = ONE_MILLION;
+			min.tv_usec = 0;
+
+			for (dg = data_unakd; dg != NULL; dg = dg->dg_next) {
+				assert (dg->dg_life_to != NULL);
+				assert (dg->dg_retry_to != NULL);
+				timeout_left (dg->dg_life_to, &now, &left);
+				if (tv_cmp (&left, &min) < 0)
+					min = left;
+			}
+
+			for (dg = data_out; dg != NULL; dg = dg->dg_next) {
+				assert (dg->dg_retry_to == NULL);
+				timeout_left (dg->dg_life_to, &now, &left);
+				if (tv_cmp (&left, &min) < 0)
+					min = left;
+			}
+
+			if (min.tv_sec == ONE_MILLION)
+				next_tmout = -1;
+			else {
+				next_tmout = (int)(tv2d (&min, FALSE) * 1000);
+				assert (next_tmout <= 150);
+			}
+		}
+
+
+		/*
+		 * Impostazione eventi attesi.
+		 */
+
+		/* se data_in != NULL
+		 * 	fds[SP_I].events |= POLLOUT; */
+
+		/* se c'è almeno un'interfaccia attiva && data_out != NULL
+		 * 	fds[CURRENT_IFACE_I] |= POLLOUT; */
+
+		nready = poll (fds, fds_used, next_tmout);
+
+		/* Eventi softphone. */
+		if (fds[SP_I].revents & POLLIN) {
+			/* leggi datagram da fds[SP_I].fd */
+			/* aggiungi timestamp */
+			/* mettilo in data_in */
+		}
+	}
+
+	return 0;
+
+socket_bound_err:
+	return 1;
 }
