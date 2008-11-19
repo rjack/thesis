@@ -217,21 +217,18 @@ main (const int argc, const char *argv[])
 		next_tmout = MIN (next_tmout, min_timeout (data_unakd));
 
 
-		/* data_out: rimozione datagram piu' vecchi di 150 ms. */
-
-
 		/*
 		 * Impostazione eventi attesi.
 		 */
 
-		/* se data_in != NULL 
+		/* se data_in != NULL
 		 * 	fds[SP_I].events |= POLLOUT; */
 
 		/* se c'è almeno un'interfaccia attiva && data_out != NULL
 		 * 	fds[CURRENT_IFACE_I] |= POLLOUT; */
 
 		nready = poll (fds, fds_used, next_tmout);
-		
+
 		/* Eventi softphone. */
 		if (fds[SP_I].revents & POLLIN) {
 			/* leggi datagram da fds[SP_I].fd */
