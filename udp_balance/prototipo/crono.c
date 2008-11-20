@@ -100,7 +100,7 @@ tv_cmp (const struct timeval *tv_1, const struct timeval *tv_2)
 
 	assert (tv_1 != NULL);
 	assert (tv_2 != NULL);
-	
+
 	tv_diff (&diff, tv_1, tv_2);
 
 	assert (diff.tv_usec >= 0);
