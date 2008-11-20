@@ -91,6 +91,9 @@ static struct timeval now;
 
 static bool
 must_be_discarded (struct dgram *dg)
+/* Ritorna TRUE se dg e'piu' vecchio di 150ms,
+ *         FALSE altrimenti.
+ * NON dealloca i timeout. */
 {
 	struct timeval left;
 	struct timeval zero = {0, 0};
@@ -105,6 +108,8 @@ must_be_discarded (struct dgram *dg)
 
 static bool
 must_be_retransmitted (struct dgram *dg)
+/* Ritorna TRUE e dealloca dg_retry_to se dg e'piu' vecchio di 30ms,
+ *         FALSE altrimenti. */
 {
 	struct timeval left;
 	struct timeval zero = {0, 0};
@@ -122,6 +127,7 @@ must_be_retransmitted (struct dgram *dg)
 
 static struct dgram *
 list_cat (struct dgram *fst, struct dgram *snd)
+/* Ritorna la concatenazione delle due liste fst e snd. */
 {
 	struct dgram *tail;
 
@@ -139,6 +145,8 @@ list_cat (struct dgram *fst, struct dgram *snd)
 
 static struct dgram *
 list_remove_if (bool (*test)(struct dgram *), struct dgram **lst)
+/* Rimuove da lst tutti gli elementi che soddisfano test e li ritorna in una
+ * lista. */
 {
 	struct dgram *cur;
 	struct dgram *rmvd = NULL;
@@ -170,6 +178,8 @@ list_remove_if (bool (*test)(struct dgram *), struct dgram **lst)
 
 static void
 collect_garbage (void)
+/* Dealloca tutte le strutture dati che sono rimaste in memoria a girarsi i
+ * pollici. */
 {
 	;
 }
@@ -177,6 +187,8 @@ collect_garbage (void)
 
 static fd_t
 socket_bound (const char *bind_ip, const char *bind_port)
+/* Ritorna un socket AF_INET SOCK_DGRAM e lo binda all'indirizzo e alla porta
+ * dati. */
 {
 	int err;
 	fd_t new_sfd;
@@ -235,6 +247,8 @@ getaddrinfo_err:
 
 static void *
 my_alloc (size_t nbytes)
+/* Alloca nbytes di memoria. Se non riesce dealloca roba inutilizzata e
+ * riprova. Se ancora non riesce, esce dal programma. */
 {
 	void *new;
 
