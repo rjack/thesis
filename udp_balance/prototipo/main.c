@@ -35,7 +35,7 @@
 /* Indici importanti */
 #define     SP_I                0         /* softphone */
 #define     IM_I                1         /* interface monitor */
-#define     CURRENT_IFACE_I     2         /* interfaccia in uso */
+#define     CUR_IFACE_I         2         /* interfaccia in uso */
 
 
 /* XXX C'e' modo di scoprire a runtime la dimensione di allocazione per il
@@ -425,24 +425,45 @@ main (const int argc, const char *argv[])
 			}
 		}
 
-
 		/*
 		 * Impostazione eventi attesi.
 		 */
 
+		/* Se ho dati ricevuti dal server, voglio scrivere al
+		 * softphone */
 		if (data_in != NULL)
 			fds[SP_I].events |= POLLOUT;
 
-		if (/* TODO interfaces () != NULL && */ data_out != NULL)
-			fds[CURRENT_IFACE_I].events |= POLLOUT;
+		/* Se ho un'interfaccia wifi attiva e dati dal softphone,
+		 * scrivo al server. */
+		if (fds_used > CUR_IFACE_I && data_out != NULL)
+			fds[CUR_IFACE_I].events |= POLLOUT;
+
+		/* Se e' scaduto il keepalive, ogni interfaccia wifi deve
+		 * provare a spedirlo. */
+		if (must_send_keepalive)
+			for (i = CUR_IFACE_I; i < fds_used; i++)
+				fds[i].events |= POLLOUT;
+
+		/* Tutti i socket si aspettano dati ed errori. */
+		for (i = 0; i < fds_used; i++)
+			fds[i].events |= POLLIN | POLLERR;
 
 		nready = poll (fds, fds_used, next_tmout);
+		if (nready == -1) {
+			perror ("poll");
+			exit (EXIT_FAILURE);
+		}
 
-		/* Eventi softphone. */
+		/*
+		 * Eventi softphone.
+		 */
 		if (fds[SP_I].revents & POLLIN) {
 			/* leggi datagram da fds[SP_I].fd */
-			/* aggiungi timestamp */
-			/* mettilo in data_in */
+			/* mettilo in data_out */
+		}
+		if (fds[SP_I].revents & POLLOUT) {
+			assert (data_in != NULL);
 		}
 	}
 
