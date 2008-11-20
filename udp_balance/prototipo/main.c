@@ -84,6 +84,14 @@ static struct dgram *data_discarded = NULL;
 
 static struct timeval now;
 
+timeout_t keepalive;
+bool must_send_keepalive = FALSE;
+
+/* Timeval di comodo. */
+const struct timeval time_0ms = { 0, 0 };
+const struct timeval time_30ms = { 0, 30000 };
+const struct timeval time_150ms = { 0, 150000 };
+
 
 /****************************************************************************
 				   Funzioni
@@ -96,11 +104,10 @@ must_be_discarded (struct dgram *dg)
  * NON dealloca i timeout. */
 {
 	struct timeval left;
-	struct timeval zero = {0, 0};
 
 	timeout_left (dg->dg_life_to, &now, &left);
 
-	if (tv_cmp (&left, &zero) <= 0)
+	if (tv_cmp (&left, &time_0ms) <= 0)
 		return TRUE;
 	return FALSE;
 }
@@ -112,11 +119,10 @@ must_be_retransmitted (struct dgram *dg)
  *         FALSE altrimenti. */
 {
 	struct timeval left;
-	struct timeval zero = {0, 0};
 
 	timeout_left (dg->dg_retry_to, &now, &left);
 
-	if (tv_cmp (&left, &zero) <= 0) {
+	if (tv_cmp (&left, &time_0ms) <= 0) {
 		free (dg->dg_retry_to);
 		dg->dg_retry_to = NULL;
 		return TRUE;
@@ -296,6 +302,7 @@ main (const int argc, const char *argv[])
 	 * Init variabili locali al modulo.
 	 */
 	program_name = argv[0];
+	timeout_set (&keepalive, &time_150ms);
 
 	/*
 	 * Legenda:
@@ -340,6 +347,9 @@ main (const int argc, const char *argv[])
 
 	/* TODO setsockopt IP_RECVERR */
 
+	gettime (&now);
+	timeout_start (&keepalive, &now);
+
 	while (!is_done ()) {
 		int nready;
 		int next_tmout;
@@ -351,7 +361,7 @@ main (const int argc, const char *argv[])
 		}
 
 		/*
-		 * Gestione dei timeout
+		 * Gestione dei timeout: pulizia code e calcolo timeot minimo.
 		 */
 		gettime (&now);
 
@@ -366,6 +376,7 @@ main (const int argc, const char *argv[])
 		                                           &data_out),
 		                           data_discarded);
 
+
 		/* Calcolo minimo timeout. */
 		{
 			struct dgram *dg;
@@ -375,6 +386,7 @@ main (const int argc, const char *argv[])
 			min.tv_sec = ONE_MILLION;
 			min.tv_usec = 0;
 
+			/* Data unaked */
 			for (dg = data_unakd; dg != NULL; dg = dg->dg_next) {
 				assert (dg->dg_life_to != NULL);
 				assert (dg->dg_retry_to != NULL);
@@ -383,6 +395,7 @@ main (const int argc, const char *argv[])
 					min = left;
 			}
 
+			/* Data out */
 			for (dg = data_out; dg != NULL; dg = dg->dg_next) {
 				assert (dg->dg_retry_to == NULL);
 				timeout_left (dg->dg_life_to, &now, &left);
@@ -390,8 +403,22 @@ main (const int argc, const char *argv[])
 					min = left;
 			}
 
+			/* Tutti i timeout scaduti sono stati tolti dalle
+			 * code, quindi min non puo' essere <= 0 */
+			assert (min.tv_sec > 0);
+			assert (min.tv_usec >= 0);
+
+			/* Keepalive invece puo' essere scaduto. */
+			timeout_left (&keepalive, &now, &left);
+			if (tv_cmp (&left, &min) < 0)
+				min = left;
+			if (tv_cmp (&left, &time_0ms) <= 0)
+				must_send_keepalive = TRUE;
+
 			if (min.tv_sec == ONE_MILLION)
 				next_tmout = -1;
+			else if (tv_cmp (&min, &time_0ms) <= 0)
+				next_tmout = 0;
 			else {
 				next_tmout = (int)(tv2d (&min, FALSE) * 1000);
 				assert (next_tmout <= 150);
@@ -403,11 +430,11 @@ main (const int argc, const char *argv[])
 		 * Impostazione eventi attesi.
 		 */
 
-		/* se data_in != NULL
-		 * 	fds[SP_I].events |= POLLOUT; */
+		if (data_in != NULL)
+			fds[SP_I].events |= POLLOUT;
 
-		/* se c'è almeno un'interfaccia attiva && data_out != NULL
-		 * 	fds[CURRENT_IFACE_I] |= POLLOUT; */
+		if (/* TODO interfaces () != NULL && */ data_out != NULL)
+			fds[CURRENT_IFACE_I].events |= POLLOUT;
 
 		nready = poll (fds, fds_used, next_tmout);
 
