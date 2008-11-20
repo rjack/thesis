@@ -29,6 +29,18 @@ typedef int fd_t;
 
 
 /*
+ * Canali.
+ */
+typedef struct {
+	fd_t ch_sock;
+	char *ch_iface;
+	char *ch_bind_ip;
+	char *ch_bind_port;
+	bool ch_suspected;
+} wifi_link_t;
+
+
+/*
  * Cronometro.
  */
 typedef struct {

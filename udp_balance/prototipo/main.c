@@ -27,17 +27,6 @@
 				   Costanti
 ****************************************************************************/
 
-/*
- * Array di struct polldf.
- */
-#define     MAXIFACENUM     16
-
-/* Indici importanti */
-#define     SP_I                0         /* softphone */
-#define     IM_I                1         /* interface monitor */
-#define     CUR_IFACE_I         2         /* interfaccia in uso */
-
-
 /* XXX C'e' modo di scoprire a runtime la dimensione di allocazione per il
  * msg_control delle struct msghdr e poterlo cosi' allocare dinamicamente
  * senza rischiare un MSG_TRUNC quando si fa una recvmsg con flag
@@ -59,29 +48,6 @@
 ****************************************************************************/
 
 static const char *program_name = NULL;
-
-static struct pollfd fds[MAXIFACENUM];
-static size_t fds_used = 2;
-static size_t fds_len = MAXIFACENUM;
-
-/*
- * Code per i datagram.
- */
-/* da softphone a server */
-static struct dgram *data_out = NULL;
-
-/* da server a softphone */
-static struct dgram *data_in = NULL;
-
-/* spediti, da confermare */
-static struct dgram *data_unakd = NULL;
-
-/* msg config interfacce */
-static struct dgram *data_iface = NULL;
-
-/* datagram scartati, pronti per essere riutilizzati */
-static struct dgram *data_discarded = NULL;
-
 static struct timeval now;
 
 timeout_t keepalive;
@@ -96,183 +62,6 @@ const struct timeval time_150ms = { 0, 150000 };
 /****************************************************************************
 				   Funzioni
 ****************************************************************************/
-
-static bool
-must_be_discarded (struct dgram *dg)
-/* Ritorna TRUE se dg e'piu' vecchio di 150ms,
- *         FALSE altrimenti.
- * NON dealloca i timeout. */
-{
-	struct timeval left;
-
-	timeout_left (dg->dg_life_to, &now, &left);
-
-	if (tv_cmp (&left, &time_0ms) <= 0)
-		return TRUE;
-	return FALSE;
-}
-
-
-static bool
-must_be_retransmitted (struct dgram *dg)
-/* Ritorna TRUE e dealloca dg_retry_to se dg e'piu' vecchio di 30ms,
- *         FALSE altrimenti. */
-{
-	struct timeval left;
-
-	timeout_left (dg->dg_retry_to, &now, &left);
-
-	if (tv_cmp (&left, &time_0ms) <= 0) {
-		free (dg->dg_retry_to);
-		dg->dg_retry_to = NULL;
-		return TRUE;
-	}
-	return FALSE;
-}
-
-
-static struct dgram *
-list_cat (struct dgram *fst, struct dgram *snd)
-/* Ritorna la concatenazione delle due liste fst e snd. */
-{
-	struct dgram *tail;
-
-	if (fst == NULL)
-		return snd;
-	if (snd == NULL)
-		return fst;
-
-	for (tail = fst; tail->dg_next != NULL; tail = tail->dg_next);
-	tail->dg_next = snd;
-
-	return fst;
-}
-
-
-static struct dgram *
-list_remove_if (bool (*test)(struct dgram *), struct dgram **lst)
-/* Rimuove da lst tutti gli elementi che soddisfano test e li ritorna in una
- * lista. */
-{
-	struct dgram *cur;
-	struct dgram *rmvd = NULL;
-	struct dgram **rmvd_tp = &rmvd;
-	struct dgram *passd = NULL;
-	struct dgram **passd_tp = &passd;
-
-	assert (lst != NULL);
-
-	if (*lst == NULL)
-		return NULL;
-
-	for (cur = *lst; cur != NULL; cur = cur->dg_next)
-		if (test (cur)) {
-			*rmvd_tp = cur;
-			rmvd_tp = &cur->dg_next;
-		} else {
-			*passd_tp = cur;
-			passd_tp = &cur->dg_next;
-		}
-
-	*rmvd_tp = NULL;
-	*passd_tp = NULL;
-
-	*lst = passd;
-	return rmvd;
-}
-
-
-static void
-collect_garbage (void)
-/* Dealloca tutte le strutture dati che sono rimaste in memoria a girarsi i
- * pollici. */
-{
-	;
-}
-
-
-static fd_t
-socket_bound (const char *bind_ip, const char *bind_port)
-/* Ritorna un socket AF_INET SOCK_DGRAM e lo binda all'indirizzo e alla porta
- * dati. */
-{
-	int err;
-	fd_t new_sfd;
-	struct addrinfo addr_hints;
-	struct addrinfo *addr_results;
-	struct addrinfo *res;
-
-	/* getaddrinfo hints */
-	addr_hints.ai_family = AF_INET;
-	addr_hints.ai_socktype = SOCK_DGRAM;
-	addr_hints.ai_protocol = IPPROTO_UDP;
-	addr_hints.ai_flags = AI_NUMERICSERV;
-	addr_hints.ai_next = NULL;
-	addr_hints.ai_addr = NULL;
-	addr_hints.ai_addrlen = 0;
-	addr_hints.ai_canonname = NULL;
-
-	/* getaddrinfo */
-	err = getaddrinfo (bind_ip, bind_port, &addr_hints, &addr_results);
-	if (err) {
-		fprintf (stderr, "getaddrinfo: %s\n", gai_strerror (err));
-		goto getaddrinfo_err;
-	}
-
-	/* Prova gli addrinfo ritornati. */
-	new_sfd = -1;
-	res = addr_results;
-	while (new_sfd == -1 && res != NULL) {
-		assert (res->ai_family == AF_INET);
-		assert (res->ai_socktype == SOCK_DGRAM);
-		assert (res->ai_protocol == IPPROTO_UDP);
-
-		new_sfd = socket (AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-		if (new_sfd == -1)
-			continue;
-
-		err = bind (new_sfd, res->ai_addr, res->ai_addrlen);
-		if (err) {
-			close (new_sfd);
-			new_sfd = -1;
-			res = res->ai_next;
-		}
-	}
-	if (new_sfd == -1)
-		goto bind_err;
-
-	freeaddrinfo (addr_results);
-	return new_sfd;
-
-bind_err:
-	freeaddrinfo (addr_results);
-getaddrinfo_err:
-	return -1;
-}
-
-
-static void *
-my_alloc (size_t nbytes)
-/* Alloca nbytes di memoria. Se non riesce dealloca roba inutilizzata e
- * riprova. Se ancora non riesce, esce dal programma. */
-{
-	void *new;
-
-	assert (nbytes > 0);
-
-	new = malloc (nbytes);
-	if (new == NULL) {
-		collect_garbage ();
-		new = malloc (nbytes);
-		if (new == NULL) {
-			perror ("Errore allocazione");
-			exit (EXIT_FAILURE);
-		}
-	}
-
-	return new;
-}
-
 
 static void
 print_usage (void)
@@ -340,12 +129,6 @@ main (const int argc, const char *argv[])
 	/*
 	 * Setup iniziale.
 	 */
-	fds[SP_I].fd = socket_bound (SP_BIND_IP, SP_BIND_PORT);
-	fds[IM_I].fd = socket_bound (IM_BIND_IP, IM_BIND_PORT);
-	if (fds[SP_I].fd == -1 || fds[IM_I].fd == -1)
-		goto socket_bound_err;
-
-	/* TODO setsockopt IP_RECVERR */
 
 	gettime (&now);
 	timeout_start (&keepalive, &now);
