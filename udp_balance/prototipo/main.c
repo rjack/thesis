@@ -353,6 +353,11 @@ main (const int argc, const char *argv[])
 	while (!is_done ()) {
 		int nready;
 		int next_tmout;
+		struct pollfd *wifi_active_set;
+		struct pollfd *wifi_suspected_set;
+
+		wifi_active_set = get_wifi_active_set ();
+		wifi_suspected_set = get_wifi_suspected_set ();
 
 		/* Azzera eventi */
 		for (i = 0; i < fds_used; i++) {
@@ -361,7 +366,7 @@ main (const int argc, const char *argv[])
 		}
 
 		/*
-		 * Gestione dei timeout: pulizia code e calcolo timeot minimo.
+		 * Gestione dei timeout: pulizia code e calcolo timeout minimo.
 		 */
 		gettime (&now);
 
@@ -436,8 +441,12 @@ main (const int argc, const char *argv[])
 
 		/* Se ho un'interfaccia wifi attiva e dati dal softphone,
 		 * scrivo al server. */
-		if (fds_used > CUR_IFACE_I && data_out != NULL)
-			fds[CUR_IFACE_I].events |= POLLOUT;
+		if (data_out != NULL) {
+			if (wifi_active_set != NULL)
+				wifi_active_set->events |= POLLOUT;
+			else if (wifi_suspected_set != NULL)
+				wifi_suspected_set->events |= POLLOUT;
+		}
 
 		/* Se e' scaduto il keepalive, ogni interfaccia wifi deve
 		 * provare a spedirlo. */
