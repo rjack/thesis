@@ -41,7 +41,7 @@ static const struct timeval time_30ms = { 0, 30000 };
 static const struct timeval time_150ms = { 0, 150000 };
 
 static struct pollfd fds[2 + IFACE_MAX];
-static size_t fds_used = 0;
+static size_t ifaces_used = 0;
 
 static pollfd *sp = &fds[0];
 static pollfd *im = &fds[1];
@@ -96,7 +96,10 @@ main (const int argc, const char *argv[])
 	gettime (&now);
 	timeout_start (&keepalive, &now);
 
+	/* TODO creazione socket bindati e connessi per IM e SP. */
+
 	while (!is_done ()) {
+		dgram_t *dg;
 		int nready;
 		int next_tmout;
 		struct timeval min;
@@ -127,8 +130,8 @@ main (const int argc, const char *argv[])
 		 */
 		gettime (&now);
 
-		dgram_outward_all_unacked ();
-		dgram_purge_all_old ();
+		dgram_outward_all_unacked (&now);
+		dgram_purge_all_old (&now);
 
 		/* Controllo keepalive. */
 		timeout_left (&keepalive, &now, &min);
@@ -167,8 +170,9 @@ main (const int argc, const char *argv[])
 			iface_foreach_do (iface_set_events,
 					  arg_create (POLLOUT, sizeof(int)));
 
-		iface_fill_pollfd (&fds[2], &fds_used);
-		nready = poll (fds, fds_used + 2, next_tmout);
+		iface_fill_pollfd (&fds[2], &ifaces_used);
+
+		nready = poll (fds, 2 + ifaces_used, next_tmout);
 		if (nready == -1) {
 			perror ("poll");
 			exit (EXIT_FAILURE);
@@ -177,25 +181,48 @@ main (const int argc, const char *argv[])
 		/*
 		 * Eventi softphone.
 		 */
+		if (sp->revents & POLLERR) {
+			fprintf (stderr,
+				 "Errore di comunicazione con il softphone, "
+				 "che si fa? Nel dubbio, me la filo.\n");
+			exit (EXIT_FAILURE);
+		}
 		if (sp->revents & POLLIN) {
-			dgram_t *dg;
 			dg = dgram_read (sp->fd);
 			/* TODO controllo errore */
 			dgram_list_add (DGRAM_OUTWARD, dg);
 		}
 		if (sp->revents & POLLOUT) {
-			/* TODO */
+			dg = dgram_list_pop (DGRAM_INWARD);
+			assert (dg != NULL);
+			dgram_write (sp->fd);
+			/* TODO controllo errore */
+			dgram_free (dg);
 		}
-		if (sp->revents & POLLERR) {
+
+		/*
+		 * Eventi interface monitor.
+		 */
+		if (im->revents & POLLERR) {
 			fprintf (stderr,
-				 "Errore di comunicazione con il softphone, "
-				 "che si fa? Nel dubbio, spiro.\n");
+				 "Errore di comunicazione con l'interface "
+				 "monitor, che si fa? Nel dubbio, taglio la "
+				 "corda.\n");
 			exit (EXIT_FAILURE);
+		}
+		if (im->revents & POLLIN) {
+			dg = dgram_read (im->fd);
+			iface_monitor_handle_msg (dg);
+			dgram_free (dg);
+		}
+
+		/*
+		 * Eventi interfacce wifi.
+		 */
+		for (i = 0; i < ifaces_used, i++) {
+			/* TODO */
 		}
 	}
 
 	return 0;
-
-socket_bound_err:
-	return 1;
 }
