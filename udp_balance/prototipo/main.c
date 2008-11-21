@@ -4,24 +4,6 @@
 
 #define     _POSIX_C_SOURCE     1     /* per getaddrinfo */
 
-#include <assert.h>
-#include <errno.h>
-#include <linux/types.h>     /* workaround bug ubuntu: serve per errueue.h */
-#include <linux/errqueue.h>
-#include <netdb.h>
-#include <netinet/in.h>
-#include <poll.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/socket.h>
-#include <sys/time.h>
-#include <sys/types.h>
-#include <unistd.h>
-
-#include "types.h"
-#include "crono.h"
-
 
 /****************************************************************************
 				   Costanti
@@ -94,33 +76,9 @@ main (const int argc, const char *argv[])
 	timeout_set (&keepalive, &time_150ms);
 
 	/*
-	 * Legenda:
-	 * SP = softphone, PX = proxy, TED = trasmission error detector,
-	 * IM = interface monitor
-	 *
-	 * Eventi:
-	 *
-	 * leggo da SP -> dati outward
-	 *
-	 * leggo da PX -> dati inward
-	 *
-	 * tmout keepalive -> dati outward
-	 *
-	 * dati inward -> scrivo a SP
-	 *
-	 * dati outward -> scrivo a PX
-	 *
-	 * dati netconf -> fix socket
-	 *
-	 * tmout qualita' conversazione (150ms) -> pulizia dati vecchi outward
-	 *
-	 * scrivo a PX -> reset tmout keepalive
-	 *             -> datagram nel limbo, con associato tmout 30ms
-	 *
-	 * tmout limbo -> pacchetto scaduto in outward
-	 *                (XXX in coda o in testa?)
+	 * Opzioni a riga di comando.
+	 * TODO SP_BIND_IP, SP_BIND_PORT, IM_BIND_IP, IM_BIND_PORT
 	 */
-
 	if (argc != 1) {
 		print_usage ();
 		exit (EXIT_FAILURE);
@@ -129,7 +87,6 @@ main (const int argc, const char *argv[])
 	/*
 	 * Setup iniziale.
 	 */
-
 	gettime (&now);
 	timeout_start (&keepalive, &now);
 
