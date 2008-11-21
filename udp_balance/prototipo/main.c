@@ -17,7 +17,6 @@
  * <http://traceroute.sf.net/> */
 #define     CONTROLBUFLEN     1024
 
-
 #define     SP_BIND_IP       "127.0.0.1"
 #define     SP_BIND_PORT     "7777"
 
@@ -30,15 +29,22 @@
 ****************************************************************************/
 
 static const char *program_name = NULL;
+
 static struct timeval now;
 
-timeout_t keepalive;
-bool must_send_keepalive = FALSE;
+static timeout_t keepalive;
+static bool must_send_keepalive = FALSE;
 
 /* Timeval di comodo. */
-const struct timeval time_0ms = { 0, 0 };
-const struct timeval time_30ms = { 0, 30000 };
-const struct timeval time_150ms = { 0, 150000 };
+static const struct timeval time_0ms = { 0, 0 };
+static const struct timeval time_30ms = { 0, 30000 };
+static const struct timeval time_150ms = { 0, 150000 };
+
+static struct pollfd fds[2 + IFACE_MAX];
+static size_t fds_used = 0;
+
+static pollfd *sp = &fds[0];
+static pollfd *im = &fds[1];
 
 
 /****************************************************************************
@@ -93,16 +99,18 @@ main (const int argc, const char *argv[])
 	while (!is_done ()) {
 		int nready;
 		int next_tmout;
-		struct pollfd *wifi_active_set;
-		struct pollfd *wifi_suspected_set;
+		struct timeval min;
+		struct timeval left;
+		iface_t *current_iface;
 
-		wifi_active_set = get_wifi_active_set ();
-		wifi_suspected_set = get_wifi_suspected_set ();
+		iface_foreach_do (iface_set_events,
+		                  arg_create (0, sizeof(int)));
 
-		/* Azzera eventi */
-		for (i = 0; i < fds_used; i++) {
-			fds[i].events = 0;
-			fds[i].revents = 0;
+		current_iface = iface_get_current ();
+		if (debug) {
+			char ifstr[100];
+			iface_to_string (current_iface, ifstr);
+			printf ("Using interface %s\n", ifstr);
 		}
 
 		/*
@@ -110,64 +118,24 @@ main (const int argc, const char *argv[])
 		 */
 		gettime (&now);
 
-		/* Trasferimento in data_out dei pacchetti non confermati da
-		 * TED. */
-		data_out = list_cat (list_remove_if (must_be_retransmitted,
-		                                     &data_unakd),
-		                     data_out);
+		dgram_outward_all_unaked ();
+		dgram_purge_all_old ();
 
-		/* Eliminazione datagram vecchi. */
-		data_discarded = list_cat (list_remove_if (must_be_discarded,
-		                                           &data_out),
-		                           data_discarded);
+		/* Controllo keepalive. */
+		timeout_left (&keepalive, &now, &min);
+		if (tv_cmp (&min, &time_0ms) <= 0)
+			must_send_keepalive = TRUE;
 
+		dgram_timeout_min (&left);
+		tv_min (&min, &min, &left);
 
-		/* Calcolo minimo timeout. */
-		{
-			struct dgram *dg;
-			struct timeval min;
-			struct timeval left;
-
-			min.tv_sec = ONE_MILLION;
-			min.tv_usec = 0;
-
-			/* Data unaked */
-			for (dg = data_unakd; dg != NULL; dg = dg->dg_next) {
-				assert (dg->dg_life_to != NULL);
-				assert (dg->dg_retry_to != NULL);
-				timeout_left (dg->dg_life_to, &now, &left);
-				if (tv_cmp (&left, &min) < 0)
-					min = left;
-			}
-
-			/* Data out */
-			for (dg = data_out; dg != NULL; dg = dg->dg_next) {
-				assert (dg->dg_retry_to == NULL);
-				timeout_left (dg->dg_life_to, &now, &left);
-				if (tv_cmp (&left, &min) < 0)
-					min = left;
-			}
-
-			/* Tutti i timeout scaduti sono stati tolti dalle
-			 * code, quindi min non puo' essere <= 0 */
-			assert (min.tv_sec > 0);
-			assert (min.tv_usec >= 0);
-
-			/* Keepalive invece puo' essere scaduto. */
-			timeout_left (&keepalive, &now, &left);
-			if (tv_cmp (&left, &min) < 0)
-				min = left;
-			if (tv_cmp (&left, &time_0ms) <= 0)
-				must_send_keepalive = TRUE;
-
-			if (min.tv_sec == ONE_MILLION)
-				next_tmout = -1;
-			else if (tv_cmp (&min, &time_0ms) <= 0)
-				next_tmout = 0;
-			else {
-				next_tmout = (int)(tv2d (&min, FALSE) * 1000);
-				assert (next_tmout <= 150);
-			}
+		if (must_send_keepalive)
+			next_tmout = 0;
+		else {
+			assert (tv_cmp (&min, &time_0ms) > 0)
+			next_tmout = (int)(tv2d (&min, FALSE) * 1000);
+			assert (next_tmout > 0);
+			assert (next_tmout <= 150);
 		}
 
 		/*
@@ -181,12 +149,8 @@ main (const int argc, const char *argv[])
 
 		/* Se ho un'interfaccia wifi attiva e dati dal softphone,
 		 * scrivo al server. */
-		if (data_out != NULL) {
-			if (wifi_active_set != NULL)
-				wifi_active_set->events |= POLLOUT;
-			else if (wifi_suspected_set != NULL)
-				wifi_suspected_set->events |= POLLOUT;
-		}
+		if (data_out != NULL)
+			iface
 
 		/* Se e' scaduto il keepalive, ogni interfaccia wifi deve
 		 * provare a spedirlo. */

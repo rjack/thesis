@@ -29,7 +29,7 @@ typedef int fd_t;
 
 
 /*
- * Canali.
+ * Interfaccia.
  */
 typedef struct {
 	fd_t ch_sock;
@@ -37,7 +37,7 @@ typedef struct {
 	char *ch_bind_ip;
 	char *ch_bind_port;
 	bool ch_suspected;
-} wifi_link_t;
+} iface_t;
 
 
 /*
@@ -63,11 +63,12 @@ typedef struct timeout_t {
  * Datagram.
  */
 struct dgram {
-	timeout_t *dg_life_to;     /* tempo di vita del datagram */
-	timeout_t *dg_retry_to;    /* timeout di ritrasmissione */
+	int dg_id;                 /* id univoco indicato da sendmsg_getID */
 	char *dg_data;             /* dati letti da recvmsg */
 	size_t dg_datalen;         /* lunghezza dati */
 	struct dgram *dg_next;     /* prossimo dgram in coda */
+	timeout_t *dg_life_to;     /* tempo di vita del datagram */
+	timeout_t *dg_retry_to;    /* timeout di ritrasmissione */
 };
 
 
