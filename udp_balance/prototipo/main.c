@@ -103,14 +103,23 @@ main (const int argc, const char *argv[])
 		struct timeval left;
 		iface_t *current_iface;
 
+		/*
+		 * Reset eventi.
+		 * Tutti i socket si devono aspettare dati ed errori.
+		 */
+		sp->events = 0 | POLLIN | POLLERR;
+		sp->revents = 0;
+		im->events = 0 | POLLIN | POLLERR;
+		im->revents = 0;
 		iface_foreach_do (iface_set_events,
-		                  arg_create (0, sizeof(int)));
+		                  arg_create (0 | POLLIN | POLLERR,
+		                              sizeof(int)));
 
 		current_iface = iface_get_current ();
 		if (debug) {
 			char ifstr[100];
 			iface_to_string (current_iface, ifstr);
-			printf ("Using interface %s\n", ifstr);
+			printf ("Wifi interface: %s\n", ifstr);
 		}
 
 		/*
@@ -118,7 +127,7 @@ main (const int argc, const char *argv[])
 		 */
 		gettime (&now);
 
-		dgram_outward_all_unaked ();
+		dgram_outward_all_unacked ();
 		dgram_purge_all_old ();
 
 		/* Controllo keepalive. */
@@ -144,25 +153,22 @@ main (const int argc, const char *argv[])
 
 		/* Se ho dati ricevuti dal server, voglio scrivere al
 		 * softphone */
-		if (data_in != NULL)
-			fds[SP_I].events |= POLLOUT;
+		if (dgram_list_peek (DGRAM_INWARD) != NULL)
+			sp->events |= POLLOUT;
 
 		/* Se ho un'interfaccia wifi attiva e dati dal softphone,
 		 * scrivo al server. */
-		if (data_out != NULL)
-			iface
+		if (current_iface != NULL && dgram_list_peek (DGRAM_OUTWARD))
+			iface_set_events (POLLOUT);
 
 		/* Se e' scaduto il keepalive, ogni interfaccia wifi deve
 		 * provare a spedirlo. */
 		if (must_send_keepalive)
-			for (i = CUR_IFACE_I; i < fds_used; i++)
-				fds[i].events |= POLLOUT;
+			iface_foreach_do (iface_set_events,
+					  arg_create (POLLOUT, sizeof(int)));
 
-		/* Tutti i socket si aspettano dati ed errori. */
-		for (i = 0; i < fds_used; i++)
-			fds[i].events |= POLLIN | POLLERR;
-
-		nready = poll (fds, fds_used, next_tmout);
+		iface_fill_pollfd (&fds[2], &fds_used);
+		nready = poll (fds, fds_used + 2, next_tmout);
 		if (nready == -1) {
 			perror ("poll");
 			exit (EXIT_FAILURE);
@@ -171,12 +177,20 @@ main (const int argc, const char *argv[])
 		/*
 		 * Eventi softphone.
 		 */
-		if (fds[SP_I].revents & POLLIN) {
-			/* leggi datagram da fds[SP_I].fd */
-			/* mettilo in data_out */
+		if (sp->revents & POLLIN) {
+			dgram_t *dg;
+			dg = dgram_read (sp->fd);
+			/* TODO controllo errore */
+			dgram_list_add (DGRAM_OUTWARD, dg);
 		}
-		if (fds[SP_I].revents & POLLOUT) {
-			assert (data_in != NULL);
+		if (sp->revents & POLLOUT) {
+			/* TODO */
+		}
+		if (sp->revents & POLLERR) {
+			fprintf (stderr,
+				 "Errore di comunicazione con il softphone, "
+				 "che si fa? Nel dubbio, spiro.\n");
+			exit (EXIT_FAILURE);
 		}
 	}
 
