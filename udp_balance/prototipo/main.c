@@ -178,6 +178,8 @@ main (const int argc, const char *argv[])
 			exit (EXIT_FAILURE);
 		}
 
+		iface_read_pollfd (&fds[2], ifaces_used);
+
 		/*
 		 * Eventi softphone.
 		 */
@@ -217,11 +219,31 @@ main (const int argc, const char *argv[])
 		}
 
 		/*
-		 * Eventi interfacce wifi.
+		 * Spedizione interfaccia corrente.
 		 */
-		for (i = 0; i < ifaces_used, i++) {
-			/* TODO */
+		if (current_iface != NULL
+		    && iface_get_events (current_iface) & POLLOUT) {
+			dg = dgram_list_pop (DGRAM_OUTWARD);
+			assert (dg != NULL);
+			iface_write (current_iface, dg);
+			/* TODO controllo errore */
 		}
+
+		/*
+		 * Spedizione keepalive.
+		 */
+		if (must_send_keepalive) {
+			dg = dgram_keepalive ();
+			iface_foreach_do (if_pollout_iface_write,
+			                  arg_create (dg, sizeof(dg)));
+			dgram_free (dg);
+		}
+
+		/*
+		 * Ricezione dati ed errori.
+		 */
+		iface_foreach_do (if_pollin_iface_read, NULL);
+		iface_foreach_do (if_pollin_iface_err, NULL);
 	}
 
 	return 0;
