@@ -234,7 +234,7 @@ main (const int argc, const char *argv[])
 		 */
 		if (must_send_keepalive) {
 			dg = dgram_keepalive ();
-			iface_foreach_do (if_pollout_iface_write,
+			iface_foreach_do (iface_if_pollout_write,
 			                  arg_create (dg, sizeof(dg)));
 			dgram_free (dg);
 		}
@@ -242,8 +242,8 @@ main (const int argc, const char *argv[])
 		/*
 		 * Ricezione dati ed errori.
 		 */
-		iface_foreach_do (if_pollin_iface_read, NULL);
-		iface_foreach_do (if_pollin_iface_err, NULL);
+		iface_foreach_do (iface_if_pollin_read, NULL);
+		iface_foreach_do (iface_if_pollerr_handle, NULL);
 	}
 
 	return 0;
