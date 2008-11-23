@@ -2,8 +2,12 @@
 #define ULP_PROTO_TYPES_H
 
 #define     MIN(a,b)     ((a) < (b) ? (a) : (b))
+#define     MAX(a,b)     ((a) > (b) ? (a) : (b))
 
 #define     ONE_MILLION     1000000
+
+/* Per semplicita', max 16 interfacce wifi. */
+#define     IFACE_MAX     16
 
 
 /*
