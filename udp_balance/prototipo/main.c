@@ -220,7 +220,7 @@ main (const int argc, const char *argv[])
 		}
 		if (im->revents & POLLIN) {
 			dg = dgram_read (im->fd);
-			iface_monitor_handle_msg (dg);
+			/* TODO riconfigurazione socket interfacce. */
 			dgram_free (dg);
 		}
 
