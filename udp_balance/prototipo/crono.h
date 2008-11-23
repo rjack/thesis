@@ -1,6 +1,8 @@
 #ifndef CRONO_H
 #define CRONO_H
 
+#include "types.h"
+
 
 /*******************************************************************************
 				  Prototipi

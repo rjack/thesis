@@ -2,7 +2,18 @@
  * udp_balancer: prototipo.
  */
 
-#define     _POSIX_C_SOURCE     1     /* per getaddrinfo */
+#define     ULP_PROTO_MAIN
+
+
+#include <assert.h>
+#include <poll.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+
+#include "crono.h"
+#include "types.h"
+#include "util.h"
 
 
 /****************************************************************************
@@ -30,22 +41,6 @@
 
 static const char *program_name = NULL;
 
-static struct timeval now;
-
-static timeout_t keepalive;
-static bool must_send_keepalive = FALSE;
-
-/* Timeval di comodo. */
-static const struct timeval time_0ms = { 0, 0 };
-static const struct timeval time_30ms = { 0, 30000 };
-static const struct timeval time_150ms = { 0, 150000 };
-
-static struct pollfd fds[2 + IFACE_MAX];
-static size_t ifaces_used = 0;
-
-static pollfd *sp = &fds[0];
-static pollfd *im = &fds[1];
-
 
 /****************************************************************************
 				   Funzioni
@@ -67,13 +62,23 @@ is_done (void)
 
 
 /****************************************************************************
-			      Funzioni esportate
+				     Main
 ****************************************************************************/
 
 int
 main (const int argc, const char *argv[])
 {
 	int i;
+
+	/* TODO sposta ste schifezze nel blocco giusto. */
+	timeout_t keepalive;
+	bool must_send_keepalive = FALSE;
+
+	struct pollfd fds[2 + IFACE_MAX];
+	size_t ifaces_used = 0;
+
+	struct pollfd *sp = &fds[0];
+	struct pollfd *im = &fds[1];
 
 	/*
 	 * Init variabili locali al modulo.
@@ -96,7 +101,8 @@ main (const int argc, const char *argv[])
 	gettime (&now);
 	timeout_start (&keepalive, &now);
 
-	/* TODO creazione socket bindati e connessi per IM e SP. */
+	/* Creazione socket bindati e connessi per IM e SP. */
+	sp->fd = socket_bound (SP_BIND_IP, SP_BIND_PORT);
 
 	while (!is_done ()) {
 		dgram_t *dg;

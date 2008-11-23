@@ -1,4 +1,16 @@
+#define     _POSIX_C_SOURCE     1     /* per getaddrinfo */
+
+#include <assert.h>
+#include <netdb.h>
 #include <string.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <unistd.h>
+
+#include "util.h"
+#include "types.h"
 
 
 char *
@@ -105,5 +117,5 @@ collect_garbage (void)
 /* Dealloca tutte le strutture dati che sono rimaste in memoria a girarsi i
  * pollici. */
 {
-	collect_dgram_garbage ();
+	/* TODO collect_dgram_garbage (); */
 }

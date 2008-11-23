@@ -1,24 +1,31 @@
+#include <assert.h>
+#include <stdlib.h>
+#include <unistd.h>
+
+#include "crono.h"
+#include "types.h"
+
 /*
  * Code per i datagram.
  */
 /* da softphone a server */
-static struct dgram *data_out = NULL;
+static dgram_t *data_out = NULL;
 
 /* da server a softphone */
-static struct dgram *data_in = NULL;
+static dgram_t *data_in = NULL;
 
 /* spediti, da confermare */
-static struct dgram *data_unakd = NULL;
+static dgram_t *data_unakd = NULL;
 
 /* msg config interfacce */
-static struct dgram *data_iface = NULL;
+static dgram_t *data_iface = NULL;
 
 /* datagram scartati, pronti per essere riutilizzati */
-static struct dgram *data_discarded = NULL;
+static dgram_t *data_discarded = NULL;
 
 
 static bool
-dgram_must_be_discarded (struct dgram *dg)
+dgram_must_be_discarded (dgram_t *dg)
 /* Ritorna TRUE se dg e'piu' vecchio di 150ms,
  *         FALSE altrimenti.
  * NON dealloca i timeout. */
@@ -34,7 +41,7 @@ dgram_must_be_discarded (struct dgram *dg)
 
 
 static bool
-must_be_retransmitted (struct dgram *dg)
+must_be_retransmitted (dgram_t *dg)
 /* Ritorna TRUE e dealloca dg_retry_to se dg e'piu' vecchio di 30ms,
  *         FALSE altrimenti. */
 {
@@ -51,11 +58,11 @@ must_be_retransmitted (struct dgram *dg)
 }
 
 
-static struct dgram *
-list_cat (struct dgram *fst, struct dgram *snd)
+static dgram_t *
+list_cat (dgram_t *fst, dgram_t *snd)
 /* Ritorna la concatenazione delle due liste fst e snd. */
 {
-	struct dgram *tail;
+	dgram_t *tail;
 
 	if (fst == NULL)
 		return snd;
@@ -69,16 +76,16 @@ list_cat (struct dgram *fst, struct dgram *snd)
 }
 
 
-static struct dgram *
-list_remove_if (bool (*test)(struct dgram *), struct dgram **lst)
+static dgram_t *
+list_remove_if (bool (*test)(dgram_t *), dgram_t **lst)
 /* Rimuove da lst tutti gli elementi che soddisfano test e li ritorna in una
  * lista. */
 {
-	struct dgram *cur;
-	struct dgram *rmvd = NULL;
-	struct dgram **rmvd_tp = &rmvd;
-	struct dgram *passd = NULL;
-	struct dgram **passd_tp = &passd;
+	dgram_t *cur;
+	dgram_t *rmvd = NULL;
+	dgram_t **rmvd_tp = &rmvd;
+	dgram_t *passd = NULL;
+	dgram_t **passd_tp = &passd;
 
 	assert (lst != NULL);
 

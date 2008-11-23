@@ -1,10 +1,10 @@
 CC=gcc
 LD=gcc
-CPPOPT=-Wall -ansi -pedantic
+CPPOPT=-Wall -Wno-unused -ansi -pedantic
 CFLAGS=-g -pipe
 LDFLAGS=-lm -lc
 
 EXE=ulp-proto
-OBJ=main.o crono.o
+OBJ=crono.o dgram.o iface.o main.o util.o
 
 DEPCOM=Makefile types.h

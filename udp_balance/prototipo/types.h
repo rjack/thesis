@@ -1,14 +1,17 @@
 #ifndef ULP_PROTO_TYPES_H
 #define ULP_PROTO_TYPES_H
 
-#define     MIN(a,b)     ((a) < (b) ? (a) : (b))
-#define     MAX(a,b)     ((a) > (b) ? (a) : (b))
+#include <poll.h>
+#include <sys/time.h>
 
 #define     ONE_MILLION     1000000
 
 /* Per semplicita', max 16 interfacce wifi. */
 #define     IFACE_MAX     16
 
+
+#define     MIN(a,b)     ((a) < (b) ? (a) : (b))
+#define     MAX(a,b)     ((a) > (b) ? (a) : (b))
 
 /*
  * Booleani.
@@ -67,7 +70,7 @@ typedef struct timeout_t {
 /*
  * Datagram.
  */
-typedef struct {
+typedef struct dgram {
 	int dg_id;                 /* id univoco indicato da sendmsg_getID */
 	char *dg_data;             /* dati letti da recvmsg */
 	size_t dg_datalen;         /* lunghezza dati */
@@ -75,6 +78,23 @@ typedef struct {
 	timeout_t *dg_life_to;     /* tempo di vita del datagram */
 	timeout_t *dg_retry_to;    /* timeout di ritrasmissione */
 } dgram_t;
+
+
+/****************************************************************************
+			      Variabili globali
+****************************************************************************/
+
+#if defined(ULP_PROTO_MAIN)
+#  define EXTERN_IF_NOT_MAIN
+#else
+#  define EXTERN_IF_NOT_MAIN extern
+#endif
+
+EXTERN_IF_NOT_MAIN struct timeval now;
+EXTERN_IF_NOT_MAIN struct timeval time_0ms;
+EXTERN_IF_NOT_MAIN struct timeval time_30ms;
+EXTERN_IF_NOT_MAIN struct timeval time_150ms;
+EXTERN_IF_NOT_MAIN bool debug;
 
 
 #endif /* ULP_PROTO_TYPES_H */
