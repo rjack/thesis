@@ -36,19 +36,6 @@ typedef int fd_t;
 
 
 /*
- * Interfaccia.
- */
-typedef struct {
-	bool if_suspected;
-	int if_id;
-	char *if_iface;
-	char *if_bind_ip;
-	char *if_bind_port;
-	struct pollfd if_pfd;
-} iface_t;
-
-
-/*
  * Cronometro.
  */
 typedef struct {
@@ -78,6 +65,23 @@ typedef struct dgram {
 	timeout_t *dg_life_to;     /* tempo di vita del datagram */
 	timeout_t *dg_retry_to;    /* timeout di ritrasmissione */
 } dgram_t;
+
+
+/*
+ * Interfaccia.
+ */
+typedef struct {
+	bool if_suspected;
+	int if_id;
+	char *if_name;
+	char *if_bind_ip;
+	char *if_bind_port;
+	struct pollfd if_pfd;
+	timeout_t if_keepalive;
+} iface_t;
+
+
+typedef int iface_iterator_t;
 
 
 /****************************************************************************

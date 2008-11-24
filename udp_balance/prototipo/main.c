@@ -70,10 +70,6 @@ main (const int argc, const char *argv[])
 {
 	int i;
 
-	/* TODO sposta ste schifezze nel blocco giusto. */
-	timeout_t keepalive;
-	bool must_send_keepalive = FALSE;
-
 	struct pollfd fds[2 + IFACE_MAX];
 	size_t ifaces_used = 0;
 
@@ -84,7 +80,6 @@ main (const int argc, const char *argv[])
 	 * Init variabili locali al modulo.
 	 */
 	program_name = argv[0];
-	timeout_set (&keepalive, &time_150ms);
 
 	/*
 	 * Opzioni a riga di comando.
@@ -99,7 +94,6 @@ main (const int argc, const char *argv[])
 	 * Setup iniziale.
 	 */
 	gettime (&now);
-	timeout_start (&keepalive, &now);
 
 	/* Creazione socket bindati e connessi per IM e SP. */
 	sp->fd = socket_bound (SP_BIND_IP, SP_BIND_PORT);
@@ -111,18 +105,23 @@ main (const int argc, const char *argv[])
 		struct timeval min;
 		struct timeval left;
 		iface_t *current_iface;
+		/* per i cicli */
+		iface_iterator_t ii;
+		iface_t *if_ptr;
 
 		/*
-		 * Reset eventi.
 		 * Tutti i socket si devono aspettare dati ed errori.
 		 */
-		sp->events = 0 | POLLIN | POLLERR;
+		sp->events = POLLIN | POLLERR;
 		sp->revents = 0;
-		im->events = 0 | POLLIN | POLLERR;
+		im->events = POLLIN | POLLERR;
 		im->revents = 0;
-		iface_foreach_do (iface_set_events,
-		                  arg_create (0 | POLLIN | POLLERR,
-		                              sizeof(int)));
+		for (if_ptr = iface_iterator_get_first (&ii)
+		     if_ptr != NULL;
+		     if_ptr = iface_iterator_get_next (&ii)) {
+			iface_reset_events (if_ptr);
+			iface_set_events (if_ptr, POLLIN | POLLERR);
+		}
 
 		current_iface = iface_get_current ();
 		if (debug) {
@@ -139,10 +138,8 @@ main (const int argc, const char *argv[])
 		dgram_outward_all_unacked (&now);
 		dgram_purge_all_old (&now);
 
-		/* Controllo keepalive. */
-		timeout_left (&keepalive, &now, &min);
-		if (tv_cmp (&min, &time_0ms) <= 0)
-			must_send_keepalive = TRUE;
+		/* TODO ogni interfaccia ha il timeout keepalive da
+		 * controllare. */
 
 		dgram_timeout_min (&left);
 		tv_min (&min, &min, &left);
@@ -168,14 +165,11 @@ main (const int argc, const char *argv[])
 		/* Se ho un'interfaccia wifi attiva e dati dal softphone,
 		 * scrivo al server. */
 		if (current_iface != NULL && dgram_list_peek (DGRAM_OUTWARD))
-			iface_set_events (POLLOUT);
+			iface_set_events (current_iface, POLLOUT);
 
-		/* Se e' scaduto il keepalive, ogni interfaccia wifi deve
-		 * provare a spedirlo. */
-		if (must_send_keepalive)
-			iface_foreach_do (iface_set_events,
-					  arg_create (POLLOUT, sizeof(int)));
-
+		/*
+		 * Poll
+		 */
 		iface_fill_pollfd (&fds[2], &ifaces_used);
 
 		nready = poll (fds, 2 + ifaces_used, next_tmout);
@@ -184,7 +178,7 @@ main (const int argc, const char *argv[])
 			exit (EXIT_FAILURE);
 		}
 
-		iface_read_pollfd (&fds[2], ifaces_used);
+		iface_read_pollfd (&fds[2]);
 
 		/*
 		 * Eventi softphone.
@@ -231,22 +225,12 @@ main (const int argc, const char *argv[])
 		    && iface_get_events (current_iface) & POLLOUT) {
 			dg = dgram_list_pop (DGRAM_OUTWARD);
 			assert (dg != NULL);
-			iface_write (current_iface, dg);
+			err = iface_write (current_iface, dg);
 			/* TODO controllo errore */
 		}
 
 		/*
-		 * Spedizione keepalive.
-		 */
-		if (must_send_keepalive) {
-			dg = dgram_keepalive ();
-			iface_foreach_do (iface_if_pollout_write,
-			                  arg_create (dg, sizeof(dg)));
-			dgram_free (dg);
-		}
-
-		/*
-		 * Ricezione dati ed errori.
+		 * Ricezione dati ed errori e spedizione keepalive.
 		 */
 		iface_foreach_do (iface_if_pollin_read, NULL);
 		iface_foreach_do (iface_if_pollerr_handle, NULL);
