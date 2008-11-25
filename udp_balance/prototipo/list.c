@@ -43,7 +43,7 @@ list_node_is_last (list_node_t *tp, list_node_t *ptr)
 }
 
 
-bool
+list_node_t *
 list_contains (list_node_t *tp, bool (*cmpfun)(void *, void *), void *term)
 {
 	bool found = FALSE;
@@ -51,7 +51,9 @@ list_contains (list_node_t *tp, bool (*cmpfun)(void *, void *), void *term)
 	if (i != NULL)
 		while (!(found = cmpfun (i->n_ptr, term)) && i != tp)
 			i = list_next (i);
-	return (i != NULL && found);
+	if (i != NULL && found)
+		return i;
+	return NULL;
 }
 
 

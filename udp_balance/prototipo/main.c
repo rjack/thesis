@@ -12,6 +12,7 @@
 #include <unistd.h>
 
 #include "crono.h"
+#include "iface.h"
 #include "types.h"
 #include "util.h"
 
@@ -80,9 +81,15 @@ main (const int argc, const char *argv[])
 	 * Init variabili globali
 	 */
 	program_name = argv[0];
-	time_0ms = {0, 0};
-	time_30ms = {30000, 0};
-	time_150ms = {150000, 0};
+
+	time_0ms.tv_sec = 0;
+	time_0ms.tv_usec = 0;
+
+	time_30ms.tv_sec = 0;
+	time_30ms.tv_usec = 30000;
+
+	time_150ms.tv_sec = 0;
+	time_150ms.tv_usec = 150000;
 
 	/*
 	 * Opzioni a riga di comando.
@@ -106,6 +113,7 @@ main (const int argc, const char *argv[])
 
 	while (!is_done ()) {
 		dgram_t *dg;
+		int err;
 		int nready;
 		int next_tmout;
 		struct timeval min;
@@ -122,7 +130,7 @@ main (const int argc, const char *argv[])
 		sp->revents = 0;
 		im->events = POLLIN | POLLERR;
 		im->revents = 0;
-		for (if_ptr = iface_iterator_get_first (&ii)
+		for (if_ptr = iface_iterator_get_first (&ii);
 		     if_ptr != NULL;
 		     if_ptr = iface_iterator_get_next (&ii)) {
 			iface_reset_events (if_ptr);
@@ -158,7 +166,7 @@ main (const int argc, const char *argv[])
 		if (tv_cmp (&min, &time_0ms) <= 0)
 			next_tmout = 0;
 		else {
-			assert (tv_cmp (&min, &time_0ms) > 0)
+			assert (tv_cmp (&min, &time_0ms) > 0);
 			next_tmout = (int)(tv2d (&min, FALSE) * 1000);
 			assert (next_tmout > 0);
 			assert (next_tmout <= 150);
@@ -265,7 +273,7 @@ main (const int argc, const char *argv[])
 
 			/* Spedizione keepalive. */
 			if ((ev & POLLOUT)
-			    && !(iface_keepalive_left (if_ptr, &now, &left)))
+			    && !(iface_keepalive_left (if_ptr, &now, &left))) {
 				assert (tv_cmp (&left, &time_0ms) <= 0);
 				dg = dgram_create_keepalive ();
 				iface_write (if_ptr, dg);
@@ -273,7 +281,7 @@ main (const int argc, const char *argv[])
 				dgram_free (dg);
 			}
 
-			if (revents & POLLERR)
+			if (ev & POLLERR)
 				iface_handle_err (if_ptr);
 		}
 	}

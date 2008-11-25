@@ -118,6 +118,24 @@ tv_cmp (const struct timeval *tv_1, const struct timeval *tv_2)
 
 
 void
+tv_min (struct timeval *result, const struct timeval *tv_1,
+        const struct timeval *tv_2)
+{
+	assert (result != NULL);
+	assert (tv_1 != NULL);
+	assert (tv_2 != NULL);
+
+	if (tv_cmp (tv_1, tv_2) < 0) {
+		if (result != tv_1)
+			memcpy (result, tv_1, sizeof(struct timeval));
+	} else {
+		if (result != tv_2)
+			memcpy (result, tv_2, sizeof(struct timeval));
+	}
+}
+
+
+void
 gettime (struct timeval *tv)
 {
 	assert (tv != NULL);

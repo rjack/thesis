@@ -107,6 +107,7 @@ list_remove_if (bool (*test)(dgram_t *), dgram_t **lst)
 	*lst = passd;
 	return rmvd;
 }
+/*
 dgram_outward_all_unacked
 dgram_purge_all_old
 dgram_timeout_min
@@ -117,3 +118,4 @@ dgram_list_pop
 dgram_write
 dgram_free
 dgram_keepalive
+*/

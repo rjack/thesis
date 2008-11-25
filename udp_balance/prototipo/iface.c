@@ -1,20 +1,37 @@
 #include <assert.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
 
+#include "crono.h"
+#include "list.h"
 #include "types.h"
-#include "utils.h"
+#include "util.h"
 
 
 struct match_iface_args {
-	char *mia_name;
-	char *mia_bind_ip;
-	char *mia_bind_port;
+	const char *mia_name;
+	const char *mia_bind_ip;
+	const char *mia_bind_port;
 };
 
 
 static list_node_t *ifaces;
 static size_t ifaces_len;
+
+
+static bool
+match_iface (void *ifp, void *argsp)
+{
+	iface_t *if_ptr = (iface_t *)ifp;
+	struct match_iface_args *args = (struct match_iface_args *)argsp;
+
+	if (if_ptr->if_name == args->mia_name
+	    && if_ptr->if_bind_ip == args->mia_bind_ip
+	    && if_ptr->if_bind_port == args->mia_bind_port)
+		return TRUE;
+	return FALSE;
+}
 
 
 void
@@ -64,9 +81,13 @@ iface_down (const char *name, const char *bind_ip, const char *bind_port)
 {
 	iface_t *if_ptr;
 	list_node_t *node_ptr;
-	struct match_iface_args args = {name, bind_ip, bind_port};
+	struct match_iface_args args;
+	
+	args.mia_name = name;
+	args.mia_bind_ip = bind_ip;
+	args.mia_bind_port = bind_port;
 
-	node_ptr = list_contains (&ifaces, &match_iface, &args);
+	node_ptr = list_contains (ifaces, &match_iface, &args);
 	list_remove (&ifaces, node_ptr);
 	if_ptr = node_ptr->n_ptr;
 
@@ -99,7 +120,7 @@ iface_iterator_get_next (iface_iterator_t *ii_ptr)
 
 	*ii_ptr = list_next (*ii_ptr);
 	if (*ii_ptr == list_head (ifaces)) {
-		*ii = NULL;
+		*ii_ptr = NULL;
 		return NULL;
 	}
 
@@ -113,6 +134,17 @@ iface_get_events (iface_t *iface)
 	assert (iface != NULL);
 
 	return iface->if_pfd.revents;
+}
+
+
+bool
+iface_keepalive_left (iface_t *if_ptr, struct timeval *now,
+                      struct timeval *result)
+{
+	timeout_left (&if_ptr->if_keepalive, now, result);
+	if (tv_cmp (result, &time_0ms) <= 0)
+		return FALSE;
+	return TRUE;
 }
 
 
@@ -155,7 +187,8 @@ iface_to_string (iface_t *iface, char *str)
 	assert (str != NULL);
 
 	nbytes = sprintf (str, "%s %s:%s",
-			  iface->if_name, iface->if_bind_ip, iface->if_pfd);
+	                  iface->if_name, iface->if_bind_ip,
+	                  iface->if_bind_port);
 	if (iface->if_suspected)
 		sprintf (str + nbytes, " [s]");
 	return str;
@@ -172,7 +205,7 @@ iface_fill_pollfd (struct pollfd *pfd, size_t *pfd_used)
 	for (i = 0, if_ptr = iface_iterator_get_first (&ii);
 	     if_ptr != NULL;
 	     i++, if_ptr = iface_iterator_get_next (&ii))
-		pfd[i] = iface->if_pfd;
+		pfd[i] = if_ptr->if_pfd;
 
 	*pfd_used = ifaces_len;
 }
@@ -188,7 +221,7 @@ iface_read_pollfd (struct pollfd *pfd)
 	for (i = 0, if_ptr = iface_iterator_get_first (&ii);
 	     if_ptr != NULL;
 	     i++, if_ptr = iface_iterator_get_next (&ii))
-		iface->if_pfd.revents = pfd[i].revents;
+		if_ptr->if_pfd.revents = pfd[i].revents;
 }
 
 
@@ -202,7 +235,7 @@ iface_write (iface_t *iface, dgram_t *dg)
 }
 
 
-dgram_t *dg
+dgram_t *
 iface_read (iface_t *iface)
 {
 	/* TODO iface_read */

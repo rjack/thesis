@@ -4,6 +4,7 @@
 #include "types.h"
 
 char *my_strdup(const char *str);
+list_node_t *new_node(void *ptr);
 fd_t socket_bound(const char *bind_ip, const char *bind_port);
 void *my_alloc(size_t nbytes);
 void collect_garbage(void);
