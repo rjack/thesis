@@ -82,7 +82,7 @@ iface_down (const char *name, const char *bind_ip, const char *bind_port)
 	iface_t *if_ptr;
 	list_node_t *node_ptr;
 	struct match_iface_args args;
-	
+
 	args.mia_name = name;
 	args.mia_bind_ip = bind_ip;
 	args.mia_bind_port = bind_port;
