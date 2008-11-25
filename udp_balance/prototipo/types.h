@@ -84,11 +84,21 @@ typedef struct {
 typedef int iface_iterator_t;
 
 
+/*
+ * Liste.
+ */
+typedef struct list_node {
+	void *n_ptr;
+	struct list_node *n_next;
+	struct list_node *n_prev;
+} list_node_t;
+
+
 /****************************************************************************
 			      Variabili globali
 ****************************************************************************/
 
-#if defined(ULP_PROTO_MAIN)
+#ifdef ULP_PROTO_MAIN
 #  define EXTERN_IF_NOT_MAIN
 #else
 #  define EXTERN_IF_NOT_MAIN extern
