@@ -149,33 +149,25 @@ int
 iface_write (iface_t *iface, dgram_t *dg)
 {
 	/* TODO iface_write */
+	/* TODO reset keepalive */
 
 	return 0;
 }
 
 
-int
-iface_if_pollout_write (iface_t *iface, dgram_t *dg)
+dgram_t *dg
+iface_read (iface_t *iface)
 {
-	/* TODO iface_if_pollout_write */
+	/* TODO iface_read */
 
-	return 0;
+	return NULL;
 }
 
 
 int
-iface_if_pollin_read (iface_t *iface, void *discard)
+iface_handle_err (iface_t *iface)
 {
-	/* TODO iface_if_pollin_read */
-
-	return 0;
-}
-
-
-int
-iface_if_pollerr_handle (iface_t *iface, void *discard)
-{
-	/* TODO iface_if_pollerr_handle */
+	/* TODO iface_handle_err */
 
 	return 0;
 }

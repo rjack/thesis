@@ -138,13 +138,19 @@ main (const int argc, const char *argv[])
 		dgram_outward_all_unacked (&now);
 		dgram_purge_all_old (&now);
 
-		/* TODO ogni interfaccia ha il timeout keepalive da
-		 * controllare. */
+		/* POLLOUT per ogni interfaccia con il keepalive scaduto. */
+		for (if_ptr = iface_iterator_get_first (&ii);
+		     if_ptr != NULL;
+		     if_ptr = iface_iterator_get_next (&ii)) {
+			if (iface_must_send_keepalive (if_ptr, &now, &left))
+				iface_set_events (if_ptr, POLLOUT);
+			tv_min (&min, &min, &left);
+		}
 
 		dgram_timeout_min (&left);
 		tv_min (&min, &min, &left);
 
-		if (must_send_keepalive)
+		if (tv_cmp (&min, &time_0ms) <= 0)
 			next_tmout = 0;
 		else {
 			assert (tv_cmp (&min, &time_0ms) > 0)

@@ -157,10 +157,6 @@ tv2d (struct timeval *tv, bool must_free)
 }
 
 
-/*
- * Strutture timeval.
- */
-
 void
 tv_diff (struct timeval *result, const struct timeval *min,
          const struct timeval *sub)
@@ -176,6 +172,8 @@ tv_diff (struct timeval *result, const struct timeval *min,
 
 	result->tv_sec = mymin.tv_sec - sub->tv_sec;
 	result->tv_usec = mymin.tv_usec - sub->tv_usec;
+
+	assert (tv_is_normalized (result));
 }
 
 
