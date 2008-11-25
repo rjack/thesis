@@ -78,9 +78,6 @@ typedef struct {
 } iface_t;
 
 
-typedef (list_node_t *) iface_iterator_t;
-
-
 /*
  * Liste.
  */
@@ -89,6 +86,9 @@ typedef struct list_node {
 	struct list_node *n_next;
 	struct list_node *n_prev;
 } list_node_t;
+
+
+typedef list_node_t * iface_iterator_t;
 
 
 /****************************************************************************

@@ -1,3 +1,8 @@
+#include <unistd.h>
+
+#include "types.h"
+
+
 list_node_t *
 list_create (void)
 {
@@ -8,7 +13,7 @@ list_create (void)
 bool
 list_is_empty (list_node_t *tp)
 {
-	return (tp == EMPTYQ);
+	return (tp == NULL);
 }
 
 
@@ -120,7 +125,7 @@ list_inorder_insert (list_node_t **tp, list_node_t *ptr, int (*cmpfun)(void *, v
 {
 	list_node_t *cur = list_head (*tp);
 
-	if (cur == NULL || cmpfun (ptr->n_ptr, *tp->n_ptr) > 0)
+	if (cur == NULL || cmpfun (ptr->n_ptr, (*tp)->n_ptr) > 0)
 		list_enqueue (tp, ptr);
 	else {
 		while (cmpfun (ptr->n_ptr, cur->n_ptr) > 0)
