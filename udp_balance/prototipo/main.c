@@ -77,13 +77,18 @@ main (const int argc, const char *argv[])
 	struct pollfd *im = &fds[1];
 
 	/*
-	 * Init variabili locali al modulo.
+	 * Init variabili globali
 	 */
 	program_name = argv[0];
+	time_0ms = {0, 0};
+	time_30ms = {30000, 0};
+	time_150ms = {150000, 0};
 
 	/*
 	 * Opzioni a riga di comando.
 	 * TODO SP_BIND_IP, SP_BIND_PORT, IM_BIND_IP, IM_BIND_PORT
+	 *      PROXY_REMOTE_IP, PROXY_REMOTE_PORT, SP_REMOTE_IP,
+	 *      SP_REMOTE_PORT.
 	 */
 	if (argc != 1) {
 		print_usage ();
