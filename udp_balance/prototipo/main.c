@@ -138,12 +138,11 @@ main (const int argc, const char *argv[])
 		dgram_outward_all_unacked (&now);
 		dgram_purge_all_old (&now);
 
-		/* POLLOUT per ogni interfaccia con il keepalive scaduto. */
+		/* Keepalive. */
 		for (if_ptr = iface_iterator_get_first (&ii);
 		     if_ptr != NULL;
 		     if_ptr = iface_iterator_get_next (&ii)) {
-			if (iface_must_send_keepalive (if_ptr, &now, &left))
-				iface_set_events (if_ptr, POLLOUT);
+			iface_keepalive_left (if_ptr, &now, &left);
 			tv_min (&min, &min, &left);
 		}
 
@@ -172,6 +171,15 @@ main (const int argc, const char *argv[])
 		 * scrivo al server. */
 		if (current_iface != NULL && dgram_list_peek (DGRAM_OUTWARD))
 			iface_set_events (current_iface, POLLOUT);
+
+		/* POLLOUT se scaduto keepalive. */
+		for (if_ptr = iface_iterator_get_first (&ii);
+		     if_ptr != NULL;
+		     if_ptr = iface_iterator_get_next (&ii)) {
+			iface_keepalive_left (if_ptr, &now, &left);
+			if (tv_cmp (&left, &time_0ms) <= 0)
+				iface_set_events (if_ptr, POLLOUT);
+		}
 
 		/*
 		 * Poll
@@ -228,18 +236,40 @@ main (const int argc, const char *argv[])
 		 * Spedizione interfaccia corrente.
 		 */
 		if (current_iface != NULL
+		    && (dg = dgram_list_pop (DGRAM_OUTWARD)) != NULL
 		    && iface_get_events (current_iface) & POLLOUT) {
-			dg = dgram_list_pop (DGRAM_OUTWARD);
-			assert (dg != NULL);
 			err = iface_write (current_iface, dg);
 			/* TODO controllo errore */
 		}
 
 		/*
-		 * Ricezione dati ed errori e spedizione keepalive.
+		 * Eventi per tutte le interfacce.
 		 */
-		iface_foreach_do (iface_if_pollin_read, NULL);
-		iface_foreach_do (iface_if_pollerr_handle, NULL);
+		for (if_ptr = iface_iterator_get_first (&ii);
+		     if_ptr != NULL;
+		     if_ptr = iface_iterator_get_next (&ii)) {
+			int ev = iface_get_events (if_ptr);
+
+			/* Ricezione. */
+			if (ev & POLLIN) {
+				dg = iface_read (if_ptr);
+				/* TODO  controllo errore */
+				dgram_list_add (DGRAM_INWARD);
+			}
+
+			/* Spedizione keepalive. */
+			if ((ev & POLLOUT)
+			    && !(iface_keepalive_left (if_ptr, &now, &left)))
+				assert (tv_cmp (&left, &time_0ms) <= 0);
+				dg = dgram_create_keepalive ();
+				iface_write (if_ptr, dg);
+				/* TODO  controllo errore */
+				dgram_free (dg);
+			}
+
+			if (revents & POLLERR)
+				iface_handle_err (if_ptr);
+		}
 	}
 
 	return 0;
