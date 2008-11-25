@@ -1,10 +1,3 @@
-typedef struct list_node {
-	void *n_ptr;
-	struct list_node *n_next;
-	struct list_node *n_prev;
-} list_node_t;
-
-
 list_node_t *
 list_create (void)
 {
