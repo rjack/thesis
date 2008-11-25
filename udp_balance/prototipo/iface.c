@@ -3,27 +3,78 @@
 #include <unistd.h>
 
 #include "types.h"
+#include "utils.h"
 
 
-static iface_t ifaces[IFACE_MAX];
-static size_t ifaces_used = 0;
+struct match_iface_args {
+	char *mia_name;
+	char *mia_bind_ip;
+	char *mia_bind_port;
+};
+
+
+static list_node_t *ifaces;
+static size_t ifaces_len;
+
+
+void
+iface_init_module (void)
+{
+	ifaces = list_create ();
+	ifaces_len = 0;
+}
 
 
 int
 iface_up (const char *name, const char *bind_ip, const char *bind_port)
 {
-	/* TODO iface_up */
+	iface_t *if_ptr;
 
-	return 0;
+	assert (ifaces_len <= IFACE_MAX);
+	if (ifaces_len == IFACE_MAX) {
+		fprintf (stderr,
+			 "Impossibile aggiungere un'interfaccia di rete, "
+			 "numero massimo = %d\n", IFACE_MAX);
+		exit (EXIT_FAILURE);
+	}
+
+	if_ptr = my_alloc (sizeof(iface_t));
+
+	if_ptr->if_suspected = FALSE;
+	if_ptr->if_name = my_strdup (name);
+	if_ptr->if_bind_ip = my_strdup (bind_ip);
+	if_ptr->if_bind_port = my_strdup (bind_port);
+	if_ptr->if_pfd.fd = socket_bound (bind_ip, bind_port);
+	/* TODO socket connect al proxy server. */
+	if_ptr->if_pfd.events = 0;
+	if_ptr->if_pfd.revents = 0;
+	timeout_set (&if_ptr->if_keepalive, &time_150ms);
+	timeout_start (&if_ptr->if_keepalive, &now);
+
+	list_enqueue (&ifaces, new_node (if_ptr));
+	ifaces_len++;
+
+	/* TODO controllo errore socket_bound e connect */
+	return 1;
 }
 
 
-int
+void
 iface_down (const char *name, const char *bind_ip, const char *bind_port)
 {
-	/* TODO iface_down */
+	iface_t *if_ptr;
+	list_node_t *node_ptr;
+	struct match_iface_args args = {name, bind_ip, bind_port};
 
-	return 0;
+	node_ptr = list_contains (&ifaces, &match_iface, &args);
+	list_remove (&ifaces, node_ptr);
+	if_ptr = node_ptr->n_ptr;
+
+	free (if_ptr->if_name);
+	free (if_ptr->if_bind_ip);
+	free (if_ptr->if_bind_port);
+
+	free (node_ptr);
 }
 
 
@@ -31,14 +82,10 @@ iface_t *
 iface_iterator_get_first (iface_iterator_t *ii_ptr)
 {
 	assert (ii_ptr != NULL);
-
-	*ii_ptr = 0;
-	if (*ii_ptr == ifaces_used) {
-		*ii_ptr = -1;
+	*ii_ptr = list_head (ifaces);
+	if (*ii_ptr == NULL)
 		return NULL;
-	}
-
-	return &ifaces[*ii_ptr];
+	return (*ii_ptr)->n_ptr;
 }
 
 
@@ -46,19 +93,17 @@ iface_t *
 iface_iterator_get_next (iface_iterator_t *ii_ptr)
 {
 	assert (ii_ptr != NULL);
-	assert (*ii_ptr >= -1);
-	assert (*ii_ptr < ifaces_used);
 
-	if (*ii_ptr < 0)
+	if (*ii_ptr == NULL)
 		return NULL;
 
-	(*ii_ptr)++;
-	if (*ii_ptr == ifaces_used) {
-		*ii_ptr = -1;
+	*ii_ptr = list_next (*ii_ptr);
+	if (*ii_ptr == list_head (ifaces)) {
+		*ii = NULL;
 		return NULL;
 	}
 
-	return &ifaces[*ii_ptr];
+	return (*ii_ptr)->n_ptr;
 }
 
 
@@ -93,8 +138,10 @@ iface_reset_events (iface_t *iface)
 iface_t *
 iface_get_current (void)
 {
-	if (ifaces_used > 0)
-		return &ifaces[ifaces_used - 1];
+	if (!list_is_empty (ifaces)) {
+		list_node_t *head = list_head (ifaces);
+		return head->n_ptr;
+	}
 	return NULL;
 }
 
@@ -127,7 +174,7 @@ iface_fill_pollfd (struct pollfd *pfd, size_t *pfd_used)
 	     i++, if_ptr = iface_iterator_get_next (&ii))
 		pfd[i] = iface->if_pfd;
 
-	*pfd_used = ifaces_used;
+	*pfd_used = ifaces_len;
 }
 
 

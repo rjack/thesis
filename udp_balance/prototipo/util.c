@@ -29,6 +29,17 @@ my_strdup (const char *str)
 }
 
 
+list_node_t *
+new_node (void *ptr)
+{
+	list_node_t *new;
+
+	new = my_alloc (sizeof(list_node_t));
+	new->n_ptr = ptr;
+	return new;
+}
+
+
 fd_t
 socket_bound (const char *bind_ip, const char *bind_port)
 /* Ritorna un socket AF_INET SOCK_DGRAM e lo binda all'indirizzo e alla porta

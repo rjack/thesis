@@ -39,13 +39,14 @@ list_node_is_last (list_node_t *tp, list_node_t *ptr)
 
 
 bool
-list_contains (list_node_t *tp, list_node_t *ptr)
+list_contains (list_node_t *tp, bool (*cmpfun)(void *, void *), void *term)
 {
+	bool found = FALSE;
 	list_node_t *i = list_head (tp);
 	if (i != NULL)
-		while (i != ptr && i != tp)
+		while (!(found = cmpfun (i->n_ptr, term)) && i != tp)
 			i = list_next (i);
-	return (i != NULL && i == ptr);
+	return (i != NULL && found);
 }
 
 
@@ -70,7 +71,7 @@ list_insert (list_node_t **tp, list_node_t *new)
 
 
 list_node_t *
-list_node_remove (list_node_t **tp, list_node_t *ptr)
+list_remove (list_node_t **tp, list_node_t *ptr)
 {
 	/* Remove ptr from tp's list return it. */
 
@@ -148,7 +149,7 @@ list_remove_if (list_node_t **tp, bool (*cmpfun) (void *, void *), void *args)
 		else
 			nxt = list_next (cur);
 		if (cmpfun (cur->n_ptr, args)) {
-			list_node_remove (tp, cur);
+			list_remove (tp, cur);
 			list_enqueue (&rmq, cur);
 		}
 		cur = nxt;

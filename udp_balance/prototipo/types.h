@@ -6,9 +6,7 @@
 
 #define     ONE_MILLION     1000000
 
-/* Per semplicita', max 16 interfacce wifi. */
-#define     IFACE_MAX     16
-
+#define     IFACE_MAX       16
 
 #define     MIN(a,b)     ((a) < (b) ? (a) : (b))
 #define     MAX(a,b)     ((a) > (b) ? (a) : (b))
@@ -72,7 +70,6 @@ typedef struct dgram {
  */
 typedef struct {
 	bool if_suspected;
-	int if_id;
 	char *if_name;
 	char *if_bind_ip;
 	char *if_bind_port;
@@ -81,7 +78,7 @@ typedef struct {
 } iface_t;
 
 
-typedef int iface_iterator_t;
+typedef (list_node_t *) iface_iterator_t;
 
 
 /*
