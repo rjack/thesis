@@ -159,6 +159,15 @@ dgram_write (fd_t sfd, dgram_t *dg)
 void
 dgram_free (dgram_t *dg)
 {
+	assert (dg != NULL);
+
+	if (dg->dg_data != NULL)
+		free (dg->dg_data);
+	if (dg->dg_life_to != NULL)
+		free (dg->dg_life_to);
+	if (dg->dg_retry_to != NULL)
+		free (dg->dg_retry_to);
+	free (dg);
 }
 
 
