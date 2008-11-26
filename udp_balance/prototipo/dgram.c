@@ -113,8 +113,14 @@ dgram_list_peek (int list_id)
 
 
 void
-dgram_list_add (int list, dgram_t *dg)
+dgram_list_add (int list_id, dgram_t *dg)
 {
+	list_node_t *list;
+
+	assert (dg != NULL);
+
+	list = get_list (list_id);
+	list_enqueue (&list, new_node (dg));
 }
 
 
