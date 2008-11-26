@@ -5,9 +5,6 @@
 
 #include "types.h"
 
-#define DGRAM_INWARD 0
-#define DGRAM_OUTWARD 1
-
 dgram_t *dgram_create_keepalive(void);
 dgram_t *dgram_list_peek(int list);
 dgram_t *dgram_list_pop(int list);

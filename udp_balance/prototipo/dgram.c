@@ -89,6 +89,17 @@ dgram_timeout_min (struct timeval *result)
 dgram_t *
 dgram_list_peek (int list)
 {
+	list_node_t *dg_node;
+
+	assert (list == DGRAM_INWARD || list == DGRAM_OUTWARD);
+
+	if (list == DGRAM_INWARD)
+		dg_node = list_head (data_in);
+	else
+		dg_node = list_head (data_out);
+
+	if (dg_node != NULL)
+		return dg_node->n_ptr;
 	return NULL;
 }
 

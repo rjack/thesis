@@ -8,6 +8,9 @@
 
 #define     IFACE_MAX       16
 
+#define     DGRAM_INWARD    0
+#define     DGRAM_OUTWARD   1
+
 #define     MIN(a,b)     ((a) < (b) ? (a) : (b))
 #define     MAX(a,b)     ((a) > (b) ? (a) : (b))
 
