@@ -19,8 +19,22 @@ static list_node_t *data_in;
 /* spediti, da confermare */
 static list_node_t *data_unaked;
 
-/* datagram scartati, pronti per essere riutilizzati */
-static list_node_t *data_discarded;
+
+dgram_t *
+dgram_create (void)
+{
+	dgram_t *new_dg;
+
+	new_dg = my_alloc (sizeof(dgram_t));
+
+	new_dg->dg_id = -1;
+	new_dg->dg_data = NULL;
+	new_dg->dg_datalen = 0;
+	new_dg->dg_life_to = NULL;
+	new_dg->dg_retry_to = NULL;
+
+	return new_dg;
+}
 
 
 static list_node_t **
@@ -74,7 +88,6 @@ dgram_init_module (void)
 	data_out = list_create ();
 	data_in = list_create ();
 	data_unaked = list_create ();
-	data_discarded = list_create ();
 }
 
 
@@ -174,5 +187,5 @@ dgram_free (dgram_t *dg)
 dgram_t *
 dgram_create_keepalive (void)
 {
-	return NULL;
+	return dgram_create ();
 }
