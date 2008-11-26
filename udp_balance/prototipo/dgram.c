@@ -174,8 +174,6 @@ dgram_read (fd_t sfd)
 	struct msghdr hdr;
 	dgram_t *dg;
 
-	memset (&hdr, 0, sizeof(hdr));
-
 	/* XXX salvare mittente! */
 	hdr.msg_name = NULL;
 	hdr.msg_namelen = 0;
@@ -209,7 +207,28 @@ dgram_read (fd_t sfd)
 int
 dgram_write (fd_t sfd, dgram_t *dg)
 {
-	return 0;
+	ssize_t nsent;
+	struct msghdr hdr;
+	struct iovec my_iov[1];
+
+	my_iov[0].iov_base = dg->dg_data;
+	my_iov[0].iov_len = dg->dg_datalen;
+
+	hdr.msg_name = NULL;
+	hdr.msg_namelen = 0;
+	hdr.msg_iov = my_iov;
+	hdr.msg_iovlen = ARRAYLEN(my_iov);
+	hdr.msg_control = NULL;
+	hdr.msg_controllen = 0;
+	hdr.msg_flags = 0;
+
+	do {
+		nsent = sendmsg (sfd, &hdr, 0);
+	} while (nsent == -1 && errno == EINTR);
+
+	assert (nsent == dg->dg_datalen);
+
+	return nsent;
 }
 
 
