@@ -23,6 +23,17 @@ static list_node_t *data_unaked;
 static list_node_t *data_discarded;
 
 
+static list_node_t *
+get_list (int list_id)
+{
+	assert (list_id == DGRAM_OUTWARD || list_id == DGRAM_INWARD);
+
+	if (list_id == DGRAM_INWARD)
+		return data_in;
+	return data_out;
+}
+
+
 static bool
 dgram_must_be_discarded (dgram_t *dg)
 /* Ritorna TRUE se dg e'piu' vecchio di 150ms,
@@ -87,16 +98,13 @@ dgram_timeout_min (struct timeval *result)
 
 
 dgram_t *
-dgram_list_peek (int list)
+dgram_list_peek (int list_id)
 {
 	list_node_t *dg_node;
+	list_node_t *list;
 
-	assert (list == DGRAM_INWARD || list == DGRAM_OUTWARD);
-
-	if (list == DGRAM_INWARD)
-		dg_node = list_head (data_in);
-	else
-		dg_node = list_head (data_out);
+	list = get_list (list_id);
+	dg_node = list_head (list);
 
 	if (dg_node != NULL)
 		return dg_node->n_ptr;
