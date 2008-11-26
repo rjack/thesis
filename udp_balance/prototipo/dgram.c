@@ -23,14 +23,14 @@ static list_node_t *data_unaked;
 static list_node_t *data_discarded;
 
 
-static list_node_t *
+static list_node_t **
 get_list (int list_id)
 {
 	assert (list_id == DGRAM_OUTWARD || list_id == DGRAM_INWARD);
 
 	if (list_id == DGRAM_INWARD)
-		return data_in;
-	return data_out;
+		return &data_in;
+	return &data_out;
 }
 
 
@@ -100,33 +100,44 @@ dgram_timeout_min (struct timeval *result)
 dgram_t *
 dgram_list_peek (int list_id)
 {
+	list_node_t **list;
 	list_node_t *dg_node;
-	list_node_t *list;
 
 	list = get_list (list_id);
-	dg_node = list_head (list);
+	dg_node = list_head (*list);
 
-	if (dg_node != NULL)
-		return dg_node->n_ptr;
-	return NULL;
+	if (dg_node == NULL)
+		return NULL;
+	return dg_node->n_ptr;
 }
 
 
 void
 dgram_list_add (int list_id, dgram_t *dg)
 {
-	list_node_t *list;
+	list_node_t **list;
 
 	assert (dg != NULL);
 
 	list = get_list (list_id);
-	list_enqueue (&list, new_node (dg));
+	list_enqueue (list, new_node (dg));
 }
 
 
 dgram_t *
-dgram_list_pop (int list)
+dgram_list_pop (int list_id)
 {
+	list_node_t **list;
+	list_node_t *dg_node;
+	dgram_t *dg;
+
+	list = get_list (list_id);
+	dg_node = list_dequeue (list);
+	if (dg_node != NULL) {
+		dg = dg_node->n_ptr;
+		free (dg_node);
+		return dg;
+	}
 	return NULL;
 }
 
