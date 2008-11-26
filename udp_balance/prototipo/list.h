@@ -15,5 +15,6 @@ void list_enqueue(list_node_t **tp, list_node_t *new_tail);
 list_node_t *list_dequeue(list_node_t **tp);
 void list_inorder_insert(list_node_t **tp, list_node_t *ptr, int (*cmpfun)(void *, void *));
 list_node_t *list_remove_if(list_node_t **tp, bool (*cmpfun)(void *, void *), void *args);
+void * list_fold_left (list_node_t *tp, void * (*fun)(void *, void *), void *initial_value);
 
 #endif /* ULB_PROTO_LIST_H */

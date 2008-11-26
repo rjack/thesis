@@ -163,3 +163,24 @@ list_remove_if (list_node_t **tp, bool (*cmpfun) (void *, void *), void *args)
 	}
 	return rmq;
 }
+
+
+void *
+list_fold_left (list_node_t *tp, void * (*fun)(void *, void *), void *initial_value)
+{
+	list_node_t *node_i;
+	list_node_t *head;
+	void *accumulator;
+
+	head = list_head (tp);
+	node_i = head;
+
+	accumulator = initial_value;
+	if (head != NULL)
+		do {
+			accumulator = fun (accumulator, node_i->n_ptr);
+			node_i = list_next (node_i);
+		} while (node_i != head);
+
+	return accumulator;
+}
