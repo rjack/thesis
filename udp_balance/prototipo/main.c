@@ -162,8 +162,7 @@ main (const int argc, const char *argv[])
 			tv_min (&min, &min, &left);
 		}
 
-		dgram_timeout_min (&left);
-		tv_min (&min, &min, &left);
+		dgram_timeout_min (&min, &now);
 
 		if (tv_cmp (&min, &time_0ms) <= 0)
 			next_tmout = 0;

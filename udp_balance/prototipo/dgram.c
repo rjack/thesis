@@ -58,15 +58,11 @@ get_list (int list_id)
 
 
 static bool
-dgram_must_be_discarded (dgram_t *dg)
-/* Ritorna TRUE se dg e'piu' vecchio di 150ms,
- *         FALSE altrimenti.
- * NON dealloca i timeout. */
+must_be_discarded (dgram_t *dg, const struct timeval *now)
 {
 	struct timeval left;
 
-	timeout_left (dg->dg_life_to, &now, &left);
-
+	timeout_left (dg->dg_life_to, now, &left);
 	if (tv_cmp (&left, &time_0ms) <= 0)
 		return TRUE;
 	return FALSE;
@@ -74,19 +70,15 @@ dgram_must_be_discarded (dgram_t *dg)
 
 
 static bool
-must_be_retransmitted (dgram_t *dg)
-/* Ritorna TRUE e dealloca dg_retry_to se dg e'piu' vecchio di 30ms,
- *         FALSE altrimenti. */
+must_be_retransmitted (void *dg_void, void *now_void)
 {
 	struct timeval left;
+	dgram_t *dg = (dgram_t *)dg_void;
+	struct timeval *now = (struct timeval *)now_void;
 
-	timeout_left (dg->dg_retry_to, &now, &left);
-
-	if (tv_cmp (&left, &time_0ms) <= 0) {
-		free (dg->dg_retry_to);
-		dg->dg_retry_to = NULL;
+	timeout_left (dg->dg_retry_to, now, &left);
+	if (tv_cmp (&left, &time_0ms) <= 0)
 		return TRUE;
-	}
 	return FALSE;
 }
 
@@ -106,7 +98,10 @@ dgram_init_module (void)
 void
 dgram_outward_all_unacked (struct timeval *now)
 {
-	/* TODO dgram_outward_all_unacked */
+	list_node_t *rmvd;
+
+	rmvd = list_remove_if (&data_unaked, must_be_retransmitted, now);
+	/* TODO continua da qui. */
 }
 
 
@@ -117,8 +112,37 @@ dgram_purge_all_old (struct timeval *now)
 
 
 void
-dgram_timeout_min (struct timeval *result)
+dgram_timeout_min (struct timeval *min_result, const struct timeval *now)
 {
+	struct timeval left;
+	list_node_t *head;
+	list_node_t *node;
+	dgram_t *dg;
+
+	/* data out: hanno solo dg_life_to */
+	head = list_head (data_out);
+	node = head;
+	if (head != NULL)
+		do {
+			dg = (dgram_t *)node->n_ptr;
+			assert (dg->dg_retry_to == NULL);
+			timeout_left (dg->dg_life_to, now, &left);
+			tv_min (min_result, min_result, &left);
+			node = list_next (node);
+		} while (node != head);
+
+	/* data unacked: hanno sia dg_life_to che dg_retry_to */
+	head = list_head (data_unaked);
+	node = head;
+	if (head != NULL)
+		do {
+			dg = (dgram_t *)node->n_ptr;
+			timeout_left (dg->dg_life_to, now, &left);
+			tv_min (min_result, min_result, &left);
+			timeout_left (dg->dg_retry_to, now, &left);
+			tv_min (min_result, min_result, &left);
+			node = list_next (node);
+		} while (node != head);
 }
 
 

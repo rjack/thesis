@@ -15,6 +15,6 @@ void dgram_init_module (void);
 void dgram_list_add(int list, dgram_t *dg);
 void dgram_outward_all_unacked(struct timeval *now);
 void dgram_purge_all_old(struct timeval *now);
-void dgram_timeout_min(struct timeval *result);
+void dgram_timeout_min(struct timeval *result, const struct timeval *now);
 
 #endif /* ULB_PROTO_DGRAM_H */
