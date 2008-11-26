@@ -11,16 +11,16 @@
  * Code per i datagram.
  */
 /* da softphone a server */
-static dgram_t *data_out;
+static list_node_t *data_out;
 
 /* da server a softphone */
-static dgram_t *data_in;
+static list_node_t *data_in;
 
 /* spediti, da confermare */
-static dgram_t *data_unaked;
+static list_node_t *data_unaked;
 
 /* datagram scartati, pronti per essere riutilizzati */
-static dgram_t *data_discarded;
+static list_node_t *data_discarded;
 
 
 static bool
