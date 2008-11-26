@@ -70,8 +70,6 @@ is_done (void)
 int
 main (const int argc, const char *argv[])
 {
-	int i;
-
 	struct pollfd fds[2 + IFACE_MAX];
 	size_t ifaces_used = 0;
 

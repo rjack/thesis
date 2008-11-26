@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include <unistd.h>
 
 #include "types.h"
@@ -123,7 +124,8 @@ list_dequeue (list_node_t **tp)
 
 
 void
-list_inorder_insert (list_node_t **tp, list_node_t *ptr, int (*cmpfun)(void *, void *))
+list_inorder_insert (list_node_t **tp, list_node_t *ptr,
+                     int (*cmpfun)(void *, void *))
 {
 	list_node_t *cur = list_head (*tp);
 
@@ -166,21 +168,74 @@ list_remove_if (list_node_t **tp, bool (*cmpfun) (void *, void *), void *args)
 
 
 void *
-list_fold_left (list_node_t *tp, void * (*fun)(void *, void *), void *initial_value)
+list_fold_left (list_node_t *tp, void * (*fun)(void *, void *),
+                void *initial_value)
 {
-	list_node_t *node_i;
+	list_node_t *node;
 	list_node_t *head;
 	void *accumulator;
 
 	head = list_head (tp);
-	node_i = head;
+	node = head;
 
 	accumulator = initial_value;
 	if (head != NULL)
 		do {
-			accumulator = fun (accumulator, node_i->n_ptr);
-			node_i = list_next (node_i);
-		} while (node_i != head);
+			accumulator = fun (accumulator, node->n_ptr);
+			node = list_next (node);
+		} while (node != head);
 
 	return accumulator;
+}
+
+
+list_node_t *
+list_cat (list_node_t *tp_0, list_node_t *tp_1)
+{
+	list_node_t *head[2];
+
+	if (list_is_empty (tp_0))
+		return tp_1;
+	if (list_is_empty (tp_1))
+		return tp_0;
+
+	head[0] = list_head (tp_0);
+	head[1] = list_head (tp_1);
+
+	tp_0->n_next = head[1];
+	head[1]->n_prev = tp_0;
+
+	tp_1->n_next = head[0];
+	head[0]->n_prev = tp_1;
+
+	return tp_1;
+}
+
+
+void
+list_foreach_do (list_node_t *tp, void (*fun)(void *, void *), void *args)
+{
+	list_node_t *head;
+	list_node_t *node;
+
+	head = list_head (tp);
+	node = head;
+
+	if (head != NULL)
+		do {
+			fun (node->n_ptr, args);
+			node = list_next (node);
+		} while (node != head);
+}
+
+
+void
+list_destroy (list_node_t **tp, void (*freefun)(void *))
+{
+	list_node_t *node;
+
+	while ((node = list_dequeue (tp)) != NULL) {
+		freefun (node->n_ptr);
+		free (node);
+	}
 }

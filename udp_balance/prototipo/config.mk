@@ -1,6 +1,6 @@
 CC=gcc
 LD=gcc
-CPPOPT=-Wall -Wno-unused -ansi -pedantic
+CPPOPT=-Wall -ansi -pedantic
 CFLAGS=-g -pipe
 LDFLAGS=-lm -lc
 

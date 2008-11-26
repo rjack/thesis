@@ -29,23 +29,6 @@ static char buffer[BUFFER_LEN];
 static struct iovec iov[1];
 
 
-dgram_t *
-dgram_create (void)
-{
-	dgram_t *new_dg;
-
-	new_dg = my_alloc (sizeof(dgram_t));
-
-	new_dg->dg_id = -1;
-	new_dg->dg_data = NULL;
-	new_dg->dg_datalen = 0;
-	new_dg->dg_life_to = NULL;
-	new_dg->dg_retry_to = NULL;
-
-	return new_dg;
-}
-
-
 static list_node_t **
 get_list (int list_id)
 {
@@ -58,9 +41,11 @@ get_list (int list_id)
 
 
 static bool
-must_be_discarded (dgram_t *dg, const struct timeval *now)
+must_be_discarded (void *dg_void, void *now_void)
 {
 	struct timeval left;
+	dgram_t *dg = (dgram_t *)dg_void;
+	struct timeval *now = (struct timeval *)now_void;
 
 	timeout_left (dg->dg_life_to, now, &left);
 	if (tv_cmp (&left, &time_0ms) <= 0)
@@ -83,6 +68,18 @@ must_be_retransmitted (void *dg_void, void *now_void)
 }
 
 
+static void
+free_reply_to (void *ptr, void *discard)
+{
+	dgram_t *dg = (dgram_t *)ptr;
+
+	assert (dg->dg_retry_to != NULL);
+
+	free (dg->dg_retry_to);
+	dg->dg_retry_to = NULL;
+}
+
+
 void
 dgram_init_module (void)
 {
@@ -95,19 +92,48 @@ dgram_init_module (void)
 }
 
 
+dgram_t *
+dgram_create (void)
+{
+	dgram_t *new_dg;
+
+	new_dg = my_alloc (sizeof(dgram_t));
+
+	new_dg->dg_id = -1;
+	new_dg->dg_data = NULL;
+	new_dg->dg_datalen = 0;
+	new_dg->dg_life_to = NULL;
+	new_dg->dg_retry_to = NULL;
+
+	return new_dg;
+}
+
+
 void
 dgram_outward_all_unacked (struct timeval *now)
 {
 	list_node_t *rmvd;
 
 	rmvd = list_remove_if (&data_unaked, must_be_retransmitted, now);
-	/* TODO continua da qui. */
+
+	list_foreach_do (rmvd, free_reply_to, NULL);
+
+	data_out = list_cat (rmvd, data_out);
 }
 
 
 void
 dgram_purge_all_old (struct timeval *now)
 {
+	list_node_t *rmvd;
+
+	/* data_out */
+	rmvd = list_remove_if (&data_out, must_be_discarded, now);
+	list_destroy (&rmvd, free);
+
+	/* data_unaked */
+	rmvd = list_remove_if (&data_unaked, must_be_discarded, now);
+	list_destroy (&rmvd, free);
 }
 
 
