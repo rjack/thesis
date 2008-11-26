@@ -107,6 +107,7 @@ main (const int argc, const char *argv[])
 	 * Setup iniziale.
 	 */
 	iface_init_module ();
+	dgram_init_module ();
 	gettime (&now);
 
 	/* Creazione socket bindati e connessi per IM e SP. */

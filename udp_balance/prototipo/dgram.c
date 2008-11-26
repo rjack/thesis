@@ -11,19 +11,16 @@
  * Code per i datagram.
  */
 /* da softphone a server */
-static dgram_t *data_out = NULL;
+static dgram_t *data_out;
 
 /* da server a softphone */
-static dgram_t *data_in = NULL;
+static dgram_t *data_in;
 
 /* spediti, da confermare */
-static dgram_t *data_unakd = NULL;
-
-/* msg config interfacce */
-static dgram_t *data_iface = NULL;
+static dgram_t *data_unaked;
 
 /* datagram scartati, pronti per essere riutilizzati */
-static dgram_t *data_discarded = NULL;
+static dgram_t *data_discarded;
 
 
 static bool
@@ -57,6 +54,16 @@ must_be_retransmitted (dgram_t *dg)
 		return TRUE;
 	}
 	return FALSE;
+}
+
+
+void
+dgram_init_module (void)
+{
+	data_out = list_create ();
+	data_in = list_create ();
+	data_unaked = list_create ();
+	data_discarded = list_create ();
 }
 
 
