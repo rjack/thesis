@@ -1,5 +1,10 @@
 #include <assert.h>
+#include <errno.h>
 #include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <sys/types.h>
 #include <unistd.h>
 
 #include "crono.h"
@@ -18,6 +23,10 @@ static list_node_t *data_in;
 
 /* spediti, da confermare */
 static list_node_t *data_unaked;
+
+#define     BUFFER_LEN     65535
+static char buffer[BUFFER_LEN];
+static struct iovec iov[1];
 
 
 dgram_t *
@@ -88,6 +97,9 @@ dgram_init_module (void)
 	data_out = list_create ();
 	data_in = list_create ();
 	data_unaked = list_create ();
+
+	iov[0].iov_base = buffer;
+	iov[0].iov_len = BUFFER_LEN;
 }
 
 
@@ -114,14 +126,14 @@ dgram_t *
 dgram_list_peek (int list_id)
 {
 	list_node_t **list;
-	list_node_t *dg_node;
+	list_node_t *node;
 
 	list = get_list (list_id);
-	dg_node = list_head (*list);
+	node = list_head (*list);
 
-	if (dg_node == NULL)
+	if (node == NULL)
 		return NULL;
-	return dg_node->n_ptr;
+	return node->n_ptr;
 }
 
 
@@ -141,14 +153,14 @@ dgram_t *
 dgram_list_pop (int list_id)
 {
 	list_node_t **list;
-	list_node_t *dg_node;
+	list_node_t *node;
 	dgram_t *dg;
 
 	list = get_list (list_id);
-	dg_node = list_dequeue (list);
-	if (dg_node != NULL) {
-		dg = dg_node->n_ptr;
-		free (dg_node);
+	node = list_dequeue (list);
+	if (node != NULL) {
+		dg = node->n_ptr;
+		free (node);
 		return dg;
 	}
 	return NULL;
@@ -158,7 +170,39 @@ dgram_list_pop (int list_id)
 dgram_t *
 dgram_read (fd_t sfd)
 {
-	return NULL;
+	ssize_t nrecv;
+	struct msghdr hdr;
+	dgram_t *dg;
+
+	memset (&hdr, 0, sizeof(hdr));
+
+	/* XXX salvare mittente! */
+	hdr.msg_name = NULL;
+	hdr.msg_namelen = 0;
+	hdr.msg_iov = iov;
+	hdr.msg_iovlen = ARRAYLEN(iov);
+	hdr.msg_control = NULL;
+	hdr.msg_controllen = 0;
+	hdr.msg_flags = 0;
+
+	do {
+		nrecv = recvmsg (sfd, &hdr, 0);
+	} while (nrecv == -1 && errno == EINTR);
+
+	if (nrecv == -1) {
+		perror ("recvmsg (dgram_read)");
+		exit (EXIT_FAILURE);
+	}
+
+	dg = dgram_create ();
+	dg->dg_data = my_alloc (nrecv);
+	memcpy (dg->dg_data, buffer, nrecv);
+	dg->dg_datalen = nrecv;
+	dg->dg_life_to = NULL;
+	dg->dg_retry_to = NULL;
+	dg->dg_id = -1;
+
+	return dg;
 }
 
 
