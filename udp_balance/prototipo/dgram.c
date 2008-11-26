@@ -3,6 +3,8 @@
 #include <unistd.h>
 
 #include "crono.h"
+#include "list.h"
+#include "util.h"
 #include "types.h"
 
 /*
@@ -58,64 +60,67 @@ must_be_retransmitted (dgram_t *dg)
 }
 
 
-static dgram_t *
-list_cat (dgram_t *fst, dgram_t *snd)
-/* Ritorna la concatenazione delle due liste fst e snd. */
+void
+dgram_outward_all_unacked (struct timeval *now)
 {
-	dgram_t *tail;
-
-	if (fst == NULL)
-		return snd;
-	if (snd == NULL)
-		return fst;
-
-	for (tail = fst; tail->dg_next != NULL; tail = tail->dg_next);
-	tail->dg_next = snd;
-
-	return fst;
+	/* TODO dgram_outward_all_unacked */
 }
 
 
-static dgram_t *
-list_remove_if (bool (*test)(dgram_t *), dgram_t **lst)
-/* Rimuove da lst tutti gli elementi che soddisfano test e li ritorna in una
- * lista. */
+void
+dgram_purge_all_old (struct timeval *now)
 {
-	dgram_t *cur;
-	dgram_t *rmvd = NULL;
-	dgram_t **rmvd_tp = &rmvd;
-	dgram_t *passd = NULL;
-	dgram_t **passd_tp = &passd;
-
-	assert (lst != NULL);
-
-	if (*lst == NULL)
-		return NULL;
-
-	for (cur = *lst; cur != NULL; cur = cur->dg_next)
-		if (test (cur)) {
-			*rmvd_tp = cur;
-			rmvd_tp = &cur->dg_next;
-		} else {
-			*passd_tp = cur;
-			passd_tp = &cur->dg_next;
-		}
-
-	*rmvd_tp = NULL;
-	*passd_tp = NULL;
-
-	*lst = passd;
-	return rmvd;
 }
-/*
-dgram_outward_all_unacked
-dgram_purge_all_old
-dgram_timeout_min
-dgram_list_peek
-dgram_read
-dgram_list_add
-dgram_list_pop
-dgram_write
-dgram_free
-dgram_keepalive
-*/
+
+
+void
+dgram_timeout_min (struct timeval *result)
+{
+}
+
+
+dgram_t *
+dgram_list_peek (int list)
+{
+	return NULL;
+}
+
+
+void
+dgram_list_add (int list, dgram_t *dg)
+{
+}
+
+
+dgram_t *
+dgram_list_pop (int list)
+{
+	return NULL;
+}
+
+
+dgram_t *
+dgram_read (fd_t sfd)
+{
+	return NULL;
+}
+
+
+int
+dgram_write (fd_t sfd, dgram_t *dg)
+{
+	return 0;
+}
+
+
+void
+dgram_free (dgram_t *dg)
+{
+}
+
+
+dgram_t *
+dgram_create_keepalive (void)
+{
+	return NULL;
+}

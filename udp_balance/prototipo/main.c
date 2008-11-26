@@ -12,6 +12,7 @@
 #include <unistd.h>
 
 #include "crono.h"
+#include "dgram.h"
 #include "iface.h"
 #include "types.h"
 #include "util.h"
@@ -225,7 +226,7 @@ main (const int argc, const char *argv[])
 		if (sp->revents & POLLOUT) {
 			dg = dgram_list_pop (DGRAM_INWARD);
 			assert (dg != NULL);
-			dgram_write (sp->fd);
+			dgram_write (sp->fd, dg);
 			/* TODO controllo errore */
 			dgram_free (dg);
 		}
@@ -268,7 +269,7 @@ main (const int argc, const char *argv[])
 			if (ev & POLLIN) {
 				dg = iface_read (if_ptr);
 				/* TODO  controllo errore */
-				dgram_list_add (DGRAM_INWARD);
+				dgram_list_add (DGRAM_INWARD, dg);
 			}
 
 			/* Spedizione keepalive. */
