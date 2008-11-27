@@ -8,6 +8,7 @@
 #include <assert.h>
 #include <poll.h>
 #include <stdio.h>
+#include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
 
@@ -154,7 +155,10 @@ main (const int argc, const char *argv[])
 		current_iface = iface_get_current ();
 		if (debug) {
 			char ifstr[100];
-			iface_to_string (current_iface, ifstr);
+			if (current_iface != NULL)
+				iface_to_string (current_iface, ifstr);
+			else
+				strcpy (ifstr, "no interface");
 			printf ("Wifi interface: %s\n", ifstr);
 		}
 
@@ -162,6 +166,8 @@ main (const int argc, const char *argv[])
 		 * Gestione dei timeout: pulizia code e calcolo timeout minimo.
 		 */
 		gettime (&now);
+		min.tv_sec = ONE_MILLION;
+		min.tv_usec = 0;
 
 		dgram_outward_all_unacked (&now);
 		dgram_purge_all_old (&now);
@@ -176,7 +182,9 @@ main (const int argc, const char *argv[])
 
 		dgram_timeout_min (&min, &now);
 
-		if (tv_cmp (&min, &time_0ms) <= 0)
+		if (min.tv_sec == ONE_MILLION)
+			next_tmout = -1;
+		else if (tv_cmp (&min, &time_0ms) <= 0)
 			next_tmout = 0;
 		else {
 			assert (tv_cmp (&min, &time_0ms) > 0);
