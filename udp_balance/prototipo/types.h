@@ -4,6 +4,27 @@
 #include <poll.h>
 #include <sys/time.h>
 
+
+#define     SP_LOC_IP       "127.0.0.1"
+#define     SP_LOC_PORT     "5555"
+
+/* FIXME in realta' l'IP del softphone e' quello da cui ricevo i datagram? */
+#define     SP_REM_IP       "127.0.0.1"
+#define     SP_REM_PORT     "5556"
+
+
+#define     IM_LOC_IP       "127.0.0.1"
+#define     IM_LOC_PORT     "6666"
+#define     IM_REM_IP       "127.0.0.1"
+#define     IM_REM_PORT     "6667"
+
+/* PX_LOC_IP e' quello dell'interfaccia di rete. */
+#define     PX_LOC_PORT     "8888"
+#define     PX_REM_IP       "127.0.0.1"
+#define     PX_REM_PORT     "8889"
+
+
+
 #define     ONE_MILLION     1000000
 
 #define     IFACE_MAX       16
@@ -110,8 +131,6 @@ EXTERN_IF_NOT_MAIN struct timeval time_0ms;
 EXTERN_IF_NOT_MAIN struct timeval time_30ms;
 EXTERN_IF_NOT_MAIN struct timeval time_150ms;
 EXTERN_IF_NOT_MAIN bool debug;
-EXTERN_IF_NOT_MAIN char *ps_bind_ip;
-EXTERN_IF_NOT_MAIN char *ps_bind_port;
 
 
 #endif /* ULP_PROTO_TYPES_H */

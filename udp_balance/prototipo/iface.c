@@ -43,7 +43,7 @@ iface_init_module (void)
 
 
 int
-iface_up (const char *name, const char *bind_ip, const char *bind_port)
+iface_up (const char *name, const char *bind_ip)
 {
 	iface_t *if_ptr;
 
@@ -60,9 +60,9 @@ iface_up (const char *name, const char *bind_ip, const char *bind_port)
 	if_ptr->if_suspected = FALSE;
 	if_ptr->if_name = my_strdup (name);
 	if_ptr->if_bind_ip = my_strdup (bind_ip);
-	if_ptr->if_bind_port = my_strdup (bind_port);
-	if_ptr->if_pfd.fd = socket_bound_conn (bind_ip, bind_port,
-					       ps_bind_ip, ps_bind_port);
+	if_ptr->if_bind_port = my_strdup (PX_LOC_PORT);
+	if_ptr->if_pfd.fd = socket_bound_conn (bind_ip, PX_LOC_PORT,
+					       PX_REM_IP, PX_REM_PORT);
 	if_ptr->if_pfd.events = 0;
 	if_ptr->if_pfd.revents = 0;
 	timeout_set (&if_ptr->if_keepalive, &time_150ms);

@@ -31,16 +31,6 @@
  * <http://traceroute.sf.net/> */
 #define     CONTROLBUFLEN     1024
 
-#define     SP_BIND_IP       "127.0.0.1"
-#define     SP_BIND_PORT     "7777"
-
-/* FIXME in realta' l'IP del softphone e' quello da cui ricevo i datagram. */
-#define     SP_CONN_IP       "127.0.0.1"
-#define     SP_CONN_PORT     "7778"
-
-#define     IM_BIND_IP       "127.0.0.1"
-#define     IM_BIND_PORT     "8888"
-
 
 /****************************************************************************
 			       Variabili locali
@@ -117,12 +107,12 @@ main (const int argc, const char *argv[])
 	/* Creazione socket bindati per IM e SP
 	 * FIXME non connettere sp ma ogni sendmsg usa addr ritornato da
 	 * FIXME recvmsg. */
-	sp->fd = socket_bound_conn (SP_BIND_IP, SP_BIND_PORT,
-	                            SP_CONN_IP, SP_CONN_PORT);
+	sp->fd = socket_bound_conn (SP_LOC_IP, SP_LOC_PORT,
+	                            SP_REM_IP, SP_REM_PORT);
 	if (sp->fd == -1)
 		goto socket_bound_conn_err;
-	im->fd = socket_bound_conn (IM_BIND_IP, IM_BIND_PORT,
-	                            NULL, NULL);
+	im->fd = socket_bound_conn (IM_LOC_IP, IM_LOC_PORT,
+	                            IM_REM_IP, IM_REM_PORT);
 	if (im->fd == -1)
 		goto socket_bound_conn_err;
 
