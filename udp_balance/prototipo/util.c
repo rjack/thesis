@@ -122,11 +122,13 @@ socket_bound_conn (const char *bind_ip, const char *bind_port,
 		goto bind_conn_err;
 
 	freeaddrinfo (bind_results);
-	freeaddrinfo (conn_results);
+	if (must_connect)
+		freeaddrinfo (conn_results);
 	return new_sfd;
 
 bind_conn_err:
-	freeaddrinfo (conn_results);
+	if (must_connect)
+		freeaddrinfo (conn_results);
 getaddrinfo_conn_err:
 	freeaddrinfo (bind_results);
 getaddrinfo_bind_err:
