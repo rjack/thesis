@@ -96,8 +96,8 @@ typedef struct dgram {
 typedef struct {
 	bool if_suspected;
 	char *if_name;
-	char *if_bind_ip;
-	char *if_bind_port;
+	char *if_loc_ip;
+	char *if_loc_port;
 	struct pollfd if_pfd;
 	timeout_t if_keepalive;
 } iface_t;

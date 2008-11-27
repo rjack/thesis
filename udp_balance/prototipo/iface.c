@@ -11,8 +11,8 @@
 
 struct match_iface_args {
 	const char *mia_name;
-	const char *mia_bind_ip;
-	const char *mia_bind_port;
+	const char *mia_loc_ip;
+	const char *mia_loc_port;
 };
 
 
@@ -27,8 +27,8 @@ match_iface (void *ifp, void *argsp)
 	struct match_iface_args *args = (struct match_iface_args *)argsp;
 
 	if (if_ptr->if_name == args->mia_name
-	    && if_ptr->if_bind_ip == args->mia_bind_ip
-	    && if_ptr->if_bind_port == args->mia_bind_port)
+	    && if_ptr->if_loc_ip == args->mia_loc_ip
+	    && if_ptr->if_loc_port == args->mia_loc_port)
 		return TRUE;
 	return FALSE;
 }
@@ -43,7 +43,7 @@ iface_init_module (void)
 
 
 int
-iface_up (const char *name, const char *bind_ip)
+iface_up (const char *name, const char *loc_ip)
 {
 	iface_t *if_ptr;
 
@@ -59,9 +59,9 @@ iface_up (const char *name, const char *bind_ip)
 
 	if_ptr->if_suspected = FALSE;
 	if_ptr->if_name = my_strdup (name);
-	if_ptr->if_bind_ip = my_strdup (bind_ip);
-	if_ptr->if_bind_port = my_strdup (PX_LOC_PORT);
-	if_ptr->if_pfd.fd = socket_bound_conn (bind_ip, PX_LOC_PORT,
+	if_ptr->if_loc_ip = my_strdup (loc_ip);
+	if_ptr->if_loc_port = my_strdup (PX_LOC_PORT);
+	if_ptr->if_pfd.fd = socket_bound_conn (loc_ip, PX_LOC_PORT,
 					       PX_REM_IP, PX_REM_PORT);
 	if_ptr->if_pfd.events = 0;
 	if_ptr->if_pfd.revents = 0;
@@ -77,23 +77,23 @@ iface_up (const char *name, const char *bind_ip)
 
 
 void
-iface_down (const char *name, const char *bind_ip, const char *bind_port)
+iface_down (const char *name, const char *loc_ip, const char *loc_port)
 {
 	iface_t *if_ptr;
 	list_node_t *node_ptr;
 	struct match_iface_args args;
 
 	args.mia_name = name;
-	args.mia_bind_ip = bind_ip;
-	args.mia_bind_port = bind_port;
+	args.mia_loc_ip = loc_ip;
+	args.mia_loc_port = loc_port;
 
 	node_ptr = list_contains (ifaces, &match_iface, &args);
 	list_remove (&ifaces, node_ptr);
 	if_ptr = node_ptr->n_ptr;
 
 	free (if_ptr->if_name);
-	free (if_ptr->if_bind_ip);
-	free (if_ptr->if_bind_port);
+	free (if_ptr->if_loc_ip);
+	free (if_ptr->if_loc_port);
 
 	free (node_ptr);
 }
@@ -187,8 +187,8 @@ iface_to_string (iface_t *iface, char *str)
 	assert (str != NULL);
 
 	nbytes = sprintf (str, "%s %s:%s",
-	                  iface->if_name, iface->if_bind_ip,
-	                  iface->if_bind_port);
+	                  iface->if_name, iface->if_loc_ip,
+	                  iface->if_loc_port);
 	if (iface->if_suspected)
 		sprintf (str + nbytes, " [s]");
 	return str;

@@ -42,8 +42,8 @@ new_node (void *ptr)
 
 
 fd_t
-socket_bound_conn (const char *bind_ip, const char *bind_port,
-                   const char *conn_ip, const char *conn_port)
+socket_bound_conn (const char *loc_ip, const char *loc_port,
+                   const char *rem_ip, const char *rem_port)
 {
 	int err;
 	fd_t new_sfd;
@@ -54,7 +54,7 @@ socket_bound_conn (const char *bind_ip, const char *bind_port,
 	struct addrinfo *cur_conn;
 	bool must_connect;
 
-	must_connect = (conn_ip != NULL || conn_port != NULL) ? TRUE : FALSE;
+	must_connect = (rem_ip != NULL || rem_port != NULL) ? TRUE : FALSE;
 
 	/* getaddrinfo hints */
 	addr_hints.ai_family = AF_INET;
@@ -67,14 +67,14 @@ socket_bound_conn (const char *bind_ip, const char *bind_port,
 	addr_hints.ai_canonname = NULL;
 
 	/* getaddrinfo bind */
-	err = getaddrinfo (bind_ip, bind_port, &addr_hints, &bind_results);
+	err = getaddrinfo (loc_ip, loc_port, &addr_hints, &bind_results);
 	if (err) {
 		fprintf (stderr, "getaddrinfo: %s\n", gai_strerror (err));
 		goto getaddrinfo_bind_err;
 	}
 
 	if (must_connect) {
-		err = getaddrinfo (conn_ip, conn_port, &addr_hints,
+		err = getaddrinfo (rem_ip, rem_port, &addr_hints,
 		                   &conn_results);
 		if (err) {
 			fprintf (stderr, "getaddrinfo: %s\n",
