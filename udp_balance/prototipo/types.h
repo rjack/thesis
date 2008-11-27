@@ -18,7 +18,8 @@
 #define     IM_REM_IP       "127.0.0.1"
 #define     IM_REM_PORT     "6667"
 
-/* PX_LOC_IP e' quello dell'interfaccia di rete. */
+/* l'indirizzo ip locale per le comunicazioni con il proxy e' quello
+ * di ogni interfaccia di rete. */
 #define     PX_LOC_PORT     "8888"
 #define     PX_REM_IP       "127.0.0.1"
 #define     PX_REM_PORT     "8889"
