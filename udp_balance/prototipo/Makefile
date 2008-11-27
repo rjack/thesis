@@ -1,19 +1,23 @@
 include config.mk
 
 
-.PHONY	: clean
+.PHONY	: clean all
 
 
-$(EXE)	: $(OBJ)
-	$(LD) -o $(EXE) $(LDFLAGS) $(OBJ)
+all		: $(EXE)
 
 
-%.o	: %.c $(DEPCOM)
+$(ULB_EXE)	: $(ULB_OBJ)
+	$(LD) -o $@ $(LDFLAGS) $(ULB_OBJ)
+
+
+$(PRX_EXE)	: $(PRX_OBJ)
+	$(LD) -o $@ $(LDFLAGS) $(PRX_OBJ)
+
+
+%.o		: %.c $(DEPCOM)
 	$(CC) $(CPPOPT) $(CFLAGS) -c $< -o $@
 
 
-crono.o	: crono.h
-
-
-clean	:
+clean		:
 	rm -f $(OBJ) $(EXE)

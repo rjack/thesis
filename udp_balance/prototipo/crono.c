@@ -1,5 +1,4 @@
 #include <assert.h>
-#include <math.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/time.h>
@@ -142,19 +141,6 @@ gettime (struct timeval *tv)
 
 	gettimeofday (tv, NULL);
 	tv_normalize (tv);
-}
-
-
-void
-d2tv (double value, struct timeval *tv)
-{
-	assert (value >= 0);
-	assert (tv != NULL);
-
-	tv->tv_sec = floor (value);
-	tv->tv_usec = (value - tv->tv_sec) * ONE_MILLION;
-
-	assert (tv_is_normalized (tv));
 }
 
 

@@ -12,7 +12,6 @@ void crono_start(crono_t *cr, const struct timeval *now);
 int tv_cmp(const struct timeval *tv_1, const struct timeval *tv_2);
 void tv_min(struct timeval *result, const struct timeval *tv_1, const struct timeval *tv_2);
 void gettime(struct timeval *tv);
-void d2tv(double value, struct timeval *tv);
 double tv2d(struct timeval *tv, bool must_free);
 void tv_diff(struct timeval *result, const struct timeval *min, const struct timeval *sub);
 int tv_is_normalized(const struct timeval *tv);
