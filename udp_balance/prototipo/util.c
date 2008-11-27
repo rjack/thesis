@@ -42,8 +42,8 @@ new_node (void *ptr)
 
 
 fd_t
-socket_bound_and_connected (const char *bind_ip, const char *bind_port,
-                            const char *conn_ip, const char *conn_port)
+socket_bound_conn (const char *bind_ip, const char *bind_port,
+                   const char *conn_ip, const char *conn_port)
 {
 	int err;
 	fd_t new_sfd;
@@ -86,8 +86,7 @@ socket_bound_and_connected (const char *bind_ip, const char *bind_port,
 	/* Prova gli addrinfo ritornati. */
 	new_sfd = -1;
 	cur_bind = bind_results;
-	if (must_connect)
-		cur_conn = conn_results;
+	cur_conn = must_connect ? conn_results : NULL;
 
 	while (new_sfd == -1
 	       && cur_bind != NULL
@@ -95,7 +94,7 @@ socket_bound_and_connected (const char *bind_ip, const char *bind_port,
 
 		new_sfd = socket (AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 		if (new_sfd == -1) {
-			perror ("socket (socket_bound_and_connected)");
+			perror ("socket (socket_bound_conn)");
 			exit (EXIT_FAILURE);
 		}
 

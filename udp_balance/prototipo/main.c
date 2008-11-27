@@ -116,14 +116,14 @@ main (const int argc, const char *argv[])
 	/* Creazione socket bindati per IM e SP
 	 * FIXME non connettere sp ma ogni sendmsg usa addr ritornato da
 	 * FIXME recvmsg. */
-	sp->fd = socket_bound_and_connected (SP_BIND_IP, SP_BIND_PORT,
-	                                     SP_CONN_IP, SP_CONN_PORT);
+	sp->fd = socket_bound_conn (SP_BIND_IP, SP_BIND_PORT,
+	                            SP_CONN_IP, SP_CONN_PORT);
 	if (sp->fd == -1)
-		goto socket_bound_and_connected_err;
-	im->fd = socket_bound_and_connected (IM_BIND_IP, IM_BIND_PORT,
-	                                     NULL, NULL);
+		goto socket_bound_conn_err;
+	im->fd = socket_bound_conn (IM_BIND_IP, IM_BIND_PORT,
+	                            NULL, NULL);
 	if (im->fd == -1)
-		goto socket_bound_and_connected_err;
+		goto socket_bound_conn_err;
 
 	while (!is_done ()) {
 		dgram_t *dg;
@@ -301,7 +301,7 @@ main (const int argc, const char *argv[])
 
 	return 0;
 
-socket_bound_and_connected_err:
-	perror ("socket_bound");
+socket_bound_conn_err:
+	perror ("socket_bound_conn");
 	exit (EXIT_FAILURE);
 }
