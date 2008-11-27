@@ -1,6 +1,7 @@
 #define     _POSIX_C_SOURCE     1     /* per getaddrinfo */
 
 #include <assert.h>
+#include <errno.h>
 #include <netdb.h>
 #include <string.h>
 #include <stdio.h>
@@ -41,15 +42,19 @@ new_node (void *ptr)
 
 
 fd_t
-socket_bound (const char *bind_ip, const char *bind_port)
-/* Ritorna un socket AF_INET SOCK_DGRAM e lo binda all'indirizzo e alla porta
- * dati. */
+socket_bound_and_connected (const char *bind_ip, const char *bind_port,
+                            const char *conn_ip, const char *conn_port)
 {
 	int err;
 	fd_t new_sfd;
 	struct addrinfo addr_hints;
-	struct addrinfo *addr_results;
-	struct addrinfo *res;
+	struct addrinfo *bind_results;
+	struct addrinfo *conn_results;
+	struct addrinfo *cur_bind;
+	struct addrinfo *cur_conn;
+	bool must_connect;
+
+	must_connect = (conn_ip != NULL || conn_port != NULL) ? TRUE : FALSE;
 
 	/* getaddrinfo hints */
 	addr_hints.ai_family = AF_INET;
@@ -61,41 +66,71 @@ socket_bound (const char *bind_ip, const char *bind_port)
 	addr_hints.ai_addrlen = 0;
 	addr_hints.ai_canonname = NULL;
 
-	/* getaddrinfo */
-	err = getaddrinfo (bind_ip, bind_port, &addr_hints, &addr_results);
+	/* getaddrinfo bind */
+	err = getaddrinfo (bind_ip, bind_port, &addr_hints, &bind_results);
 	if (err) {
 		fprintf (stderr, "getaddrinfo: %s\n", gai_strerror (err));
-		goto getaddrinfo_err;
+		goto getaddrinfo_bind_err;
+	}
+
+	if (must_connect) {
+		err = getaddrinfo (conn_ip, conn_port, &addr_hints,
+		                   &conn_results);
+		if (err) {
+			fprintf (stderr, "getaddrinfo: %s\n",
+			         gai_strerror (err));
+			goto getaddrinfo_conn_err;
+		}
 	}
 
 	/* Prova gli addrinfo ritornati. */
 	new_sfd = -1;
-	res = addr_results;
-	while (new_sfd == -1 && res != NULL) {
-		assert (res->ai_family == AF_INET);
-		assert (res->ai_socktype == SOCK_DGRAM);
-		assert (res->ai_protocol == IPPROTO_UDP);
+	cur_bind = bind_results;
+	if (must_connect)
+		cur_conn = conn_results;
+
+	while (new_sfd == -1
+	       && cur_bind != NULL
+	       && (!must_connect || cur_conn != NULL)) {
 
 		new_sfd = socket (AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-		if (new_sfd == -1)
-			continue;
+		if (new_sfd == -1) {
+			perror ("socket (socket_bound_and_connected)");
+			exit (EXIT_FAILURE);
+		}
 
-		err = bind (new_sfd, res->ai_addr, res->ai_addrlen);
+		do {
+			err = bind (new_sfd, cur_bind->ai_addr,
+			            cur_bind->ai_addrlen);
+		} while (err == -1 && errno == EINTR);
 		if (err) {
 			close (new_sfd);
 			new_sfd = -1;
-			res = res->ai_next;
+			cur_bind = cur_bind->ai_next;
+		} else if (must_connect) {
+			do {
+				err = connect (new_sfd, cur_conn->ai_addr,
+				               cur_conn->ai_addrlen);
+			} while (err == -1 && errno == EINTR);
+			if (err) {
+				close (new_sfd);
+				new_sfd = -1;
+				cur_conn = cur_conn->ai_next;
+			}
 		}
 	}
 	if (new_sfd == -1)
-		goto bind_err;
+		goto bind_conn_err;
 
-	freeaddrinfo (addr_results);
+	freeaddrinfo (bind_results);
+	freeaddrinfo (conn_results);
 	return new_sfd;
 
-bind_err:
-	freeaddrinfo (addr_results);
-getaddrinfo_err:
+bind_conn_err:
+	freeaddrinfo (conn_results);
+getaddrinfo_conn_err:
+	freeaddrinfo (bind_results);
+getaddrinfo_bind_err:
 	return -1;
 }
 

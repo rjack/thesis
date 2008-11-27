@@ -110,6 +110,8 @@ EXTERN_IF_NOT_MAIN struct timeval time_0ms;
 EXTERN_IF_NOT_MAIN struct timeval time_30ms;
 EXTERN_IF_NOT_MAIN struct timeval time_150ms;
 EXTERN_IF_NOT_MAIN bool debug;
+EXTERN_IF_NOT_MAIN char *ps_bind_ip;
+EXTERN_IF_NOT_MAIN char *ps_bind_port;
 
 
 #endif /* ULP_PROTO_TYPES_H */

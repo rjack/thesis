@@ -33,6 +33,10 @@
 #define     SP_BIND_IP       "127.0.0.1"
 #define     SP_BIND_PORT     "7777"
 
+/* FIXME in realta' l'IP del softphone e' quello da cui ricevo i datagram. */
+#define     SP_CONN_IP       "127.0.0.1"
+#define     SP_CONN_PORT     "7778"
+
 #define     IM_BIND_IP       "127.0.0.1"
 #define     IM_BIND_PORT     "8888"
 
@@ -90,6 +94,8 @@ main (const int argc, const char *argv[])
 	time_150ms.tv_sec = 0;
 	time_150ms.tv_usec = 150000;
 
+	debug = TRUE;
+
 	/*
 	 * Opzioni a riga di comando.
 	 * TODO SP_BIND_IP, SP_BIND_PORT, IM_BIND_IP, IM_BIND_PORT
@@ -106,10 +112,18 @@ main (const int argc, const char *argv[])
 	 */
 	iface_init_module ();
 	dgram_init_module ();
-	gettime (&now);
 
-	/* Creazione socket bindati e connessi per IM e SP. */
-	sp->fd = socket_bound (SP_BIND_IP, SP_BIND_PORT);
+	/* Creazione socket bindati per IM e SP
+	 * FIXME non connettere sp ma ogni sendmsg usa addr ritornato da
+	 * FIXME recvmsg. */
+	sp->fd = socket_bound_and_connected (SP_BIND_IP, SP_BIND_PORT,
+	                                     SP_CONN_IP, SP_CONN_PORT);
+	if (sp->fd == -1)
+		goto socket_bound_and_connected_err;
+	im->fd = socket_bound_and_connected (IM_BIND_IP, IM_BIND_PORT,
+	                                     NULL, NULL);
+	if (im->fd == -1)
+		goto socket_bound_and_connected_err;
 
 	while (!is_done ()) {
 		dgram_t *dg;
@@ -286,4 +300,8 @@ main (const int argc, const char *argv[])
 	}
 
 	return 0;
+
+socket_bound_and_connected_err:
+	perror ("socket_bound");
+	exit (EXIT_FAILURE);
 }

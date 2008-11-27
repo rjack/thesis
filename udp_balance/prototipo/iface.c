@@ -61,8 +61,8 @@ iface_up (const char *name, const char *bind_ip, const char *bind_port)
 	if_ptr->if_name = my_strdup (name);
 	if_ptr->if_bind_ip = my_strdup (bind_ip);
 	if_ptr->if_bind_port = my_strdup (bind_port);
-	if_ptr->if_pfd.fd = socket_bound (bind_ip, bind_port);
-	/* TODO socket connect al proxy server. */
+	if_ptr->if_pfd.fd = socket_bound_and_connected (bind_ip, bind_port,
+	                                                ps_bind_ip, ps_bind_port);
 	if_ptr->if_pfd.events = 0;
 	if_ptr->if_pfd.revents = 0;
 	timeout_set (&if_ptr->if_keepalive, &time_150ms);
