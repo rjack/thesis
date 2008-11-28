@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+
+# Softphone
+
+nc -vv -u -p 7778 127.0.0.1 7777
