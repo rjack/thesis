@@ -229,14 +229,14 @@ main (const int argc, const char *argv[])
 			exit (EXIT_FAILURE);
 		}
 		if (sp->revents & POLLIN) {
-			dg = dgram_read (sp->fd);
+			dg = dgram_read (sp->fd, NULL, NULL);
 			/* TODO controllo errore */
 			dgram_list_add (DGRAM_OUTWARD, dg);
 		}
 		if (sp->revents & POLLOUT) {
 			dg = dgram_list_pop (DGRAM_INWARD);
 			assert (dg != NULL);
-			dgram_write (sp->fd, dg);
+			dgram_write (sp->fd, dg, NULL, 0);
 			/* TODO controllo errore */
 			dgram_free (dg);
 		}
@@ -252,7 +252,7 @@ main (const int argc, const char *argv[])
 			exit (EXIT_FAILURE);
 		}
 		if (im->revents & POLLIN) {
-			dg = dgram_read (im->fd);
+			dg = dgram_read (im->fd, NULL, NULL);
 			/* TODO riconfigurazione socket interfacce. */
 			dgram_free (dg);
 		}

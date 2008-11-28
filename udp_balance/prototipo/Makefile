@@ -7,12 +7,12 @@ include config.mk
 all		: $(EXE)
 
 
-$(ULB_EXE)	: $(ULB_OBJ)
-	$(LD) -o $@ $(LDFLAGS) $(ULB_OBJ)
+$(ULB_EXE)	: main.o $(ULB_OBJ)
+	$(LD) -o $@ $(LDFLAGS) $< $(ULB_OBJ)
 
 
-$(PRX_EXE)	: $(PRX_OBJ)
-	$(LD) -o $@ $(LDFLAGS) $(PRX_OBJ)
+$(PRX_EXE)	: proxy.o $(ULB_OBJ)
+	$(LD) -o $@ $(LDFLAGS) $< $(ULB_OBJ)
 
 
 %.o		: %.c $(DEPCOM)

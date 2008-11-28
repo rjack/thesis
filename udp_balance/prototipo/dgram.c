@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <errno.h>
+#include <netinet/in.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -24,9 +25,7 @@ static list_node_t *data_in;
 /* spediti, da confermare */
 static list_node_t *data_unaked;
 
-#define     BUFFER_LEN     65535
-static char buffer[BUFFER_LEN];
-static struct iovec iov[1];
+#define     BUFFER_LEN     1500
 
 
 static list_node_t **
@@ -86,9 +85,6 @@ dgram_init_module (void)
 	data_out = list_create ();
 	data_in = list_create ();
 	data_unaked = list_create ();
-
-	iov[0].iov_base = buffer;
-	iov[0].iov_len = BUFFER_LEN;
 }
 
 
@@ -218,15 +214,21 @@ dgram_list_pop (int list_id)
 
 
 dgram_t *
-dgram_read (fd_t sfd)
+dgram_read (fd_t sfd, struct sockaddr_in *src_addr_result,
+            socklen_t *src_addr_result_len)
 {
 	ssize_t nrecv;
 	struct msghdr hdr;
 	dgram_t *dg;
+	char buffer[BUFFER_LEN];
+	struct iovec iov[1];
+
+	iov[0].iov_base = buffer;
+	iov[0].iov_len = BUFFER_LEN;
 
 	/* XXX salvare mittente! */
-	hdr.msg_name = NULL;
-	hdr.msg_namelen = 0;
+	hdr.msg_name = src_addr_result;
+	hdr.msg_namelen = *src_addr_result_len;
 	hdr.msg_iov = iov;
 	hdr.msg_iovlen = ARRAYLEN(iov);
 	hdr.msg_control = NULL;
@@ -250,12 +252,15 @@ dgram_read (fd_t sfd)
 	dg->dg_retry_to = NULL;
 	dg->dg_id = -1;
 
+	*src_addr_result_len = hdr.msg_namelen;
+
 	return dg;
 }
 
 
 int
-dgram_write (fd_t sfd, dgram_t *dg)
+dgram_write (fd_t sfd, dgram_t *dg,
+             struct sockaddr_in *rem_addr, socklen_t rem_addr_len)
 {
 	ssize_t nsent;
 	struct msghdr hdr;
@@ -264,8 +269,8 @@ dgram_write (fd_t sfd, dgram_t *dg)
 	my_iov[0].iov_base = dg->dg_data;
 	my_iov[0].iov_len = dg->dg_datalen;
 
-	hdr.msg_name = NULL;
-	hdr.msg_namelen = 0;
+	hdr.msg_name = rem_addr;
+	hdr.msg_namelen = rem_addr_len;
 	hdr.msg_iov = my_iov;
 	hdr.msg_iovlen = ARRAYLEN(my_iov);
 	hdr.msg_control = NULL;
