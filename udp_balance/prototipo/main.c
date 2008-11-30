@@ -173,10 +173,16 @@ main (const int argc, const char *argv[])
 		dgram_timeout_min (&min, &now);
 
 		if (min.tv_sec == ONE_MILLION)
+			/* All'inizio non ci sono interfacce attive e poll si
+			 * blocca in attesa di un messaggio di configurazione
+			 * da parte dell'interface monitor. */
 			next_tmout = -1;
 		else if (tv_cmp (&min, &time_0ms) <= 0)
+			/* C'e' un timeout gia' scaduto, la poll e'
+			 * istantanea. */
 			next_tmout = 0;
 		else {
+			/* Il timeout piu' prossimo a scadere e' > 0 */
 			assert (tv_cmp (&min, &time_0ms) > 0);
 			next_tmout = (int)(tv2d (&min, FALSE) * 1000);
 			assert (next_tmout > 0);
@@ -200,11 +206,9 @@ main (const int argc, const char *argv[])
 		/* POLLOUT se scaduto keepalive. */
 		for (if_ptr = iface_iterator_get_first (&ii);
 		     if_ptr != NULL;
-		     if_ptr = iface_iterator_get_next (&ii)) {
-			iface_keepalive_left (if_ptr, &now, &left);
-			if (tv_cmp (&left, &time_0ms) <= 0)
+		     if_ptr = iface_iterator_get_next (&ii))
+			if (!iface_keepalive_left (if_ptr, &now, &left))
 				iface_set_events (if_ptr, POLLOUT);
-		}
 
 		/*
 		 * Poll
@@ -231,6 +235,7 @@ main (const int argc, const char *argv[])
 		if (sp->revents & POLLIN) {
 			dg = dgram_read (sp->fd, NULL, NULL);
 			/* TODO controllo errore */
+			dg->dg_life_to = new_timeout (&time_150ms);
 			dgram_list_add (DGRAM_OUTWARD, dg);
 		}
 		if (sp->revents & POLLOUT) {
@@ -252,6 +257,8 @@ main (const int argc, const char *argv[])
 			exit (EXIT_FAILURE);
 		}
 		if (im->revents & POLLIN) {
+			char *name;
+			char *ip;
 			dg = dgram_read (im->fd, NULL, NULL);
 			/* TODO riconfigurazione socket interfacce. */
 			dgram_free (dg);

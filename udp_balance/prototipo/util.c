@@ -10,6 +10,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "crono.h"
 #include "util.h"
 #include "types.h"
 
@@ -27,6 +28,18 @@ my_strdup (const char *str)
 	strcpy (new_str, str); 
 
 	return new_str;
+}
+
+
+timeout_t *
+new_timeout (const struct timeval *value)
+{
+	timeout_t *new;
+
+	new = my_alloc (sizeof(timeout_t));
+	timeout_set (new, value);
+
+	return new;
 }
 
 
