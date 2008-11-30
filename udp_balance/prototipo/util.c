@@ -43,6 +43,16 @@ new_timeout (const struct timeval *value)
 }
 
 
+int
+parse_im_msg (char ** ifname_result, char **ip_result, const char *msg)
+{
+	/* Formato farlocco msg configurazione iface manager:
+	 * "nome_interfaccia {up|down} xxx.xxx.xxx.xxx\n" */
+
+	assert (msg != NULL);
+}
+
+
 list_node_t *
 new_node (void *ptr)
 {
