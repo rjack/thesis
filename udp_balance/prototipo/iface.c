@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 
 #include "crono.h"
@@ -12,7 +13,6 @@
 struct match_iface_args {
 	const char *mia_name;
 	const char *mia_loc_ip;
-	const char *mia_loc_port;
 };
 
 
@@ -26,9 +26,8 @@ match_iface (void *ifp, void *argsp)
 	iface_t *if_ptr = (iface_t *)ifp;
 	struct match_iface_args *args = (struct match_iface_args *)argsp;
 
-	if (if_ptr->if_name == args->mia_name
-	    && if_ptr->if_loc_ip == args->mia_loc_ip
-	    && if_ptr->if_loc_port == args->mia_loc_port)
+	if (strcmp (if_ptr->if_name, args->mia_name) == 0
+	    && strcmp (if_ptr->if_loc_ip, args->mia_loc_ip) == 0)
 		return TRUE;
 	return FALSE;
 }
@@ -77,7 +76,7 @@ iface_up (const char *name, const char *loc_ip)
 
 
 void
-iface_down (const char *name, const char *loc_ip, const char *loc_port)
+iface_down (const char *name, const char *loc_ip)
 {
 	iface_t *if_ptr;
 	list_node_t *node_ptr;
@@ -85,7 +84,6 @@ iface_down (const char *name, const char *loc_ip, const char *loc_port)
 
 	args.mia_name = name;
 	args.mia_loc_ip = loc_ip;
-	args.mia_loc_port = loc_port;
 
 	node_ptr = list_contains (ifaces, &match_iface, &args);
 	list_remove (&ifaces, node_ptr);
@@ -94,6 +92,8 @@ iface_down (const char *name, const char *loc_ip, const char *loc_port)
 	free (if_ptr->if_name);
 	free (if_ptr->if_loc_ip);
 	free (if_ptr->if_loc_port);
+
+	free (if_ptr);
 
 	free (node_ptr);
 }

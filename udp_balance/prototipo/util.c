@@ -43,13 +43,76 @@ new_timeout (const struct timeval *value)
 }
 
 
-int
-parse_im_msg (char ** ifname_result, char **ip_result, const char *msg)
+bool
+parse_im_msg (char **ifname_result, char **cmd_result, char **ip_result,
+              const char *msg, size_t msg_len)
 {
 	/* Formato farlocco msg configurazione iface manager:
-	 * "nome_interfaccia {up|down} xxx.xxx.xxx.xxx\n" */
+	 * "ifname {up|down} xxx.xxx.xxx.xxx\n" */
+
+	int i;
+	size_t ifname_len;
+	size_t cmd_len;
+	size_t ip_len;
 
 	assert (msg != NULL);
+	assert (msg_len > 0);
+
+	/*
+	 * Copia di ifname in ifname_result.
+	 */
+	/* i avanza fino alla fine di ifname */
+	for (i = 0; i < msg_len && msg[i] != ' '; i++);
+	if (i == msg_len)
+		goto ifname_parse_error;
+
+	ifname_len = ++i;     /* incremento conta terminatore */
+	*ifname_result = my_alloc (ifname_len * sizeof(char));
+	memcpy (*ifname_result, msg, ifname_len);
+	(*ifname_result)[ifname_len - 1] = '\0';
+
+	/*
+	 * Copia di cmd in cmd_result.
+	 */
+	/* i avanza fino alla fine di cmd */
+	for (msg = &msg[i], i = 0, msg_len -= ifname_len;
+	     i < msg_len && msg[i] != ' ';
+	     i++);
+	if (i == msg_len)
+		goto cmd_parse_error;
+
+	cmd_len = ++i;
+	*cmd_result = my_alloc (cmd_len * sizeof(char));
+	memcpy (*cmd_result, msg, cmd_len);
+	(*cmd_result)[cmd_len - 1] = '\0';
+	if (strcmp (*cmd_result, "up") != 0
+	    && strcmp (*cmd_result, "down") != 0)
+		goto bad_cmd_error;
+
+	/*
+	 * Copia di ip in ip_result.
+	 */
+	/* i avanza fino alla fine di xxx.xxx.xxx.xxx */
+	for (msg = &msg[i], i = 0, msg_len -= cmd_len;
+	     i < msg_len && msg[i] != '\n';
+	     i++);
+	if (i == msg_len)
+		goto ip_parse_error;
+	ip_len = ++i;
+	*ip_result = my_alloc (ip_len * sizeof(char));
+	memcpy (*ip_result, msg, ip_len);
+	(*ip_result)[ip_len - 1] = '\0';
+
+	return TRUE;
+
+ip_parse_error:
+bad_cmd_error:
+	free (*cmd_result);
+cmd_parse_error:
+	free (*ifname_result);
+ifname_parse_error:
+	fprintf (stderr, "Errore parsing nome interfaccia\n");
+	return FALSE;
 }
 
 

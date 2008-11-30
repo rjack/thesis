@@ -2,8 +2,8 @@
 #define ULB_PROTO_IFACE_H
 
 void iface_init_module(void);
-int iface_up(const char *name, const char *loc_ip, const char *loc_port);
-void iface_down(const char *name, const char *loc_ip, const char *loc_port);
+void iface_down (const char *name, const char *loc_ip);
+int iface_up (const char *name, const char *loc_ip);
 iface_t *iface_iterator_get_first(iface_iterator_t *ii_ptr);
 iface_t *iface_iterator_get_next(iface_iterator_t *ii_ptr);
 int iface_get_events(iface_t *iface);

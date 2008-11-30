@@ -228,7 +228,8 @@ dgram_read (fd_t sfd, struct sockaddr_in *src_addr_result,
 
 	/* XXX salvare mittente! */
 	hdr.msg_name = src_addr_result;
-	hdr.msg_namelen = *src_addr_result_len;
+	hdr.msg_namelen = src_addr_result_len == NULL ?
+	                  0 : *src_addr_result_len;
 	hdr.msg_iov = iov;
 	hdr.msg_iovlen = ARRAYLEN(iov);
 	hdr.msg_control = NULL;
@@ -252,7 +253,8 @@ dgram_read (fd_t sfd, struct sockaddr_in *src_addr_result,
 	dg->dg_retry_to = NULL;
 	dg->dg_id = -1;
 
-	*src_addr_result_len = hdr.msg_namelen;
+	if (src_addr_result_len != NULL)
+		*src_addr_result_len = hdr.msg_namelen;
 
 	return dg;
 }

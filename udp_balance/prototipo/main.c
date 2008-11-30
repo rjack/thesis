@@ -185,7 +185,8 @@ main (const int argc, const char *argv[])
 			/* Il timeout piu' prossimo a scadere e' > 0 */
 			assert (tv_cmp (&min, &time_0ms) > 0);
 			next_tmout = (int)(tv2d (&min, FALSE) * 1000);
-			assert (next_tmout > 0);
+			/* next_tmout puo' essere zero per effetto
+			 * della conversione microsec -> millisec */
 			assert (next_tmout <= 150);
 		}
 
@@ -258,9 +259,17 @@ main (const int argc, const char *argv[])
 		}
 		if (im->revents & POLLIN) {
 			char *name;
+			char *cmd;
 			char *ip;
 			dg = dgram_read (im->fd, NULL, NULL);
-			/* TODO riconfigurazione socket interfacce. */
+			parse_im_msg (&name, &cmd, &ip, dg->dg_data, dg->dg_datalen);
+			if (strcmp (cmd, "down") == 0)
+				iface_down (name, ip);
+			else
+				iface_up (name, ip);
+			free (name);
+			free (cmd);
+			free (ip);
 			dgram_free (dg);
 		}
 
