@@ -31,11 +31,20 @@ static list_node_t *data_unaked;
 static list_node_t **
 get_list (int list_id)
 {
-	assert (list_id == DGRAM_OUTWARD || list_id == DGRAM_INWARD);
+	assert (list_id == DGRAM_OUTWARD
+	        || list_id == DGRAM_INWARD
+		|| list_id == DGRAM_UNACKED);
 
-	if (list_id == DGRAM_INWARD)
+	switch (list_id) {
+	case DGRAM_OUTWARD:
+		return &data_out;
+	case DGRAM_INWARD:
 		return &data_in;
-	return &data_out;
+	case DGRAM_UNACKED:
+		return &data_unaked;
+	default:
+		return NULL;
+	}
 }
 
 

@@ -127,7 +127,6 @@ main (const int argc, const char *argv[])
 
 	while (!is_done ()) {
 		dgram_t *dg;
-		int err;
 		int nready;
 		int next_tmout;
 		struct timeval min;
@@ -257,6 +256,7 @@ main (const int argc, const char *argv[])
 		if (sp->revents & POLLIN) {
 			dg = dgram_read (sp->fd, NULL, NULL);
 			/* TODO controllo errore */
+			assert (dg->dg_life_to == NULL);
 			dg->dg_life_to = new_timeout (&time_150ms);
 			dgram_list_add (DGRAM_OUTWARD, dg);
 		}
@@ -299,11 +299,14 @@ main (const int argc, const char *argv[])
 		 * Spedizione interfaccia corrente.
 		 */
 		if (current_iface != NULL
-		    && (dg = dgram_list_pop (DGRAM_OUTWARD)) != NULL
+		    && dgram_list_peek (DGRAM_OUTWARD) != NULL
 		    && iface_get_events (current_iface) & POLLOUT) {
-			err = iface_write (current_iface, dg);
+			dg = dgram_list_pop (DGRAM_OUTWARD);
+			iface_write (current_iface, dg);
 			/* TODO controllo errore */
-
+			assert (dg->dg_retry_to == NULL);
+			dg->dg_retry_to = new_timeout (&time_30ms);
+			dgram_list_add (DGRAM_UNACKED, dg);
 		}
 
 		/*

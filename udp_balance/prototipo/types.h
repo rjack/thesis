@@ -32,6 +32,7 @@
 
 #define     DGRAM_INWARD    0
 #define     DGRAM_OUTWARD   1
+#define     DGRAM_UNACKED   2
 
 #define     MIN(a,b)     ((a) < (b) ? (a) : (b))
 #define     MAX(a,b)     ((a) > (b) ? (a) : (b))
