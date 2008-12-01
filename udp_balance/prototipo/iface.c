@@ -42,10 +42,20 @@ iface_init_module (void)
 }
 
 
+bool
+iface_must_send_keepalive (const iface_t *if_ptr)
+{
+	return if_ptr->if_must_send_keepalive;
+}
+
+
 int
 iface_up (const char *name, const char *loc_ip)
 {
+	struct timeval now;
 	iface_t *if_ptr;
+
+	gettime (&now);
 
 	assert (ifaces_len <= IFACE_MAX);
 	if (ifaces_len == IFACE_MAX) {
@@ -58,6 +68,7 @@ iface_up (const char *name, const char *loc_ip)
 	if_ptr = my_alloc (sizeof(iface_t));
 
 	if_ptr->if_suspected = FALSE;
+	if_ptr->if_must_send_keepalive = FALSE;
 	if_ptr->if_name = my_strdup (name);
 	if_ptr->if_loc_ip = my_strdup (loc_ip);
 	if_ptr->if_loc_port = my_strdup (PX_LOC_PORT);
@@ -130,41 +141,45 @@ iface_iterator_get_next (iface_iterator_t *ii_ptr)
 
 
 int
-iface_get_events (iface_t *iface)
+iface_get_events (iface_t *if_ptr)
 {
-	assert (iface != NULL);
+	assert (if_ptr != NULL);
 
-	return iface->if_pfd.revents;
+	return if_ptr->if_pfd.revents;
 }
 
 
-bool
-iface_keepalive_left (iface_t *if_ptr, struct timeval *now,
-                      struct timeval *result)
+void
+iface_keepalive_left (iface_t *if_ptr, struct timeval *result)
 {
-	timeout_left (&if_ptr->if_keepalive, now, result);
+	struct timeval now;
+
+	gettime (&now);
+
+	timeout_left (&if_ptr->if_keepalive, &now, result);
 	if (tv_cmp (result, &time_0ms) <= 0)
-		return FALSE;
-	return TRUE;
+		if_ptr->if_must_send_keepalive = TRUE;
+	else
+		if_ptr->if_must_send_keepalive = FALSE;
 }
 
 
 void
-iface_set_events (iface_t *iface, int e)
+iface_set_events (iface_t *if_ptr, int e)
 {
-	assert (iface != NULL);
+	assert (if_ptr != NULL);
 
-	iface->if_pfd.events |= e;
+	if_ptr->if_pfd.events |= e;
 }
 
 
 void
-iface_reset_events (iface_t *iface)
+iface_reset_events (iface_t *if_ptr)
 {
-	assert (iface != NULL);
+	assert (if_ptr != NULL);
 
-	iface->if_pfd.events = 0;
-	iface->if_pfd.revents = 0;
+	if_ptr->if_pfd.events = 0;
+	if_ptr->if_pfd.revents = 0;
 }
 
 
@@ -179,20 +194,17 @@ iface_get_current (void)
 }
 
 
-char *
-iface_to_string (iface_t *iface, char *str)
+void
+iface_print (iface_t *if_ptr)
 {
-	int nbytes;
+	assert (if_ptr != NULL);
 
-	assert (iface != NULL);
-	assert (str != NULL);
-
-	nbytes = sprintf (str, "%s %s:%s",
-	                  iface->if_name, iface->if_loc_ip,
-	                  iface->if_loc_port);
-	if (iface->if_suspected)
-		sprintf (str + nbytes, " [s]");
-	return str;
+	printf ("%s %s:%s [%c%c] ",
+		if_ptr->if_name, if_ptr->if_loc_ip, if_ptr->if_loc_port,
+		if_ptr->if_suspected ? 's' : '-',
+		if_ptr->if_must_send_keepalive ? 'k' : '-');
+	printf ("keepalive");
+	timeout_print (&if_ptr->if_keepalive);
 }
 
 
@@ -226,38 +238,43 @@ iface_read_pollfd (struct pollfd *pfd)
 }
 
 
-int
-iface_write (iface_t *iface, dgram_t *dg)
+ssize_t
+iface_write (iface_t *if_ptr, dgram_t *dg)
 {
 	ssize_t nsent;
-	assert (iface != NULL);
+	struct timeval now;
+
+	assert (if_ptr != NULL);
 	assert (dg != NULL);
 
-	nsent = dgram_write (iface->if_pfd.fd, dg, NULL, 0);
+	nsent = dgram_write (if_ptr->if_pfd.fd, dg, NULL, 0);
 	if (nsent == -1)
 		return -1;
+
 	assert (nsent == dg->dg_datalen);
 
 	/* reset timeout keepalive */
-	timeout_start (&iface->if_keepalive, &time_150ms);
+	gettime (&now);
+	timeout_start (&if_ptr->if_keepalive, &now);
+	if_ptr->if_must_send_keepalive = FALSE;
 
-	return 0;
+	return nsent;
 }
 
 
 dgram_t *
-iface_read (iface_t *iface)
+iface_read (iface_t *if_ptr)
 {
-	assert (iface != NULL);
+	assert (if_ptr != NULL);
 
-	return dgram_read (iface->if_pfd.fd, NULL, NULL);
+	return dgram_read (if_ptr->if_pfd.fd, NULL, NULL);
 }
 
 
 int
-iface_handle_err (iface_t *iface)
+iface_handle_err (iface_t *if_ptr)
 {
-	/* TODO iface_handle_err */
+	fprintf (stderr, "Errore!\n");
 
 	return 0;
 }

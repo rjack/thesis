@@ -37,9 +37,15 @@ main (int argc, char *argv[])
 		exit (EXIT_FAILURE);
 
 	for (;;)
-		if (datagram == NULL)
+		if (datagram == NULL) {
 			datagram = dgram_read (fd, &cli_addr, &cli_addrlen);
-		else {
+			if (datagram->dg_datalen == 0) {
+				printf ("ricevuto keepalive\n");
+				fflush (stdin);
+				dgram_free (datagram);
+				datagram = NULL;
+			}
+		} else {
 			dgram_write (fd, datagram, &cli_addr, cli_addrlen);
 			dgram_free (datagram);
 			datagram = NULL;

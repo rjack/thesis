@@ -96,6 +96,7 @@ typedef struct dgram {
  */
 typedef struct {
 	bool if_suspected;
+	bool if_must_send_keepalive;
 	char *if_name;
 	char *if_loc_ip;
 	char *if_loc_port;
@@ -127,11 +128,9 @@ typedef list_node_t * iface_iterator_t;
 #  define EXTERN_IF_NOT_MAIN extern
 #endif
 
-EXTERN_IF_NOT_MAIN struct timeval now;
 EXTERN_IF_NOT_MAIN struct timeval time_0ms;
 EXTERN_IF_NOT_MAIN struct timeval time_30ms;
 EXTERN_IF_NOT_MAIN struct timeval time_150ms;
-EXTERN_IF_NOT_MAIN bool debug;
 
 
 #endif /* ULP_PROTO_TYPES_H */

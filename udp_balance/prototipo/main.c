@@ -79,13 +79,22 @@ main (const int argc, const char *argv[])
 	time_0ms.tv_sec = 0;
 	time_0ms.tv_usec = 0;
 
+#ifdef NDEBUG
+	/* Valori reali. */
 	time_30ms.tv_sec = 0;
 	time_30ms.tv_usec = 30000;
 
 	time_150ms.tv_sec = 0;
 	time_150ms.tv_usec = 150000;
+#else
+	/* Valori dilatati, per capire che succede. */
+	time_30ms.tv_sec = 3;
+	time_30ms.tv_usec = 0;
 
-	debug = TRUE;
+	time_150ms.tv_sec = 15;
+	time_150ms.tv_usec = 0;
+#endif /* NDEBUG */
+
 
 	/*
 	 * Opzioni a riga di comando.
@@ -143,51 +152,63 @@ main (const int argc, const char *argv[])
 		}
 
 		current_iface = iface_get_current ();
-		if (debug) {
-			char ifstr[100];
+#ifndef NDEBUG
+		{
+			printf ("Interfaccia d'uscita: ");
 			if (current_iface != NULL)
-				iface_to_string (current_iface, ifstr);
+				iface_print (current_iface);
 			else
-				strcpy (ifstr, "no interface");
-			printf ("Wifi interface: %s\n", ifstr);
+				printf ("nessuna");
+			printf ("\n"); fflush (stdout);
 		}
+#endif /* NDEBUG */
 
 		/*
-		 * Gestione dei timeout: pulizia code e calcolo timeout minimo.
+		 * Pulizia code datagram e calcolo timeout minimo.
 		 */
-		gettime (&now);
 		min.tv_sec = ONE_MILLION;
 		min.tv_usec = 0;
 
-		dgram_outward_all_unacked (&now);
-		dgram_purge_all_old (&now);
+		dgram_outward_all_unacked ();
+		dgram_purge_all_old ();
 
 		/* Keepalive. */
 		for (if_ptr = iface_iterator_get_first (&ii);
 		     if_ptr != NULL;
 		     if_ptr = iface_iterator_get_next (&ii)) {
-			iface_keepalive_left (if_ptr, &now, &left);
+			iface_keepalive_left (if_ptr, &left);
 			tv_min (&min, &min, &left);
 		}
 
-		dgram_timeout_min (&min, &now);
+		dgram_timeout_min (&min);
 
-		if (min.tv_sec == ONE_MILLION)
+		if (min.tv_sec == ONE_MILLION) {
 			/* All'inizio non ci sono interfacce attive e poll si
 			 * blocca in attesa di un messaggio di configurazione
 			 * da parte dell'interface monitor. */
 			next_tmout = -1;
-		else if (tv_cmp (&min, &time_0ms) <= 0)
+#ifndef NDEBUG
+			fprintf (stderr, "poll blocca indefinitamente\n");
+#endif /* NDEBUG */
+		} else if (tv_cmp (&min, &time_0ms) <= 0) {
 			/* C'e' un timeout gia' scaduto, la poll e'
 			 * istantanea. */
 			next_tmout = 0;
-		else {
+#ifndef NDEBUG
+			fprintf (stderr, "poll non blocca\n");
+#endif /* NDEBUG */
+		} else {
 			/* Il timeout piu' prossimo a scadere e' > 0 */
 			assert (tv_cmp (&min, &time_0ms) > 0);
 			next_tmout = (int)(tv2d (&min, FALSE) * 1000);
 			/* next_tmout puo' essere zero per effetto
 			 * della conversione microsec -> millisec */
+#ifdef NDEBUG
 			assert (next_tmout <= 150);
+#else
+			assert (next_tmout <= 15000);
+			fprintf (stderr, "poll blocca per %d ms\n", next_tmout);
+#endif /* NDEBUG */
 		}
 
 		/*
@@ -208,7 +229,7 @@ main (const int argc, const char *argv[])
 		for (if_ptr = iface_iterator_get_first (&ii);
 		     if_ptr != NULL;
 		     if_ptr = iface_iterator_get_next (&ii))
-			if (!iface_keepalive_left (if_ptr, &now, &left))
+			if (iface_must_send_keepalive (if_ptr))
 				iface_set_events (if_ptr, POLLOUT);
 
 		/*
@@ -302,8 +323,7 @@ main (const int argc, const char *argv[])
 
 			/* Spedizione keepalive. */
 			if ((ev & POLLOUT)
-			    && !(iface_keepalive_left (if_ptr, &now, &left))) {
-				assert (tv_cmp (&left, &time_0ms) <= 0);
+			    && iface_must_send_keepalive (if_ptr)) {
 				dg = dgram_create_keepalive ();
 				iface_write (if_ptr, dg);
 				/* TODO  controllo errore */

@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/time.h>
@@ -50,6 +51,17 @@ timeout_left (timeout_t *to, const struct timeval *now,
 }
 
 
+void
+timeout_print (const timeout_t *to)
+{
+	printf ("at ");
+	crono_print (&to->to_crono);
+
+	printf (" max ");
+	tv_print (&to->to_maxval);
+}
+
+
 /*
  * Cronometri.
  */
@@ -88,6 +100,16 @@ crono_start (crono_t *cr, const struct timeval *now)
 }
 
 
+void
+crono_print (const crono_t *cr)
+{
+	printf ("start ");
+	tv_print (&cr->cr_start);
+	printf (" elapsed ");
+	tv_print (&cr->cr_elapsed);
+}
+
+
 /*
  * Strutture timeval.
  */
@@ -112,7 +134,7 @@ tv_cmp (const struct timeval *tv_1, const struct timeval *tv_2)
 
 	if (diff.tv_sec > 0)
 		return 1;
-	return 0;
+	return -1;
 }
 
 
@@ -152,7 +174,7 @@ tv2d (struct timeval *tv, bool must_free)
 	assert (tv != NULL);
 	assert (must_free == TRUE || must_free == FALSE);
 
-	result = tv->tv_sec + (double)tv->tv_usec / (double)ONE_MILLION;
+	result = tv->tv_sec + ((double)tv->tv_usec / (double)ONE_MILLION);
 
 	if (must_free)
 		free (tv);
@@ -199,4 +221,10 @@ tv_normalize (struct timeval *tv)
 		tv->tv_sec += (tv->tv_usec / ONE_MILLION);
 		tv->tv_usec = (tv->tv_usec % ONE_MILLION);
 	}
+}
+
+void
+tv_print (const struct timeval *tv)
+{
+	printf ("%ldsec %ldusec", tv->tv_sec, tv->tv_usec);
 }

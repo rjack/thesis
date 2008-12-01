@@ -106,11 +106,14 @@ dgram_create (void)
 
 
 void
-dgram_outward_all_unacked (struct timeval *now)
+dgram_outward_all_unacked (void)
 {
+	struct timeval now;
 	list_node_t *rmvd;
 
-	rmvd = list_remove_if (&data_unaked, must_be_retransmitted, now);
+	gettime (&now);
+
+	rmvd = list_remove_if (&data_unaked, must_be_retransmitted, &now);
 
 	list_foreach_do (rmvd, free_reply_to, NULL);
 
@@ -119,27 +122,33 @@ dgram_outward_all_unacked (struct timeval *now)
 
 
 void
-dgram_purge_all_old (struct timeval *now)
+dgram_purge_all_old (void)
 {
+	struct timeval now;
 	list_node_t *rmvd;
 
+	gettime (&now);
+
 	/* data_out */
-	rmvd = list_remove_if (&data_out, must_be_discarded, now);
+	rmvd = list_remove_if (&data_out, must_be_discarded, &now);
 	list_destroy (&rmvd, free);
 
 	/* data_unaked */
-	rmvd = list_remove_if (&data_unaked, must_be_discarded, now);
+	rmvd = list_remove_if (&data_unaked, must_be_discarded, &now);
 	list_destroy (&rmvd, free);
 }
 
 
 void
-dgram_timeout_min (struct timeval *min_result, const struct timeval *now)
+dgram_timeout_min (struct timeval *min_result)
 {
+	struct timeval now;
 	struct timeval left;
 	list_node_t *head;
 	list_node_t *node;
 	dgram_t *dg;
+
+	gettime (&now);
 
 	/* data out: hanno solo dg_life_to */
 	head = list_head (data_out);
@@ -148,7 +157,7 @@ dgram_timeout_min (struct timeval *min_result, const struct timeval *now)
 		do {
 			dg = (dgram_t *)node->n_ptr;
 			assert (dg->dg_retry_to == NULL);
-			timeout_left (dg->dg_life_to, now, &left);
+			timeout_left (dg->dg_life_to, &now, &left);
 			tv_min (min_result, min_result, &left);
 			node = list_next (node);
 		} while (node != head);
@@ -159,9 +168,9 @@ dgram_timeout_min (struct timeval *min_result, const struct timeval *now)
 	if (head != NULL)
 		do {
 			dg = (dgram_t *)node->n_ptr;
-			timeout_left (dg->dg_life_to, now, &left);
+			timeout_left (dg->dg_life_to, &now, &left);
 			tv_min (min_result, min_result, &left);
-			timeout_left (dg->dg_retry_to, now, &left);
+			timeout_left (dg->dg_retry_to, &now, &left);
 			tv_min (min_result, min_result, &left);
 			node = list_next (node);
 		} while (node != head);
@@ -245,8 +254,11 @@ dgram_read (fd_t sfd, struct sockaddr_in *src_addr_result,
 	}
 
 	dg = dgram_create ();
-	dg->dg_data = my_alloc (nrecv);
-	memcpy (dg->dg_data, buffer, nrecv);
+	if (nrecv > 0) {
+		dg->dg_data = my_alloc (nrecv);
+		memcpy (dg->dg_data, buffer, nrecv);
+	} else
+		dg->dg_data = NULL;
 	dg->dg_datalen = nrecv;
 	dg->dg_life_to = NULL;
 	dg->dg_retry_to = NULL;
@@ -259,7 +271,7 @@ dgram_read (fd_t sfd, struct sockaddr_in *src_addr_result,
 }
 
 
-int
+ssize_t
 dgram_write (fd_t sfd, dgram_t *dg,
              struct sockaddr_in *rem_addr, socklen_t rem_addr_len)
 {
@@ -281,9 +293,10 @@ dgram_write (fd_t sfd, dgram_t *dg,
 	do {
 		nsent = sendmsg (sfd, &hdr, 0);
 	} while (nsent == -1 && errno == EINTR);
+	if (nsent == -1)
+		return -1;
 
 	assert (nsent == dg->dg_datalen);
-
 	return nsent;
 }
 
