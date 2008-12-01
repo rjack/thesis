@@ -226,7 +226,6 @@ dgram_read (fd_t sfd, struct sockaddr_in *src_addr_result,
 	iov[0].iov_base = buffer;
 	iov[0].iov_len = BUFFER_LEN;
 
-	/* XXX salvare mittente! */
 	hdr.msg_name = src_addr_result;
 	hdr.msg_namelen = src_addr_result_len == NULL ?
 	                  0 : *src_addr_result_len;

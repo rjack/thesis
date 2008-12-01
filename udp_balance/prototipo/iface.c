@@ -5,6 +5,7 @@
 #include <unistd.h>
 
 #include "crono.h"
+#include "dgram.h"
 #include "list.h"
 #include "types.h"
 #include "util.h"
@@ -228,8 +229,17 @@ iface_read_pollfd (struct pollfd *pfd)
 int
 iface_write (iface_t *iface, dgram_t *dg)
 {
-	/* TODO iface_write */
-	/* TODO reset keepalive */
+	ssize_t nsent;
+	assert (iface != NULL);
+	assert (dg != NULL);
+
+	nsent = dgram_write (iface->if_pfd.fd, dg, NULL, 0);
+	if (nsent == -1)
+		return -1;
+	assert (nsent == dg->dg_datalen);
+
+	/* reset timeout keepalive */
+	timeout_start (&iface->if_keepalive, &time_150ms);
 
 	return 0;
 }
@@ -238,9 +248,9 @@ iface_write (iface_t *iface, dgram_t *dg)
 dgram_t *
 iface_read (iface_t *iface)
 {
-	/* TODO iface_read */
+	assert (iface != NULL);
 
-	return NULL;
+	return dgram_read (iface->if_pfd.fd, NULL, NULL);
 }
 
 

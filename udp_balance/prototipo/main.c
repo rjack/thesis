@@ -258,11 +258,12 @@ main (const int argc, const char *argv[])
 			exit (EXIT_FAILURE);
 		}
 		if (im->revents & POLLIN) {
-			char *name;
 			char *cmd;
 			char *ip;
+			char *name;
 			dg = dgram_read (im->fd, NULL, NULL);
-			parse_im_msg (&name, &cmd, &ip, dg->dg_data, dg->dg_datalen);
+			parse_im_msg (&name, &cmd, &ip, dg->dg_data,
+			              dg->dg_datalen);
 			if (strcmp (cmd, "down") == 0)
 				iface_down (name, ip);
 			else
@@ -281,6 +282,7 @@ main (const int argc, const char *argv[])
 		    && iface_get_events (current_iface) & POLLOUT) {
 			err = iface_write (current_iface, dg);
 			/* TODO controllo errore */
+
 		}
 
 		/*
