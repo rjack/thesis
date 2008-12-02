@@ -1,6 +1,8 @@
 CC=gcc
 LD=gcc
-CPPOPT=-Wall -ansi -pedantic #-DNDEBUG
+#CPPOPT=-Wall -DNDEBUG -ansi -pedantic
+#CFLAGS=-O3 -fomit-frame-pointer -march=i686 -pipe
+CPPOPT=-Wall -ansi -pedantic
 CFLAGS=-g -pipe
 LDFLAGS=-lc
 
