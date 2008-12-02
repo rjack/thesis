@@ -311,6 +311,26 @@ dgram_write (fd_t sfd, dgram_t *dg,
 
 
 void
+dgram_print (const dgram_t *dg)
+{
+	printf ("[");
+	printf ("id:%d data:%.*s datalen:%d ", dg->dg_id, dg->dg_datalen, dg->dg_data, dg->dg_datalen);
+	printf ("life_to: ");
+
+	if (dg->dg_life_to == NULL)
+		printf ("-");
+	else
+		timeout_print (dg->dg_life_to);
+
+	printf ("retry_to: ");
+	if (dg->dg_retry_to == NULL)
+		printf ("-");
+	else
+		timeout_print (dg->dg_retry_to);
+}
+
+
+void
 dgram_free (dgram_t *dg)
 {
 	assert (dg != NULL);

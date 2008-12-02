@@ -44,6 +44,11 @@ main (int argc, char *argv[])
 				fflush (stdin);
 				dgram_free (datagram);
 				datagram = NULL;
+			} else {
+				printf ("ricevuto datagram: ");
+				dgram_print (datagram);
+				printf ("\n");
+				fflush (stdout);
 			}
 		} else {
 			dgram_write (fd, datagram, &cli_addr, cli_addrlen);

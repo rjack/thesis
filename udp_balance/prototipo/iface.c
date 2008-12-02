@@ -99,6 +99,7 @@ iface_down (const char *name, const char *loc_ip)
 
 	node_ptr = list_contains (ifaces, &match_iface, &args);
 	list_remove (&ifaces, node_ptr);
+	ifaces_len--;
 	if_ptr = node_ptr->n_ptr;
 
 	free (if_ptr->if_name);
@@ -265,9 +266,13 @@ iface_write (iface_t *if_ptr, dgram_t *dg)
 dgram_t *
 iface_read (iface_t *if_ptr)
 {
+	dgram_t *dg;
+
 	assert (if_ptr != NULL);
 
-	return dgram_read (if_ptr->if_pfd.fd, NULL, NULL);
+	dg = dgram_read (if_ptr->if_pfd.fd, NULL, NULL);
+
+	return dg;
 }
 
 

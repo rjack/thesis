@@ -18,5 +18,6 @@ void dgram_list_add(int list_id, dgram_t *dg);
 void dgram_outward_all_unacked(void);
 void dgram_purge_all_old(void);
 void dgram_timeout_min(struct timeval *min_result);
+void dgram_print (const dgram_t *dg);
 
 #endif /* ULB_PROTO_DGRAM_H */

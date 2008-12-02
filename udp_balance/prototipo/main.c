@@ -88,10 +88,10 @@ main (const int argc, const char *argv[])
 	time_150ms.tv_usec = 150000;
 #else
 	/* Valori dilatati, per capire che succede. */
-	time_30ms.tv_sec = 3;
+	time_30ms.tv_sec = ONE_MILLION - 1;
 	time_30ms.tv_usec = 0;
 
-	time_150ms.tv_sec = 15;
+	time_150ms.tv_sec = ONE_MILLION - 1;
 	time_150ms.tv_usec = 0;
 #endif /* NDEBUG */
 
@@ -205,7 +205,6 @@ main (const int argc, const char *argv[])
 #ifdef NDEBUG
 			assert (next_tmout <= 150);
 #else
-			assert (next_tmout <= 15000);
 			fprintf (stderr, "poll blocca per %d ms\n", next_tmout);
 #endif /* NDEBUG */
 		}
@@ -254,13 +253,19 @@ main (const int argc, const char *argv[])
 			exit (EXIT_FAILURE);
 		}
 		if (sp->revents & POLLIN) {
+			struct timeval now;
+
+			printf ("POLLIN softphone\n");
 			dg = dgram_read (sp->fd, NULL, NULL);
 			/* TODO controllo errore */
 			assert (dg->dg_life_to == NULL);
 			dg->dg_life_to = new_timeout (&time_150ms);
+			gettime (&now);
+			timeout_start (dg->dg_life_to, &now);
 			dgram_list_add (DGRAM_OUTWARD, dg);
 		}
 		if (sp->revents & POLLOUT) {
+			printf ("POLLOUT softphone\n");
 			dg = dgram_list_pop (DGRAM_INWARD);
 			assert (dg != NULL);
 			dgram_write (sp->fd, dg, NULL, 0);
@@ -282,6 +287,7 @@ main (const int argc, const char *argv[])
 			char *cmd;
 			char *ip;
 			char *name;
+			printf ("POLLIN interface monitor\n");
 			dg = dgram_read (im->fd, NULL, NULL);
 			parse_im_msg (&name, &cmd, &ip, dg->dg_data,
 			              dg->dg_datalen);
@@ -301,11 +307,15 @@ main (const int argc, const char *argv[])
 		if (current_iface != NULL
 		    && dgram_list_peek (DGRAM_OUTWARD) != NULL
 		    && iface_get_events (current_iface) & POLLOUT) {
+			struct timeval now;
+			printf ("POLLOUT current iface");
 			dg = dgram_list_pop (DGRAM_OUTWARD);
 			iface_write (current_iface, dg);
 			/* TODO controllo errore */
 			assert (dg->dg_retry_to == NULL);
 			dg->dg_retry_to = new_timeout (&time_30ms);
+			gettime (&now);
+			timeout_start (dg->dg_retry_to, &now);
 			dgram_list_add (DGRAM_UNACKED, dg);
 		}
 
@@ -319,6 +329,7 @@ main (const int argc, const char *argv[])
 
 			/* Ricezione. */
 			if (ev & POLLIN) {
+				printf ("POLLIN interfaccia\n");
 				dg = iface_read (if_ptr);
 				/* TODO  controllo errore */
 				dgram_list_add (DGRAM_INWARD, dg);
@@ -327,6 +338,7 @@ main (const int argc, const char *argv[])
 			/* Spedizione keepalive. */
 			if ((ev & POLLOUT)
 			    && iface_must_send_keepalive (if_ptr)) {
+				printf ("POLLOUT interfaccia\n");
 				dg = dgram_create_keepalive ();
 				iface_write (if_ptr, dg);
 				/* TODO  controllo errore */
