@@ -300,7 +300,7 @@ dgram_write (fd_t sfd, dgram_t *dg,
 	hdr.msg_flags = 0;
 
 	do {
-		nsent = sendmsg (sfd, &hdr, 0);
+		nsent = sendmsg_getID_fake (sfd, &hdr, 0, &dg->dg_id);
 	} while (nsent == -1 && errno == EINTR);
 	if (nsent == -1)
 		return -1;
@@ -314,7 +314,8 @@ void
 dgram_print (const dgram_t *dg)
 {
 	printf ("[");
-	printf ("id:%d data:%.*s datalen:%d ", dg->dg_id, dg->dg_datalen, dg->dg_data, dg->dg_datalen);
+	printf ("id:%d data:%.*s datalen:%d ",
+		dg->dg_id, dg->dg_datalen, dg->dg_data, dg->dg_datalen);
 	printf ("life_to: ");
 
 	if (dg->dg_life_to == NULL)

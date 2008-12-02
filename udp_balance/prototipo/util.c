@@ -43,6 +43,20 @@ new_timeout (const struct timeval *value)
 }
 
 
+ssize_t
+sendmsg_getID_fake (int sfd, const struct msghdr *msg, int flags,
+                    int *id_result)
+{
+	static int id;
+
+	id++;
+	if (id == -1)
+		id++;
+	*id_result = id;
+	return sendmsg (sfd, msg, flags);
+}
+
+
 bool
 parse_im_msg (char **ifname_result, char **cmd_result, char **ip_result,
               const char *msg, size_t msg_len)
@@ -207,12 +221,26 @@ socket_bound_conn (const char *loc_ip, const char *loc_port,
 	if (new_sfd == -1)
 		goto bind_conn_err;
 
+	/*
+	 * Imposta l'opzione IP_RECVERR per abilitare la MSG_ERRQUEUE.
+	 */
+	err = 1;     /* usato come optval */
+	err = setsockopt (new_sfd, IPPROTO_IP, IP_RECVERR, &err, sizeof(err));
+	if (err == -1) {
+		perror ("setsockopt");
+		goto setsockopt_err;
+	}
+
 	freeaddrinfo (bind_results);
 	if (must_connect)
 		freeaddrinfo (conn_results);
+
 	return new_sfd;
 
+
+setsockopt_err:
 bind_conn_err:
+	close (new_sfd);
 	if (must_connect)
 		freeaddrinfo (conn_results);
 getaddrinfo_conn_err:
