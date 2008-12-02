@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+
+# Interface Manager
+
+nc -vv -u -p 6667 127.0.0.1 6666
