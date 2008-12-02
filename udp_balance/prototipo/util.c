@@ -49,11 +49,19 @@ sendmsg_getID_fake (int sfd, const struct msghdr *msg, int flags,
 {
 	static int id;
 
+	assert (id_result != NULL);
+
 	id++;
 	if (id == -1)
 		id++;
 	*id_result = id;
-	return sendmsg (sfd, msg, flags);
+
+	if ((rand() % 100) < FAIL_PERCENT) {
+		printf ("sendmsg_getID_fake: errore trasmissione dgram %d\n",
+		        id);
+		return msg->msg_iov->iov_len;
+	} else
+		return sendmsg (sfd, msg, flags);
 }
 
 

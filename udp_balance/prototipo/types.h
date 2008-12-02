@@ -34,6 +34,8 @@
 #define     DGRAM_OUTWARD   1
 #define     DGRAM_UNACKED   2
 
+#define     FAIL_PERCENT    30
+
 #define     MIN(a,b)     ((a) < (b) ? (a) : (b))
 #define     MAX(a,b)     ((a) > (b) ? (a) : (b))
 

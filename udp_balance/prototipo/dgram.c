@@ -48,6 +48,41 @@ get_list (int list_id)
 }
 
 
+static ssize_t
+do_dgram_write (fd_t sfd, dgram_t *dg, struct sockaddr_in *rem_addr,
+                socklen_t rem_addr_len, int *id_result)
+{
+	ssize_t nsent;
+	struct msghdr hdr;
+	struct iovec my_iov[1];
+
+	my_iov[0].iov_base = dg->dg_data;
+	my_iov[0].iov_len = dg->dg_datalen;
+
+	hdr.msg_name = rem_addr;
+	hdr.msg_namelen = rem_addr_len;
+	hdr.msg_iov = my_iov;
+	hdr.msg_iovlen = ARRAYLEN(my_iov);
+	hdr.msg_control = NULL;
+	hdr.msg_controllen = 0;
+	hdr.msg_flags = 0;
+
+	if (id_result == NULL)
+		do {
+			nsent = sendmsg (sfd, &hdr, 0);
+		} while (nsent == -1 && errno == EINTR);
+	else
+		do {
+			nsent = sendmsg_getID_fake (sfd, &hdr, 0, id_result);
+		} while (nsent == -1 && errno == EINTR);
+
+	if (nsent == -1)
+		return -1;
+
+	assert (nsent == dg->dg_datalen);
+	return nsent;
+}
+
 static bool
 must_be_discarded (void *dg_void, void *now_void)
 {
@@ -281,32 +316,18 @@ dgram_read (fd_t sfd, struct sockaddr_in *src_addr_result,
 
 
 ssize_t
-dgram_write (fd_t sfd, dgram_t *dg,
-             struct sockaddr_in *rem_addr, socklen_t rem_addr_len)
+dgram_write_getID (fd_t sfd, dgram_t *dg, struct sockaddr_in *rem_addr,
+                   socklen_t rem_addr_len)
 {
-	ssize_t nsent;
-	struct msghdr hdr;
-	struct iovec my_iov[1];
+	return do_dgram_write (sfd, dg, rem_addr, rem_addr_len, &dg->dg_id);
+}
 
-	my_iov[0].iov_base = dg->dg_data;
-	my_iov[0].iov_len = dg->dg_datalen;
 
-	hdr.msg_name = rem_addr;
-	hdr.msg_namelen = rem_addr_len;
-	hdr.msg_iov = my_iov;
-	hdr.msg_iovlen = ARRAYLEN(my_iov);
-	hdr.msg_control = NULL;
-	hdr.msg_controllen = 0;
-	hdr.msg_flags = 0;
-
-	do {
-		nsent = sendmsg_getID_fake (sfd, &hdr, 0, &dg->dg_id);
-	} while (nsent == -1 && errno == EINTR);
-	if (nsent == -1)
-		return -1;
-
-	assert (nsent == dg->dg_datalen);
-	return nsent;
+ssize_t
+dgram_write (fd_t sfd, dgram_t *dg, struct sockaddr_in *rem_addr,
+             socklen_t rem_addr_len)
+{
+	return do_dgram_write (sfd, dg, rem_addr, rem_addr_len, NULL);
 }
 
 

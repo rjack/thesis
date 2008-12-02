@@ -248,7 +248,7 @@ iface_write (iface_t *if_ptr, dgram_t *dg)
 	assert (if_ptr != NULL);
 	assert (dg != NULL);
 
-	nsent = dgram_write (if_ptr->if_pfd.fd, dg, NULL, 0);
+	nsent = dgram_write_getID (if_ptr->if_pfd.fd, dg, NULL, 0);
 	if (nsent == -1)
 		return -1;
 

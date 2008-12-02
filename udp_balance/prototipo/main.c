@@ -110,6 +110,8 @@ main (const int argc, const char *argv[])
 	/*
 	 * Setup iniziale.
 	 */
+	/* srand (42); */     /* per non piangere debuggando. */
+	srand (getpid ());
 	iface_init_module ();
 	dgram_init_module ();
 
