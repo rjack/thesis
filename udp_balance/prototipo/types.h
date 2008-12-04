@@ -36,10 +36,14 @@
 
 #define     FAIL_PERCENT    30
 
+#define     CONTROLBUFLEN     1024
+
 #define     MIN(a,b)     ((a) < (b) ? (a) : (b))
 #define     MAX(a,b)     ((a) > (b) ? (a) : (b))
 
 #define     ARRAYLEN(a)      (sizeof((a))/sizeof(*(a)))
+
+#define     IP_NOTIFY     4242
 
 /*
  * Booleani.
@@ -116,6 +120,15 @@ typedef struct list_node {
 	struct list_node *n_next;
 	struct list_node *n_prev;
 } list_node_t;
+
+
+/*
+ * Strutture sock_notify_err farlocca.
+ */
+struct sock_notify_err {
+	bool ne_ack;
+	int ne_id;
+};
 
 
 typedef list_node_t * iface_iterator_t;

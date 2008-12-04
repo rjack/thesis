@@ -83,6 +83,19 @@ do_dgram_write (fd_t sfd, dgram_t *dg, struct sockaddr_in *rem_addr,
 	return nsent;
 }
 
+
+static bool
+id_match (void *dg_void, void *id_void)
+{
+	dgram_t *dg = (dgram_t *)dg_void;
+	int *id = (int *)id_void;
+
+	if (dg->dg_id == *id)
+		return TRUE;
+	return FALSE;
+}
+
+
 static bool
 must_be_discarded (void *dg_void, void *now_void)
 {
@@ -112,7 +125,7 @@ must_be_retransmitted (void *dg_void, void *now_void)
 
 
 static void
-free_reply_to (void *ptr, void *discard)
+free_reply_tmout (void *ptr, void *discard)
 {
 	dgram_t *dg = (dgram_t *)ptr;
 
@@ -150,6 +163,35 @@ dgram_create (void)
 
 
 void
+dgram_discard (int id)
+{
+	list_node_t *rmvd;
+
+	rmvd = list_remove_if (&data_unaked, id_match, &id);
+	if (list_is_empty (rmvd))
+		rmvd = list_remove_if (&data_out, id_match, &id);
+
+	if (!list_is_empty (rmvd)) {
+		assert (list_node_is_last (rmvd, list_head (rmvd)));
+		list_destroy (&rmvd, free);
+	}
+}
+
+
+void
+dgram_outward (int id)
+{
+	list_node_t *rmvd;
+
+	rmvd = list_remove_if (&data_unaked, id_match, &id);
+	if (!list_is_empty (rmvd)) {
+		assert (list_node_is_last (rmvd, list_head (rmvd)));
+		list_push (&data_out, list_head (rmvd));
+	}
+}
+
+
+void
 dgram_outward_all_unacked (void)
 {
 	struct timeval now;
@@ -159,7 +201,7 @@ dgram_outward_all_unacked (void)
 
 	rmvd = list_remove_if (&data_unaked, must_be_retransmitted, &now);
 
-	list_foreach_do (rmvd, free_reply_to, NULL);
+	list_foreach_do (rmvd, free_reply_tmout, NULL);
 
 	data_out = list_cat (rmvd, data_out);
 }

@@ -18,20 +18,6 @@
 #include "types.h"
 #include "util.h"
 
-
-/****************************************************************************
-				   Costanti
-****************************************************************************/
-
-/* XXX C'e' modo di scoprire a runtime la dimensione di allocazione per il
- * msg_control delle struct msghdr e poterlo cosi' allocare dinamicamente
- * senza rischiare un MSG_TRUNC quando si fa una recvmsg con flag
- * MSG_ERRQUEUE?
- * Nell'attesa di scoprirlo uso la costante trovata nel sorgente di traceroute
- * <http://traceroute.sf.net/> */
-#define     CONTROLBUFLEN     1024
-
-
 /****************************************************************************
 			       Variabili locali
 ****************************************************************************/
@@ -343,7 +329,7 @@ main (const int argc, const char *argv[])
 				printf ("POLLOUT interfaccia\n");
 				dg = dgram_create_keepalive ();
 				iface_write (if_ptr, dg);
-				/* TODO  controllo errore */
+				/* TODO controllo errore */
 				dgram_free (dg);
 			}
 

@@ -2,6 +2,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <linux/types.h>
+#include <linux/errqueue.h>
 #include <unistd.h>
 
 #include "crono.h"
@@ -279,7 +281,77 @@ iface_read (iface_t *if_ptr)
 int
 iface_handle_err (iface_t *if_ptr)
 {
-	fprintf (stderr, "Errore!\n");
+	/* Puo' essere:
+	 * 1. IP_NOTIFY errore trasmissione
+	 *    -> leggere id
+	 *    -> recuperare dai dgram unaked il dgram
+	 *       con quell'id
+	 *    -> rimetterlo tra i dgram in uscita
+	 *
+	 * 2. IP_NOTIFY riuscita trasmissione
+	 *    -> leggere id
+	 *    -> recuperare dai dgram unaked il dgram
+	 *       con quell'id
+	 *    -> buttarlo
+	 *
+	 * 3. ICMP errore
+	 *    -> fprintf
+	 *    -> iface_down */
+
+	ssize_t nrecv;
+	char cbuf[CONTROLBUFLEN];
+	struct msghdr msg;
+	struct cmsghdr *cmsg;
+
+	assert (if_ptr != NULL);
+
+	msg.msg_name = NULL;
+	msg.msg_namelen = 0;
+	msg.msg_iov = NULL;
+	msg.msg_iovlen = 0;
+	msg.msg_control = cbuf;
+	msg.msg_controllen = CONTROLBUFLEN;
+	msg.msg_flags = 0;
+
+	nrecv = recvmsg (if_ptr->if_pfd.fd, &msg, MSG_ERRQUEUE);
+	if (nrecv == -1) {
+		perror ("Errore nella gestione dell'errore");
+		exit (EXIT_FAILURE);
+	}
+
+	for (cmsg = CMSG_FIRSTHDR (&msg);
+	     cmsg != NULL;
+	     cmsg = CMSG_NXTHDR (&msg, cmsg)) {
+		/* Errore a livello IP, tira giu' l'interfaccia. */
+		if (cmsg->cmsg_level == SOL_IP) {
+			if (cmsg->cmsg_type == IP_RECVERR) {
+				struct sock_extended_err *ee;
+				ee = (struct sock_extended_err *) CMSG_DATA (cmsg);
+				fprintf (stderr, "ERRORE ");
+				if (ee->ee_origin == SO_EE_ORIGIN_LOCAL)
+					fprintf (stderr, "LOCALE");
+				else if (ee->ee_origin == SO_EE_ORIGIN_ICMP)
+					fprintf (stderr, "ICMP");
+				else
+					fprintf (stderr, "SCONOSCIUTO (%d)",
+						 ee->ee_origin);
+				fprintf (stderr, " sull'interfaccia ");
+				iface_print (if_ptr);
+				fprintf (stderr, "\n");
+
+				iface_down (if_ptr->if_name, if_ptr->if_loc_ip);
+			}
+
+			else if (cmsg->cmsg_type == IP_NOTIFY) {
+				struct sock_notify_err *ne;
+				ne = (struct sock_notify_err *) CMSG_DATA (cmsg);
+				if (ne->ne_ack == TRUE)
+					dgram_discard (ne->ne_id);
+				else
+					dgram_outward (ne->ne_id);
+			}
+		}
+	}
 
 	return 0;
 }
