@@ -123,11 +123,11 @@ typedef struct list_node {
 
 
 /*
- * Strutture sock_notify_err farlocca.
+ * Strutture sock_notify_msg farlocca.
  */
-struct sock_notify_err {
-	bool ne_ack;
-	int ne_id;
+struct sock_notify_msg {
+	bool nm_ack;
+	int nm_id;
 };
 
 

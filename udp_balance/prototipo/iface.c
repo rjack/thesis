@@ -343,12 +343,12 @@ iface_handle_err (iface_t *if_ptr)
 			}
 
 			else if (cmsg->cmsg_type == IP_NOTIFY) {
-				struct sock_notify_err *ne;
-				ne = (struct sock_notify_err *) CMSG_DATA (cmsg);
-				if (ne->ne_ack == TRUE)
-					dgram_discard (ne->ne_id);
+				struct sock_notify_msg *nm;
+				nm = (struct sock_notify_msg *) CMSG_DATA (cmsg);
+				if (nm->nm_ack == TRUE)
+					dgram_discard (nm->nm_id);
 				else
-					dgram_outward (ne->ne_id);
+					dgram_outward (nm->nm_id);
 			}
 		}
 	}
