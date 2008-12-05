@@ -81,6 +81,8 @@ main (const int argc, const char *argv[])
 	time_150ms.tv_usec = 0;
 #endif /* NDEBUG */
 
+	verbose = TRUE;
+
 
 	/*
 	 * Opzioni a riga di comando.
@@ -123,6 +125,15 @@ main (const int argc, const char *argv[])
 		/* per i cicli */
 		iface_iterator_t ii;
 		iface_t *if_ptr;
+
+		if (verbose) {
+			printf ("inward: ");
+			dgram_list_print (DGRAM_INWARD);
+			printf ("outward: ");
+			dgram_list_print (DGRAM_OUTWARD);
+			printf ("unaked: ");
+			dgram_list_print (DGRAM_UNACKED);
+		}
 
 		/*
 		 * Tutti i socket si devono aspettare dati ed errori.

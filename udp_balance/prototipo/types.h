@@ -147,6 +147,7 @@ typedef list_node_t * iface_iterator_t;
 EXTERN_IF_NOT_MAIN struct timeval time_0ms;
 EXTERN_IF_NOT_MAIN struct timeval time_30ms;
 EXTERN_IF_NOT_MAIN struct timeval time_150ms;
+EXTERN_IF_NOT_MAIN bool verbose;
 
 
 #endif /* ULP_PROTO_TYPES_H */

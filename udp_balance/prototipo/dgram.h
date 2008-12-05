@@ -17,6 +17,7 @@ void dgram_discard(int id);
 void dgram_free(dgram_t *dg);
 void dgram_init_module(void);
 void dgram_list_add(int list_id, dgram_t *dg);
+void dgram_list_print(int list_id);
 void dgram_outward(int id);
 void dgram_outward_all_unacked(void);
 void dgram_print(const dgram_t *dg);

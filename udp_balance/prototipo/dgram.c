@@ -9,6 +9,7 @@
 #include <unistd.h>
 
 #include "crono.h"
+#include "dgram.h"
 #include "list.h"
 #include "util.h"
 #include "types.h"
@@ -45,6 +46,17 @@ get_list (int list_id)
 	default:
 		return NULL;
 	}
+}
+
+
+void
+dgram_list_print (int list_id)
+{
+	list_node_t **list;
+
+	list = get_list (list_id);
+
+	list_foreach_do (*list, (void (*)(void *, void *))dgram_print, NULL);
 }
 
 
