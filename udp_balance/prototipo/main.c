@@ -347,6 +347,10 @@ main (const int argc, const char *argv[])
 			if (ev & POLLERR)
 				iface_handle_err (if_ptr);
 		}
+
+		/*
+		 * TODO simulare ted
+		 */
 	}
 
 	return 0;

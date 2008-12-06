@@ -5,46 +5,6 @@
 #include <sys/time.h>
 
 
-#define     SP_LOC_IP       "127.0.0.1"
-#define     SP_LOC_PORT     "5555"
-
-/* FIXME in realta' l'IP del softphone e' quello da cui ricevo i datagram? */
-#define     SP_REM_IP       "127.0.0.1"
-#define     SP_REM_PORT     "5556"
-
-
-#define     IM_LOC_IP       "127.0.0.1"
-#define     IM_LOC_PORT     "6666"
-#define     IM_REM_IP       "127.0.0.1"
-#define     IM_REM_PORT     "6667"
-
-/* l'indirizzo ip locale per le comunicazioni con il proxy e' quello
- * di ogni interfaccia di rete. */
-#define     PX_LOC_PORT     "8888"
-#define     PX_REM_IP       "127.0.0.1"
-#define     PX_REM_PORT     "8889"
-
-
-
-#define     ONE_MILLION     1000000
-
-#define     IFACE_MAX       16
-
-#define     DGRAM_INWARD    0
-#define     DGRAM_OUTWARD   1
-#define     DGRAM_UNACKED   2
-
-#define     FAIL_PERCENT    30
-
-#define     CONTROLBUFLEN     1024
-
-#define     MIN(a,b)     ((a) < (b) ? (a) : (b))
-#define     MAX(a,b)     ((a) > (b) ? (a) : (b))
-
-#define     ARRAYLEN(a)      (sizeof((a))/sizeof(*(a)))
-
-#define     IP_NOTIFY     4242
-
 /*
  * Booleani.
  */
@@ -132,6 +92,54 @@ struct sock_notify_msg {
 
 
 typedef list_node_t * iface_iterator_t;
+
+
+/****************************************************************************
+				   Costanti
+****************************************************************************/
+
+#define     SP_LOC_IP       "127.0.0.1"
+#define     SP_LOC_PORT     "5555"
+
+/* FIXME in realta' l'IP del softphone e' quello da cui ricevo i datagram? */
+#define     SP_REM_IP       "127.0.0.1"
+#define     SP_REM_PORT     "5556"
+
+
+#define     IM_LOC_IP       "127.0.0.1"
+#define     IM_LOC_PORT     "6666"
+#define     IM_REM_IP       "127.0.0.1"
+#define     IM_REM_PORT     "6667"
+
+/* l'indirizzo ip locale per le comunicazioni con il proxy e' quello
+ * di ogni interfaccia di rete. */
+#define     PX_LOC_PORT     "8888"
+#define     PX_REM_IP       "127.0.0.1"
+#define     PX_REM_PORT     "8889"
+
+#define     ONE_MILLION     1000000
+
+#define     IFACE_MAX       16
+
+#define     DGRAM_INWARD    0
+#define     DGRAM_OUTWARD   1
+#define     DGRAM_UNACKED   2
+
+#define     FAIL_PERCENT    30
+
+#define     CONTROLBUFLEN   1024
+
+#define     MIN(a,b)        ((a) < (b) ? (a) : (b))
+#define     MAX(a,b)        ((a) > (b) ? (a) : (b))
+
+#define     ARRAYLEN(a)     (sizeof((a))/sizeof(*(a)))
+
+#define     IP_NOTIFY       4242
+
+/* TRUE simula un TED che conferma l'avvenuta ricezione da parte dell'AP,
+ * FALSE simula un TED che segnala il fallimento della spedizione. */
+#define     TED_FAKE_POSITIVE     TRUE
+
 
 
 /****************************************************************************

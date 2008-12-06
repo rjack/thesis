@@ -11,6 +11,7 @@
 #include <unistd.h>
 
 #include "crono.h"
+#include "ted_fake.h"
 #include "util.h"
 #include "types.h"
 
@@ -57,11 +58,13 @@ sendmsg_getID_fake (int sfd, const struct msghdr *msg, int flags,
 	*id_result = id;
 
 	if ((rand() % 100) < FAIL_PERCENT) {
-		printf ("sendmsg_getID_fake: errore trasmissione dgram %d\n",
-		        id);
+		if (!TED_FAKE_POSITIVE)
+			ted_set_failed (id);
 		return msg->msg_iov->iov_len;
-	} else
-		return sendmsg (sfd, msg, flags);
+	}
+	if (TED_FAKE_POSITIVE)
+		ted_set_acked (id);
+	return sendmsg (sfd, msg, flags);
 }
 
 
