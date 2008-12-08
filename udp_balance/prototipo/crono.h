@@ -2,6 +2,27 @@
 #define CRONO_H
 
 #include "types.h"
+#include <sys/time.h>
+
+
+/*
+ * Cronometro.
+ */
+typedef struct {
+	struct timeval cr_elapsed;
+	struct timeval cr_start;
+} crono_t;
+
+
+/*
+ * Timeout.
+ */
+typedef struct timeout_t {
+	/* Durata del timeout e cronometro. */
+	struct timeval to_maxval;
+	crono_t to_crono;
+} timeout_t;
+
 
 double tv2d(struct timeval *tv, bool must_free);
 int tv_cmp(const struct timeval *tv_1, const struct timeval *tv_2);

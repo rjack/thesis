@@ -2,8 +2,11 @@
 #define ULP_PROTO_TYPES_H
 
 #include <poll.h>
-#include <sys/time.h>
 
+
+/****************************************************************************
+				     Tipi
+****************************************************************************/
 
 /*
  * Booleani.
@@ -25,25 +28,6 @@ typedef int bool;
  * File descriptor.
  */
 typedef int fd_t;
-
-
-/*
- * Cronometro.
- */
-typedef struct {
-	struct timeval cr_elapsed;
-	struct timeval cr_start;
-} crono_t;
-
-
-/*
- * Timeout.
- */
-typedef struct timeout_t {
-	/* Durata del timeout e cronometro. */
-	struct timeval to_maxval;
-	crono_t to_crono;
-} timeout_t;
 
 
 /*
