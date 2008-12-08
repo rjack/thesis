@@ -1,13 +1,58 @@
+#include <assert.h>
 #include <stdlib.h>
 #include <unistd.h>
 
-#include "types.h"
+#include "list.h"
+
+struct list_info {
+	list_node_t *ls_tail_ptr;
+	void (*ls_node_value_destroy)(void *);
+	size_t ls_node_value_size;
+};
 
 
-list_node_t *
-list_create (void)
+static struct list_info *list_db;
+static size_t list_db_size;
+static size_t list_db_used;
+
+
+list_t
+list_create (void (*node_value_destroy)(void *), size_t node_value_size)
 {
-	return NULL;
+	list_t new_handle;
+	list_info *new_list_info;
+
+	if ((list_db_size - list_db_used) == 0) {
+		struct list_info *new_list_db;
+		new_list_db = realloc (list_db, (list_db_size + 1)
+					     * sizeof(struct list_info));
+		if (new_list_db == NULL)
+			return LIST_ERR;
+		list_db = new_list_db;
+		list_db_size++;
+	}
+
+	new_handle = list_db_used;
+	list_db_used++;
+	new_list_info = &(list_db[new_handle]);
+	new_list_info->ls_tail_ptr = NULL;
+	new_list_info->ls_node_value_destroy = node_value_destroy;
+	new_list_info->ls_node_value_size = node_value_size;
+
+	return new_handle
+}
+
+
+void
+list_destroy (list_t ls)
+{
+	list_node_t *node;
+	void *freefun (void *);
+
+	while ((node = list_dequeue (tp)) != NULL) {
+		freefun (node->n_ptr);
+		free (node);
+	}
 }
 
 
@@ -226,16 +271,4 @@ list_foreach_do (list_node_t *tp, void (*fun)(void *, void *), void *args)
 			fun (node->n_ptr, args);
 			node = list_next (node);
 		} while (node != head);
-}
-
-
-void
-list_destroy (list_node_t **tp, void (*freefun)(void *))
-{
-	list_node_t *node;
-
-	while ((node = list_dequeue (tp)) != NULL) {
-		freefun (node->n_ptr);
-		free (node);
-	}
 }

@@ -24,13 +24,10 @@ static size_t ifaces_len;
 
 
 static bool
-match_iface (void *ifp, void *argsp)
+match_iface (iface_t *if_ptr, iface_id_t *id)
 {
-	iface_t *if_ptr = (iface_t *)ifp;
-	struct match_iface_args *args = (struct match_iface_args *)argsp;
-
-	if (strcmp (if_ptr->if_name, args->mia_name) == 0
-	    && strcmp (if_ptr->if_loc_ip, args->mia_loc_ip) == 0)
+	if (strcmp (if_ptr->if_id.ii_name, id->ii_name) == 0
+	    && strcmp (if_ptr->if_id.ii_loc_ip, id->ii_loc_ip) == 0)
 		return TRUE;
 	return FALSE;
 }
@@ -71,9 +68,12 @@ iface_up (const char *name, const char *loc_ip)
 
 	if_ptr->if_suspected = FALSE;
 	if_ptr->if_must_send_keepalive = FALSE;
-	if_ptr->if_name = my_strdup (name);
-	if_ptr->if_loc_ip = my_strdup (loc_ip);
-	if_ptr->if_loc_port = my_strdup (PX_LOC_PORT);
+
+	strcpy (if_ptr->if_id.ii_name, name);
+	strcpy (if_ptr->if_id.ii_loc_ip, loc_ip);
+	strcpy (if_ptr->if_id.ii_loc_port, PX_LOC_PORT);
+	/* XXX PX_LOC_PORT potrebbe essere randomizzata finche' non se ne
+	 * trova una libera. */
 	if_ptr->if_pfd.fd = socket_bound_conn (loc_ip, PX_LOC_PORT,
 					       PX_REM_IP, PX_REM_PORT);
 	if_ptr->if_pfd.events = 0;
@@ -90,27 +90,23 @@ iface_up (const char *name, const char *loc_ip)
 
 
 void
-iface_down (const char *name, const char *loc_ip)
+iface_down (iface_id_t *if_id)
 {
-	iface_t *if_ptr;
-	list_node_t *node_ptr;
-	struct match_iface_args args;
+	list_node_t *rmvd;
 
-	args.mia_name = name;
-	args.mia_loc_ip = loc_ip;
+	rmvd = list_remove_if (ifaces, (bool (*)(void *, void*))&match_iface,
+	                       if_id);
+	if (!list_is_empty (rmvd)) {
+		assert (list_node_is_last (rmvd, list_head (rmvd)));
+		list_destroy (&rmvd, &iface_destroy);
+		ifaces_len--;
+	}
+}
 
-	node_ptr = list_contains (ifaces, &match_iface, &args);
-	list_remove (&ifaces, node_ptr);
-	ifaces_len--;
-	if_ptr = node_ptr->n_ptr;
 
-	free (if_ptr->if_name);
-	free (if_ptr->if_loc_ip);
-	free (if_ptr->if_loc_port);
-
-	free (if_ptr);
-
-	free (node_ptr);
+void
+iface_destroy (iface_t *if_ptr)
+{
 }
 
 
@@ -203,7 +199,9 @@ iface_print (iface_t *if_ptr)
 	assert (if_ptr != NULL);
 
 	printf ("%s %s:%s [%c%c] ",
-		if_ptr->if_name, if_ptr->if_loc_ip, if_ptr->if_loc_port,
+		if_ptr->if_id.ii_name,
+		if_ptr->if_id.ii_loc_ip,
+		if_ptr->if_id.ii_loc_port,
 		if_ptr->if_suspected ? 's' : '-',
 		if_ptr->if_must_send_keepalive ? 'k' : '-');
 	printf ("keepalive");
@@ -339,7 +337,7 @@ iface_handle_err (iface_t *if_ptr)
 				iface_print (if_ptr);
 				fprintf (stderr, "\n");
 
-				iface_down (if_ptr->if_name, if_ptr->if_loc_ip);
+				iface_down (&if_ptr->if_id);
 			}
 
 			else if (cmsg->cmsg_type == IP_NOTIFY) {

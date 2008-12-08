@@ -330,7 +330,7 @@ main (const int argc, const char *argv[])
 			if (ev & POLLIN) {
 				printf ("POLLIN interfaccia\n");
 				dg = iface_read (if_ptr);
-				/* TODO  controllo errore */
+				/* TODO controllo errore */
 				dgram_list_add (DGRAM_INWARD, dg);
 			}
 
@@ -350,6 +350,11 @@ main (const int argc, const char *argv[])
 
 		/*
 		 * TODO simulare ted
+		 * se TED_FAKE_POSITIVE == TRUE:
+		 * 	TED avverte quando un datagram arriva all'AP
+		 *
+		 * se TED_FAKE_POSITIVE == FALSE:
+		 * 	TED avverte quando un datagram NON arriva all'AP
 		 */
 	}
 
