@@ -2,6 +2,36 @@
 #define ULB_PROTO_IFACE_H
 
 #include "types.h"
+#include "list.h"
+
+
+/*
+ * Identificativo interfaccia.
+ */
+#define     IFACE_ID_NAME_LEN         10
+#define     IFACE_ID_LOC_IP_LEN       16
+#define     IFACE_ID_LOC_PORT_LEN      6
+typedef struct {
+	char ii_name[IFACE_ID_NAME_LEN];
+	char ii_loc_ip[IFACE_ID_LOC_IP_LEN];
+	char ii_loc_port[IFACE_ID_LOC_PORT_LEN];
+} iface_id_t;
+
+
+/*
+ * Interfaccia.
+ */
+typedef struct {
+	bool if_suspected;
+	bool if_must_send_keepalive;
+	struct pollfd if_pfd;
+	timeout_t if_keepalive;
+	iface_id_t if_id;
+} iface_t;
+
+
+typedef (list_node_t *) iface_iterator_t;
+
 
 bool iface_must_send_keepalive(const iface_t *if_ptr);
 dgram_t *iface_read(iface_t *if_ptr);
@@ -20,5 +50,6 @@ void iface_print(iface_t *if_ptr);
 void iface_read_pollfd(struct pollfd *pfd);
 void iface_reset_events(iface_t *if_ptr);
 void iface_set_events(iface_t *if_ptr, int e);
+
 
 #endif /* ULB_PROTO_IFACE_H */

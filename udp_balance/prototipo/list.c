@@ -20,7 +20,7 @@ list_t
 list_create (void (*node_value_destroy)(void *), size_t node_value_size)
 {
 	list_t new_handle;
-	list_info *new_list_info;
+	struct list_info *new_list_info;
 
 	if ((list_db_size - list_db_used) == 0) {
 		struct list_info *new_list_db;

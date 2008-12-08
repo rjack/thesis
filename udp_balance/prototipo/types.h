@@ -46,48 +46,6 @@ typedef struct timeout_t {
 } timeout_t;
 
 
-typedef struct {
-	char ii_name[10];
-	char ii_loc_ip[16];
-	char ii_loc_port[6];
-} iface_id_t;
-
-
-/*
- * Datagram.
- */
-typedef struct dgram {
-	int dg_id;                  /* id univoco indicato da sendmsg_getID */
-	char *dg_data;              /* dati letti da recvmsg */
-	size_t dg_datalen;          /* lunghezza dati */
-	timeout_t *dg_life_to;      /* tempo di vita del datagram */
-	timeout_t *dg_retry_to;     /* timeout di ritrasmissione */
-	iface_id_t *dg_iface;       /* interaccia su cui e' stato spedito */
-} dgram_t;
-
-
-/*
- * Interfaccia.
- */
-typedef struct {
-	bool if_suspected;
-	bool if_must_send_keepalive;
-	struct pollfd if_pfd;
-	timeout_t if_keepalive;
-	iface_id_t if_id;
-} iface_t;
-
-
-/*
- * Liste.
- */
-typedef struct list_node {
-	void *n_ptr;
-	struct list_node *n_next;
-	struct list_node *n_prev;
-} list_node_t;
-
-
 /*
  * Strutture sock_notify_msg farlocca.
  */
@@ -96,9 +54,6 @@ struct sock_notify_msg {
 	int nm_dgram_id;
 	int nm_iface_id;
 };
-
-
-typedef list_node_t * iface_iterator_t;
 
 
 /****************************************************************************
