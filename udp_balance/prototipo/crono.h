@@ -1,5 +1,5 @@
-#ifndef CRONO_H
-#define CRONO_H
+#ifndef ULB_PROTO_CRONO_H
+#define ULB_PROTO_CRONO_H
 
 #include "types.h"
 #include <sys/time.h>
@@ -41,4 +41,4 @@ void tv_min(struct timeval *result, const struct timeval *tv_1, const struct tim
 void tv_normalize(struct timeval *tv);
 void tv_print(const struct timeval *tv);
 
-#endif /* CRONO_H */
+#endif /* ULB_PROTO_CRONO_H */

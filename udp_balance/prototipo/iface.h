@@ -1,9 +1,10 @@
 #ifndef ULB_PROTO_IFACE_H
 #define ULB_PROTO_IFACE_H
 
-#include "types.h"
+#include "crono.h"
+#include "dgram.h"
 #include "list.h"
-
+#include "types.h"
 
 /*
  * Identificativo interfaccia.
@@ -30,7 +31,7 @@ typedef struct {
 } iface_t;
 
 
-typedef (list_node_t *) iface_iterator_t;
+typedef list_node_t * iface_iterator_t;
 
 
 bool iface_must_send_keepalive(const iface_t *if_ptr);

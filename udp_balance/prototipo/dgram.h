@@ -5,7 +5,7 @@
 #include <netinet/in.h>
 
 #include "types.h"
-
+#include "crono.h"
 
 /*
  * Datagram.
@@ -16,7 +16,7 @@ typedef struct dgram {
 	size_t dg_datalen;         /* lunghezza dati */
 	timeout_t *dg_life_to;     /* tempo di vita del datagram */
 	timeout_t *dg_retry_to;    /* timeout di ritrasmissione */
-	iface_id_t *dg_iface;      /* interfaccia su cui e' stato spedito */
+	void *dg_info;
 } dgram_t;
 
 
