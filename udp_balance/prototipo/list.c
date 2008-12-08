@@ -39,7 +39,7 @@ list_create (void (*node_value_destroy)(void *), size_t node_value_size)
 	new_list_info->ls_node_value_destroy = node_value_destroy;
 	new_list_info->ls_node_value_size = node_value_size;
 
-	return new_handle
+	return new_handle;
 }
 
 

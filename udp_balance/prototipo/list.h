@@ -14,7 +14,7 @@ typedef struct list_node {
 } list_node_t;
 
 
-#define     LIST_ERR     (list_t)-1)
+#define     LIST_ERR     ((list_t)-1)
 
 
 #endif /* ULB_PROTO_LIST_H */
