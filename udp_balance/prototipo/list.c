@@ -136,7 +136,7 @@ list_create (void (*node_value_destroy)(void *), size_t node_value_size)
 	if ((db_size - db_used) == 0) {
 		struct list_info *new_db;
 		new_db = realloc (db, (db_size + 1)
-						 * sizeof(struct list_info));
+		                       * sizeof(struct list_info));
 		if (new_db == NULL)
 			return LIST_ERR;
 		db = new_db;
@@ -489,27 +489,36 @@ list_inorder_insert (list_t lst, void *new_element, f_compare_t my_cmp)
 }
 
 
-list_node_t *
-list_remove_if (list_node_t **tp, bool (*cmpfun) (void *, void *), void *args)
+list_t
+list_remove_if (list_t lst, f_compare_t my_cmp, void *args)
 {
 	list_node_t *cur;
 	list_node_t *nxt;
-	list_node_t *rmq;
+	list_t rmvd;
 
-	rmq = list_create ();
-	cur = list_head (*tp);
-	while (!list_is_empty (*tp) && cur != NULL) {
-		if (list_next (cur) == list_head (*tp))
+	assert (module_ok ());
+	assert (list_is_valid (lst));
+	assert (my_cmp != NULL);
+
+	rmvd = list_create (db[lst].li_node_value_destroy,
+	                    db[lst].li_node_value_size);
+
+	cur = db[lst].li_tail_ptr->n_next;
+	while (!list_is_empty (lst) && cur != NULL) {
+		if (cur->n_next == db[lst].li_tail_ptr)
 			nxt = NULL;
 		else
-			nxt = list_next (cur);
-		if (cmpfun (cur->n_ptr, args)) {
-			list_remove (tp, cur);
-			list_enqueue (&rmq, cur);
+			nxt = cur->n_next;
+		if (my_cmp (cur->n_ptr, args)) {
+			list_remove (lst, cur);
+			/* XXX brutto! list_enqueue alloca un nodo,
+			 * list_remove ritorna il nodo, quindi dobbiamo
+			 * distruggerlo per poi ricrearlo! */
+			list_enqueue (rmvd, list_node_destroy (cur));
 		}
 		cur = nxt;
 	}
-	return rmq;
+	return rmvd;
 }
 
 
