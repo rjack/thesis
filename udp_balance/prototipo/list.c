@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 
 #include "list.h"
@@ -58,7 +59,60 @@ module_ok (void)
 
 	return ok;
 }
-endif /* NDEBUG */
+#endif /* NDEBUG */
+
+
+static list_node_t *
+list_remove (list_t lst, list_node_t *ptr)
+{
+	struct list_info *linfo;
+
+	assert (module_ok ());
+	assert (list_is_valid (lst));
+
+	linfo = &(db[lst]);
+
+	if (linfo->li_list_len == 1)
+		linfo->li_tail_ptr = NULL;
+	else {
+		/* Aggiorna il tail pointer se rimuove la coda. */
+		if (ptr == linfo->li_tail_ptr)
+			linfo->li_tail_ptr = linfo->li_tail_ptr->n_prev;
+		ptr->n_prev->n_next = ptr->n_next;
+		ptr->n_next->n_prev = ptr->n_prev;
+	}
+	ptr->n_next = NULL;
+	ptr->n_prev = NULL;
+
+	linfo->li_list_len--;
+	return ptr;
+}
+
+
+static list_node_t *
+list_node_create (void *element)
+{
+	list_node_t *new_node;
+
+	new_node = malloc (sizeof(*new_node));
+	if (new_node == NULL)
+		return NULL;
+
+	new_node->n_ptr = element;
+	return new_node;
+}
+
+
+static void *
+list_node_destroy (list_node_t *node)
+{
+	void *element;
+
+	element = node->n_ptr;
+	free (node);
+
+	return element;
+}
 
 
 /****************************************************************************
@@ -222,8 +276,6 @@ list_iterator_get_first (list_t lst, list_iterator_t *lit)
  * Ritorna l'elemento in testa a lst e inizializza lit.
  */
 {
-	void *head;
-
 	assert (module_ok ());
 	assert (list_is_valid (lst));
 
@@ -243,8 +295,6 @@ list_iterator_get_last (list_t lst, list_iterator_t *lit)
  * Ritorna l'elemento in coda a lst e inizializza lit.
  */
 {
-	void *tail;
-
 	assert (module_ok ());
 	assert (list_is_valid (lst));
 
@@ -334,69 +384,76 @@ list_contains (list_t lst, f_compare_t my_cmp, void *term, int mode)
 }
 
 
-static void
-list_insert (list_node_t **tp, list_node_t *new)
+static int
+list_insert (list_t lst, void *element)
+/*
+ * Inserisce un nuovo nodo tra la testa e la coda.
+ * Il nuovo nodo punta ad element.
+ * Ritorna la nuova lunghezza di lst se riesce, LIST_ERR se fallisce.
+ */
 {
-	list_node_t *head = list_head (*tp);
-	if (head == NULL) {
-		new->n_next = new;
-		new->n_prev = new;
-		*tp = new;
+	list_node_t *new_node;
+
+	assert (module_ok ());
+	assert (list_is_valid (lst));
+
+	new_node = list_node_create (element);
+	if (new_node == NULL)
+		return LIST_ERR;
+
+	if (list_is_empty (lst)) {
+		new_node->n_next = new_node;
+		new_node->n_prev = new_node;
+		db[lst].li_tail_ptr = new_node;
 	} else {
-		/* new <-> head */
-		head->n_prev = new;
-		new->n_next = head;
+		/* new_node <-> head */
+		db[lst].li_tail_ptr->n_next->n_prev = new_node;
+		new_node->n_next = db[lst].li_tail_ptr->n_next;
 
-		/* tail <-> new */
-		(*tp)->n_next = new;
-		new->n_prev = *tp;
+		/* tail <-> new_node */
+		db[lst].li_tail_ptr->n_next = new_node;
+		new_node->n_prev = db[lst].li_tail_ptr;
 	}
+	db[lst].li_list_len++;
+
+	return db[lst].li_list_len;
 }
 
 
-list_node_t *
-list_remove (list_node_t **tp, list_node_t *ptr)
+int
+list_push (list_t lst, void *head_element)
 {
-	/* Remove ptr from tp's list return it. */
-
-	if (list_node_is_last (*tp, ptr))
-		*tp = list_create ();
-	else {
-		/* Update tp when removing tail. */
-		if (*tp == ptr)
-			*tp = ptr->n_prev;
-		ptr->n_prev->n_next = ptr->n_next;
-		ptr->n_next->n_prev = ptr->n_prev;
-	}
-	ptr->n_next = NULL;
-	ptr->n_prev = NULL;
-	return ptr;
+	return list_insert (lst, head_element);
 }
 
 
-void
-list_push (list_node_t **tp, list_node_t *new_head)
+int
+list_enqueue (list_t lst, void *tail_element)
 {
-	list_insert (tp, new_head);
+	int len;
+
+	len = list_insert (lst, tail_element);
+	if (len != LIST_ERR)
+		db[lst].li_tail_ptr = db[lst].li_tail_ptr->n_next;
+	return len;
 }
 
 
-void
-list_enqueue (list_node_t **tp, list_node_t *new_tail)
+void *
+list_dequeue (list_t lst)
 {
-	list_insert (tp, new_tail);
-	*tp = new_tail;
-}
+	list_node_t *rmvd;
 
+	assert (module_ok ());
+	assert (list_is_valid (lst));
 
-list_node_t *
-list_dequeue (list_node_t **tp)
-/* FIXME deve deallocare il list_node_t e ritornare il n_ptr */
-{
-	list_node_t *head = list_head (*tp);
-	if (head != NULL)
-		head = list_remove (tp, head);
-	return head;
+	if (list_is_empty (lst))
+		return NULL;
+
+	rmvd = list_remove (lst, db[lst].li_tail_ptr->n_next);
+	assert (rmvd != NULL);
+
+	return list_node_destroy (rmvd);
 }
 
 
