@@ -22,7 +22,7 @@ typedef struct list_node {
 typedef list_node_t * list_iterator_t;
 
 
-typedef bool (*f_compare_t)(void *, void *);
+typedef int (*f_compare_t)(void *, void *);
 
 
 /****************************************************************************

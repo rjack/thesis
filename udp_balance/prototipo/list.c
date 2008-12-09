@@ -376,7 +376,7 @@ list_contains (list_t lst, f_compare_t my_cmp, void *term, int mode)
 	          list_iterator_get_last (lst, &lit) :
 		  list_iterator_get_first (lst, &lit);
 
-	while (element != NULL && !my_cmp (element, term))
+	while (element != NULL && my_cmp (element, term) != 0)
 		element = (mode & LIST_SCAN_BACKWARD) ?
 		           list_iterator_get_prev (lst, &lit) :
 		           list_iterator_get_next (lst, &lit);
@@ -458,21 +458,33 @@ list_dequeue (list_t lst)
 
 
 void
-list_inorder_insert (list_node_t **tp, list_node_t *ptr,
-                     int (*cmpfun)(void *, void *))
+list_inorder_insert (list_t lst, void *new_element, f_compare_t my_cmp)
+/*
+ * Inserisce in lst un nuovo nodo che punta a new_element, in modo che la
+ * lista risultante sia ordinata secondo la funzione my_cmp.
+ */
 {
-	list_node_t *cur = list_head (*tp);
+	assert (module_ok ());
+	assert (list_is_valid (lst));
+	assert (my_cmp != NULL);
 
-	if (cur == NULL || cmpfun (ptr->n_ptr, (*tp)->n_ptr) > 0)
-		list_enqueue (tp, ptr);
+	if (list_is_empty (lst)
+	    || my_cmp (new_element, db[lst].li_tail_ptr->n_ptr) > 0)
+		list_enqueue (lst, new_element);
 	else {
-		while (cmpfun (ptr->n_ptr, cur->n_ptr) > 0)
-			cur = list_next (cur);
+		list_node_t *cur;
+		list_node_t *new_node;
 
-		ptr->n_prev = cur->n_prev;
-		cur->n_prev->n_next = ptr;
-		cur->n_prev = ptr;
-		ptr->n_next = cur;
+		cur = db[lst].li_tail_ptr->n_next;
+
+		while (my_cmp (new_element, cur->n_ptr) > 0)
+			cur = cur->n_next;
+
+		new_node = list_node_create (element);
+		new_node->n_prev = cur->n_prev;
+		cur->n_prev->n_next = new_node;
+		cur->n_prev = new_node;
+		new_node->n_next = cur;
 	}
 }
 
