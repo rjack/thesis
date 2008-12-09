@@ -6,6 +6,10 @@
 #include "types.h"
 
 
+/****************************************************************************
+				     Tipi
+****************************************************************************/
+
 struct list_info {
 	list_node_t *li_tail_ptr;
 	void (*li_node_value_destroy)(void *);
@@ -14,10 +18,20 @@ struct list_info {
 };
 
 
+/****************************************************************************
+			       Variabili locali
+****************************************************************************/
+
+/* Array di liste, indicizzato dagli handler di tipo list_t.
+ * Invariante: tutti gli slot usati all'inizio dell'array. */
 static struct list_info *db;
 static size_t db_size;
 static size_t db_used;
 
+
+/****************************************************************************
+			       Funzioni locali
+****************************************************************************/
 
 #ifndef NDEBUG
 static bool
@@ -46,6 +60,10 @@ module_ok (void)
 }
 endif /* NDEBUG */
 
+
+/****************************************************************************
+			      Funzioni esportate
+****************************************************************************/
 
 list_t
 list_create (void (*node_value_destroy)(void *), size_t node_value_size)
@@ -113,6 +131,10 @@ list_destroy (list_t lst)
 
 void
 list_garbage_collect (void)
+/*
+ * Libera spazio: rialloca db se e' piu' grande del necessario o lo dealloca
+ * se vuoto.
+ */
 {
 	struct list_info *new_db;
 
@@ -136,62 +158,179 @@ list_garbage_collect (void)
 
 
 bool
-list_is_valid (list_t ls)
+list_is_valid (list_t lst)
+/*
+ * Paranoia.
+ */
 {
 	assert (module_ok ());
 
-	if (ls != LIST_ERR
-	    && (ls >= 0 || ls < db_used))
+	if (lst != LIST_ERR
+	    && (lst >= 0 || lst < db_used))
 		return TRUE;
 	return FALSE;
 }
 
 
 bool
-list_is_empty (list_t ls)
+list_is_empty (list_t lst)
+/*
+ * Ritorna TRUE se la lista e' vuota, FALSE altrimenti.
+ */
 {
 	assert (module_ok ());
-	assert (list_is_valid (ls));
+	assert (list_is_valid (lst));
 
-	if (db[ls].li_tail_ptr == NULL)
+	if (db[lst].li_tail_ptr == NULL)
 		return TRUE;
 	return FALSE;
 }
 
 
 void *
-list_peek (list_t ls)
+list_peek (list_t lst)
+/*
+ * Ritorna l'elemento puntato dal nodo in testa alla lista, oppure NULL se la
+ * lista e' vuota.
+ */
 {
 	assert (module_ok ());
-	assert (list_is_valid (ls));
+	assert (list_is_valid (lst));
 
-	if (!list_is_empty (ls))
-		return db[ls].li_tail_ptr->n_next;
+	if (!list_is_empty (lst))
+		return db[lst].li_tail_ptr->n_next->n_ptr;
 	return NULL;
 }
 
 
 bool
-list_length (list_t ls)
+list_length (list_t lst)
+/*
+ * Ritorna la lunghezza della lista.
+ */
 {
 	assert (module_ok ());
-	assert (list_is_valid (ls));
+	assert (list_is_valid (lst));
 
-	return db[ls].li_list_len;
+	return db[lst].li_list_len;
 }
 
 
-list_node_t *
-list_contains (list_node_t *tp, bool (*cmpfun)(void *, void *), void *term)
+void *
+list_iterator_get_first (list_t lst, list_iterator_t *lit)
+/*
+ * Ritorna l'elemento in testa a lst e inizializza lit.
+ */
 {
-	bool found = FALSE;
-	list_node_t *i = list_head (tp);
-	if (i != NULL)
-		while (!(found = cmpfun (i->n_ptr, term)) && i != tp)
-			i = list_next (i);
-	if (i != NULL && found)
-		return i;
-	return NULL;
+	void *head;
+
+	assert (module_ok ());
+	assert (list_is_valid (lst));
+
+	if (list_is_empty (lst)) {
+		*lit = NULL;
+		return NULL;
+	}
+
+	*lit = db[lst].li_tail_ptr->n_next;
+	return (*lit)->n_ptr;
+}
+
+
+void *
+list_iterator_get_last (list_t lst, list_iterator_t *lit)
+/*
+ * Ritorna l'elemento in coda a lst e inizializza lit.
+ */
+{
+	void *tail;
+
+	assert (module_ok ());
+	assert (list_is_valid (lst));
+
+	if (list_is_empty (lst)) {
+		*lit = NULL;
+		return NULL;
+	}
+
+	*lit = db[lst].li_tail_ptr;
+	return (*lit)->n_ptr;
+}
+
+
+void *
+list_iterator_get_next (list_t lst, list_iterator_t *lit)
+/*
+ * Ritorna l'elemento successivo secondo lo stato di lit, oppure NULL se e'
+ * stata raggiunta la fine della lista.
+ */
+{
+	assert (lit != NULL);
+	assert (module_ok ());
+	assert (list_is_valid (lst));
+
+	if (*lit == NULL)
+		return NULL;
+
+	*lit = (*lit)->n_next;
+	if (*lit == db[lst].li_tail_ptr->n_next) {
+		*lit = NULL;
+		return NULL;
+	}
+
+	return (*lit)->n_ptr;
+}
+
+
+void *
+list_iterator_get_prev (list_t lst, list_iterator_t *lit)
+/*
+ * Ritorna l'elemento precedente secondo lo stato di lit, oppure NULL se e'
+ * stata raggiunta la testa della lista.
+ */
+{
+	assert (lit != NULL);
+	assert (module_ok ());
+	assert (list_is_valid (lst));
+
+	if (*lit == NULL)
+		return NULL;
+
+	*lit = (*lit)->n_prev;
+	if (*lit == db[lst].li_tail_ptr) {
+		*lit = NULL;
+		return NULL;
+	}
+
+	return (*lit)->n_ptr;
+}
+
+
+void *
+list_contains (list_t lst, f_compare_t my_cmp, void *term, int mode)
+/*
+ * Ritorna il primo elemento che soddisfi la funzione my_cmp, NULL se la lista
+ * e' vuota o nessun elemento soddisfa la funzione data.
+ * Se la flag LIST_SCAN_BACKWARD e' impostata in mode, comincia a cercare
+ * dalla fine della lista.
+ */
+{
+	void *element;
+	list_iterator_t lit;
+
+	assert (module_ok ());
+	assert (list_is_valid (lst));
+	assert (my_cmp != NULL);
+
+	element = (mode & LIST_SCAN_BACKWARD) ?
+	          list_iterator_get_last (lst, &lit) :
+		  list_iterator_get_first (lst, &lit);
+
+	while (element != NULL && !my_cmp (element, term))
+		element = (mode & LIST_SCAN_BACKWARD) ?
+		           list_iterator_get_prev (lst, &lit) :
+		           list_iterator_get_next (lst, &lit);
+	return element;
 }
 
 
