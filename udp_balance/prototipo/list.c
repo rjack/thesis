@@ -12,7 +12,7 @@
 ****************************************************************************/
 
 struct list_info {
-	list_node_t *li_tail_ptr;
+	struct list_node *li_tail_ptr;
 	void (*li_node_value_destroy)(void *);
 	size_t li_node_value_size;
 	int li_list_len;
@@ -62,8 +62,8 @@ module_ok (void)
 #endif /* NDEBUG */
 
 
-static list_node_t *
-list_remove (list_t lst, list_node_t *ptr)
+static struct list_node *
+list_remove (list_t lst, struct list_node *ptr)
 {
 	struct list_info *linfo;
 
@@ -89,10 +89,10 @@ list_remove (list_t lst, list_node_t *ptr)
 }
 
 
-static list_node_t *
+static struct list_node *
 list_node_create (void *element)
 {
-	list_node_t *new_node;
+	struct list_node *new_node;
 
 	new_node = malloc (sizeof(*new_node));
 	if (new_node == NULL)
@@ -104,7 +104,7 @@ list_node_create (void *element)
 
 
 static void *
-list_node_destroy (list_node_t *node)
+list_node_destroy (struct list_node *node)
 {
 	void *element;
 
@@ -391,7 +391,7 @@ list_insert (list_t lst, void *element)
  * Ritorna la nuova lunghezza di lst se riesce, LIST_ERR se fallisce.
  */
 {
-	list_node_t *new_node;
+	struct list_node *new_node;
 
 	assert (module_ok ());
 	assert (list_is_valid (lst));
@@ -441,7 +441,7 @@ list_enqueue (list_t lst, void *tail_element)
 void *
 list_dequeue (list_t lst)
 {
-	list_node_t *rmvd;
+	struct list_node *rmvd;
 
 	assert (module_ok ());
 	assert (list_is_valid (lst));
@@ -471,8 +471,8 @@ list_inorder_insert (list_t lst, void *new_element, f_compare_t my_cmp)
 	    || my_cmp (new_element, db[lst].li_tail_ptr->n_ptr) > 0)
 		list_enqueue (lst, new_element);
 	else {
-		list_node_t *cur;
-		list_node_t *new_node;
+		struct list_node *cur;
+		struct list_node *new_node;
 
 		cur = db[lst].li_tail_ptr->n_next;
 
@@ -496,8 +496,8 @@ list_remove_if (list_t lst, f_compare_t my_cmp, void *args)
  * hanno soddisfatto la funzione my_cmp.
  */
 {
-	list_node_t *cur;
-	list_node_t *nxt;
+	struct list_node *cur;
+	struct list_node *nxt;
 	list_t rmvd;
 
 	assert (module_ok ());

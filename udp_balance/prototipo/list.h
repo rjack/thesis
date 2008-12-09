@@ -12,14 +12,14 @@
 typedef int list_t;
 
 
-typedef struct list_node {
+struct list_node {
 	void *n_ptr;
 	struct list_node *n_next;
 	struct list_node *n_prev;
-} list_node_t;
+};
 
 
-typedef list_node_t * list_iterator_t;
+typedef struct list_node* list_iterator_t;
 
 
 typedef int (*f_compare_t)(void *, void *);
