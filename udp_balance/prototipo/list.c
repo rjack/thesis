@@ -523,22 +523,23 @@ list_remove_if (list_t lst, f_compare_t my_cmp, void *args)
 
 
 void *
-list_fold_left (list_node_t *tp, void * (*fun)(void *, void *),
+list_fold_left (list_t lst, void * (*fun)(void *, void *),
                 void *initial_value)
 {
-	list_node_t *node;
-	list_node_t *head;
 	void *accumulator;
+	void *element;
+	list_iterator_t lit;
 
-	head = list_head (tp);
-	node = head;
+	assert (module_ok ());
+	assert (list_is_valid (lst));
+	assert (fun != NULL);
 
 	accumulator = initial_value;
-	if (head != NULL)
-		do {
-			accumulator = fun (accumulator, node->n_ptr);
-			node = list_next (node);
-		} while (node != head);
+
+	for (element = list_iterator_get_first (lst, &lit);
+	     element != NULL;
+	     element = list_iterator_get_next (lst, &lit))
+		accumulator = fun (accumulator, element);
 
 	return accumulator;
 }
