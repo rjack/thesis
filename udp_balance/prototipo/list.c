@@ -549,41 +549,37 @@ list_fold_left (list_t lst, void * (*fun)(void *, void *),
 }
 
 
-list_node_t *
-list_cat (list_node_t *tp_0, list_node_t *tp_1)
+void
+list_cat (list_t lst_0, list_t lst_1)
+/*
+ * Travasa il contenuto di lst_1 in coda a lst_0.
+ */
 {
-	list_node_t *head[2];
+	assert (module_ok ());
+	assert (list_is_valid (lst_0));
+	assert (list_is_valid (lst_1));
+	assert (db[lst_0].li_node_value_size == db[lst_1].li_node_value_size);
 
-	if (list_is_empty (tp_0))
-		return tp_1;
-	if (list_is_empty (tp_1))
-		return tp_0;
-
-	head[0] = list_head (tp_0);
-	head[1] = list_head (tp_1);
-
-	tp_0->n_next = head[1];
-	head[1]->n_prev = tp_0;
-
-	tp_1->n_next = head[0];
-	head[0]->n_prev = tp_1;
-
-	return tp_1;
+	while (!list_is_empty (lst_1))
+		list_enqueue (lst_0, list_dequeue (lst_1));
 }
 
 
 void
-list_foreach_do (list_node_t *tp, void (*fun)(void *, void *), void *args)
+list_foreach_do (list_t lst, void (*fun)(void *, void *), void *args)
+/*
+ * Chiama fun su ogni elemento di lst.
+ */
 {
-	list_node_t *head;
-	list_node_t *node;
+	void *element;
+	list_iterator_t lit;
 
-	head = list_head (tp);
-	node = head;
+	assert (module_ok ());
+	assert (list_is_valid (lst));
+	assert (fun != NULL);
 
-	if (head != NULL)
-		do {
-			fun (node->n_ptr, args);
-			node = list_next (node);
-		} while (node != head);
+	for (element = list_iterator_get_first (lst, &lit);
+	     element != NULL;
+	     element = list_iterator_get_next (lst, &lit))
+		fun (element, args);
 }

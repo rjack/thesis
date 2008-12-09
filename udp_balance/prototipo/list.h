@@ -58,7 +58,7 @@ void *list_dequeue(list_t lst);
 void list_inorder_insert(list_t lst, void *new_element, f_compare_t my_cmp);
 list_t list_remove_if(list_t lst, f_compare_t my_cmp, void *args);
 void *list_fold_left(list_t lst, void *(*fun)(void *, void *), void *initial_value);
-list_node_t *list_cat(list_node_t *tp_0, list_node_t *tp_1);
-void list_foreach_do(list_node_t *tp, void (*fun)(void *, void *), void *args);
+void list_cat(list_t lst_0, list_t lst_1);
+void list_foreach_do(list_t lst, void (*fun)(void *, void *), void *args);
 
 #endif /* ULB_PROTO_LIST_H */
