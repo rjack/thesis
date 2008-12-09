@@ -178,8 +178,7 @@ list_destroy (list_t lst)
 	/* Rimozione da db. */
 	db_used--;
 	if (db_used != 0)
-		memcpy (&(db[lst]), &(db[db_used]),
-		        sizeof(*db));
+		memcpy (&(db[lst]), &(db[db_used]), sizeof(*db));
 }
 
 
@@ -485,12 +484,17 @@ list_inorder_insert (list_t lst, void *new_element, f_compare_t my_cmp)
 		cur->n_prev->n_next = new_node;
 		cur->n_prev = new_node;
 		new_node->n_next = cur;
+		db[lst].li_list_len++;
 	}
 }
 
 
 list_t
 list_remove_if (list_t lst, f_compare_t my_cmp, void *args)
+/*
+ * Ritorna una nuova lista formata da tutti gli elementi rimossi da lst che
+ * hanno soddisfatto la funzione my_cmp.
+ */
 {
 	list_node_t *cur;
 	list_node_t *nxt;
@@ -509,7 +513,7 @@ list_remove_if (list_t lst, f_compare_t my_cmp, void *args)
 			nxt = NULL;
 		else
 			nxt = cur->n_next;
-		if (my_cmp (cur->n_ptr, args)) {
+		if (my_cmp (cur->n_ptr, args) == 0) {
 			list_remove (lst, cur);
 			/* XXX brutto! list_enqueue alloca un nodo,
 			 * list_remove ritorna il nodo, quindi dobbiamo
