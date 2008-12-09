@@ -39,6 +39,7 @@ typedef int (*f_compare_t)(void *, void *);
 				  Prototipi
 ****************************************************************************/
 
+
 list_t list_create(void (*node_value_destroy)(void *), size_t node_value_size);
 void list_destroy(list_t lst);
 void list_garbage_collect(void);
@@ -54,10 +55,11 @@ void *list_contains(list_t lst, f_compare_t my_cmp, void *term, int mode);
 int list_push(list_t lst, void *head_element);
 int list_enqueue(list_t lst, void *tail_element);
 void *list_dequeue(list_t lst);
-void list_inorder_insert(list_node_t **tp, list_node_t *ptr, int (*cmpfun)(void *, void *));
+void list_inorder_insert(list_t lst, void *new_element, f_compare_t my_cmp);
 list_node_t *list_remove_if(list_node_t **tp, bool (*cmpfun)(void *, void *), void *args);
 void *list_fold_left(list_node_t *tp, void *(*fun)(void *, void *), void *initial_value);
 list_node_t *list_cat(list_node_t *tp_0, list_node_t *tp_1);
 void list_foreach_do(list_node_t *tp, void (*fun)(void *, void *), void *args);
+
 
 #endif /* ULB_PROTO_LIST_H */

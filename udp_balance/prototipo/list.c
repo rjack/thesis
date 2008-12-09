@@ -480,7 +480,7 @@ list_inorder_insert (list_t lst, void *new_element, f_compare_t my_cmp)
 		while (my_cmp (new_element, cur->n_ptr) > 0)
 			cur = cur->n_next;
 
-		new_node = list_node_create (element);
+		new_node = list_node_create (new_element);
 		new_node->n_prev = cur->n_prev;
 		cur->n_prev->n_next = new_node;
 		cur->n_prev = new_node;
