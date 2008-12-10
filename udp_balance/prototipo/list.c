@@ -115,6 +115,42 @@ list_node_destroy (struct list_node *node)
 }
 
 
+static int
+list_insert (list_t lst, void *element)
+/*
+ * Inserisce un nuovo nodo tra la testa e la coda.
+ * Il nuovo nodo punta ad element.
+ * Ritorna la nuova lunghezza di lst se riesce, LIST_ERR se fallisce.
+ */
+{
+	struct list_node *new_node;
+
+	assert (module_ok ());
+	assert (list_is_valid (lst));
+
+	new_node = list_node_create (element);
+	if (new_node == NULL)
+		return LIST_ERR;
+
+	if (list_is_empty (lst)) {
+		new_node->n_next = new_node;
+		new_node->n_prev = new_node;
+		db[lst].li_tail_ptr = new_node;
+	} else {
+		/* new_node <-> head */
+		db[lst].li_tail_ptr->n_next->n_prev = new_node;
+		new_node->n_next = db[lst].li_tail_ptr->n_next;
+
+		/* tail <-> new_node */
+		db[lst].li_tail_ptr->n_next = new_node;
+		new_node->n_prev = db[lst].li_tail_ptr;
+	}
+	db[lst].li_list_len++;
+
+	return db[lst].li_list_len;
+}
+
+
 /****************************************************************************
 			      Funzioni esportate
 ****************************************************************************/
@@ -380,42 +416,6 @@ list_contains (list_t lst, f_compare_t my_cmp, void *term, int mode)
 		           list_iterator_get_prev (lst, &lit) :
 		           list_iterator_get_next (lst, &lit);
 	return element;
-}
-
-
-static int
-list_insert (list_t lst, void *element)
-/*
- * Inserisce un nuovo nodo tra la testa e la coda.
- * Il nuovo nodo punta ad element.
- * Ritorna la nuova lunghezza di lst se riesce, LIST_ERR se fallisce.
- */
-{
-	struct list_node *new_node;
-
-	assert (module_ok ());
-	assert (list_is_valid (lst));
-
-	new_node = list_node_create (element);
-	if (new_node == NULL)
-		return LIST_ERR;
-
-	if (list_is_empty (lst)) {
-		new_node->n_next = new_node;
-		new_node->n_prev = new_node;
-		db[lst].li_tail_ptr = new_node;
-	} else {
-		/* new_node <-> head */
-		db[lst].li_tail_ptr->n_next->n_prev = new_node;
-		new_node->n_next = db[lst].li_tail_ptr->n_next;
-
-		/* tail <-> new_node */
-		db[lst].li_tail_ptr->n_next = new_node;
-		new_node->n_prev = db[lst].li_tail_ptr;
-	}
-	db[lst].li_list_len++;
-
-	return db[lst].li_list_len;
 }
 
 
