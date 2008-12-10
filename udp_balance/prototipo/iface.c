@@ -8,6 +8,7 @@
 
 #include "crono.h"
 #include "dgram.h"
+#include "iface.h"
 #include "list.h"
 #include "types.h"
 #include "util.h"
@@ -18,9 +19,6 @@ struct match_iface_args {
 	const char *mia_loc_ip;
 };
 
-
-static list_node_t *ifaces;
-static size_t ifaces_len;
 
 
 static bool
@@ -33,14 +31,6 @@ match_iface (iface_t *if_ptr, iface_id_t *id)
 }
 
 
-void
-iface_init_module (void)
-{
-	ifaces = list_create ();
-	ifaces_len = 0;
-}
-
-
 bool
 iface_must_send_keepalive (const iface_t *if_ptr)
 {
@@ -48,6 +38,7 @@ iface_must_send_keepalive (const iface_t *if_ptr)
 }
 
 
+#ifdef NON_COMPILARE
 int
 iface_up (const char *name, const char *loc_ip)
 {
@@ -87,8 +78,10 @@ iface_up (const char *name, const char *loc_ip)
 	/* TODO controllo errore socket_bound_conn */
 	return 1;
 }
+#endif /* NON_COMPILARE */
 
 
+#ifdef NON_COMPILARE
 void
 iface_down (iface_id_t *if_id)
 {
@@ -102,40 +95,13 @@ iface_down (iface_id_t *if_id)
 		ifaces_len--;
 	}
 }
+#endif /* NON_COMPILARE */
 
 
 void
-iface_destroy (iface_t *if_ptr)
+iface_destroy (iface_t *if_ptr)     /* TODO */
 {
-}
-
-
-iface_t *
-iface_iterator_get_first (iface_iterator_t *ii_ptr)
-{
-	assert (ii_ptr != NULL);
-	*ii_ptr = list_head (ifaces);
-	if (*ii_ptr == NULL)
-		return NULL;
-	return (*ii_ptr)->n_ptr;
-}
-
-
-iface_t *
-iface_iterator_get_next (iface_iterator_t *ii_ptr)
-{
-	assert (ii_ptr != NULL);
-
-	if (*ii_ptr == NULL)
-		return NULL;
-
-	*ii_ptr = list_next (*ii_ptr);
-	if (*ii_ptr == list_head (ifaces)) {
-		*ii_ptr = NULL;
-		return NULL;
-	}
-
-	return (*ii_ptr)->n_ptr;
+	assert (FALSE);
 }
 
 
@@ -182,17 +148,6 @@ iface_reset_events (iface_t *if_ptr)
 }
 
 
-iface_t *
-iface_get_current (void)
-{
-	if (!list_is_empty (ifaces)) {
-		list_node_t *head = list_head (ifaces);
-		return head->n_ptr;
-	}
-	return NULL;
-}
-
-
 void
 iface_print (iface_t *if_ptr)
 {
@@ -209,33 +164,21 @@ iface_print (iface_t *if_ptr)
 }
 
 
-void
-iface_fill_pollfd (struct pollfd *pfd, size_t *pfd_used)
+struct pollfd *
+iface_get_pollfd (iface_t *if_ptr)
 {
-	int i;
-	iface_t *if_ptr;
-	iface_iterator_t ii;
+	assert (if_ptr != NULL);
 
-	for (i = 0, if_ptr = iface_iterator_get_first (&ii);
-	     if_ptr != NULL;
-	     i++, if_ptr = iface_iterator_get_next (&ii))
-		pfd[i] = if_ptr->if_pfd;
-
-	*pfd_used = ifaces_len;
+	return &(if_ptr->if_pfd);
 }
 
 
 void
-iface_read_pollfd (struct pollfd *pfd)
+iface_set_pollfd (iface_t *if_ptr, struct pollfd *pfd)
 {
-	int i;
-	iface_t *if_ptr;
-	iface_iterator_t ii;
+	assert (if_ptr != NULL);
 
-	for (i = 0, if_ptr = iface_iterator_get_first (&ii);
-	     if_ptr != NULL;
-	     i++, if_ptr = iface_iterator_get_next (&ii))
-		if_ptr->if_pfd.revents = pfd[i].revents;
+	memcpy (&(if_ptr->if_pfd), pfd, sizeof(*pfd));
 }
 
 
@@ -278,6 +221,7 @@ iface_read (iface_t *if_ptr)
 
 int
 iface_handle_err (iface_t *if_ptr)
+/* FIXME fa troppe cose! separare decisioni da meccanismo. */
 {
 	/* Puo' essere:
 	 * 1. IP_NOTIFY errore trasmissione
@@ -337,16 +281,16 @@ iface_handle_err (iface_t *if_ptr)
 				iface_print (if_ptr);
 				fprintf (stderr, "\n");
 
-				iface_down (&if_ptr->if_id);
+				/* FIXME iface_down (&if_ptr->if_id); */
 			}
 
 			else if (cmsg->cmsg_type == IP_NOTIFY) {
 				struct sock_notify_msg *nm;
 				nm = (struct sock_notify_msg *) CMSG_DATA (cmsg);
 				if (nm->nm_ack == TRUE)
-					dgram_discard (nm->nm_id);
+					dgram_discard (nm->nm_dgram_id);
 				else
-					dgram_outward (nm->nm_id);
+					dgram_outward (nm->nm_dgram_id);
 			}
 		}
 	}

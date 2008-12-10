@@ -23,6 +23,8 @@ typedef struct list_node* list_iterator_t;
 
 
 typedef int (*f_compare_t)(void *, void *);
+typedef void (*f_destroy_t)(void *);
+typedef void (*f_callback_t)(void *, void *);
 
 
 /****************************************************************************
@@ -40,7 +42,7 @@ typedef int (*f_compare_t)(void *, void *);
 ****************************************************************************/
 
 /* list.c */
-list_t list_create(void (*node_value_destroy)(void *), size_t node_value_size);
+list_t list_create(f_destroy_t node_value_destroy, size_t node_value_size);
 void list_destroy(list_t lst);
 void list_garbage_collect(void);
 bool list_is_valid(list_t lst);

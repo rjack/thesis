@@ -13,7 +13,7 @@
 
 struct list_info {
 	struct list_node *li_tail_ptr;
-	void (*li_node_value_destroy)(void *);
+	f_destroy_t li_node_value_destroy;
 	size_t li_node_value_size;
 	int li_list_len;
 };
@@ -120,7 +120,7 @@ list_node_destroy (struct list_node *node)
 ****************************************************************************/
 
 list_t
-list_create (void (*node_value_destroy)(void *), size_t node_value_size)
+list_create (f_destroy_t node_value_destroy, size_t node_value_size)
 /*
  * Crea una nuova lista e ritorna il suo handler, oppure LIST_ERR se fallisce.
  * node_value_destroy e' la funzione per deallocare il valore degli elementi

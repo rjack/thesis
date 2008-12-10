@@ -57,6 +57,15 @@ main (const int argc, const char *argv[])
 	struct pollfd *sp = &fds[0];
 	struct pollfd *im = &fds[1];
 
+	list_t out = list_create ((f_destroy_t)dgram_destroy,
+	                          sizeof(dgram_t));
+	list_t in = list_create ((f_destroy_t)dgram_destroy,
+	                         sizeof(dgram_t));
+	list_t unacked = list_create ((f_destroy_t)dgram_destroy,
+	                              sizeof(dgram_t));
+	list_t ifaces = list_create ((f_destroy_t)iface_destroy,
+	                             sizeof(iface_t));
+
 	/*
 	 * Init variabili globali
 	 */
@@ -100,8 +109,6 @@ main (const int argc, const char *argv[])
 	 */
 	/* srand (42); */     /* per non piangere debuggando. */
 	srand (getpid ());
-	iface_init_module ();
-	dgram_init_module ();
 
 	/* Creazione socket bindati per IM e SP
 	 * FIXME non connettere sp ma ogni sendmsg usa addr ritornato da
@@ -116,23 +123,31 @@ main (const int argc, const char *argv[])
 		goto socket_bound_conn_err;
 
 	while (!is_done ()) {
+		int i;
 		dgram_t *dg;
+		void *args;
 		int nready;
 		int next_tmout;
 		struct timeval min;
 		struct timeval left;
 		iface_t *current_iface;
 		/* per i cicli */
-		iface_iterator_t ii;
+		list_iterator_t lit;
 		iface_t *if_ptr;
+		struct timeval now;
 
 		if (verbose) {
-			printf ("inward: ");
-			dgram_list_print (DGRAM_INWARD);
-			printf ("outward: ");
-			dgram_list_print (DGRAM_OUTWARD);
-			printf ("unaked: ");
-			dgram_list_print (DGRAM_UNACKED);
+			printf ("in: ");
+			list_foreach_do (in, (f_callback_t)dgram_print, NULL);
+			printf ("\n");
+			printf ("out: ");
+			list_foreach_do (out, (f_callback_t)dgram_print,
+			                 NULL);
+			printf ("\n");
+			printf ("unacked: ");
+			list_foreach_do (unacked, (f_callback_t)dgram_print,
+			                 NULL);
+			printf ("\n");
 		}
 
 		/*
@@ -142,16 +157,16 @@ main (const int argc, const char *argv[])
 		sp->revents = 0;
 		im->events = POLLIN | POLLERR;
 		im->revents = 0;
-		for (if_ptr = iface_iterator_get_first (&ii);
-		     if_ptr != NULL;
-		     if_ptr = iface_iterator_get_next (&ii)) {
-			iface_reset_events (if_ptr);
-			iface_set_events (if_ptr, POLLIN | POLLERR);
-		}
+		list_foreach_do (ifaces,
+		                 (f_callback_t)iface_reset_events, NULL);
+		args = my_alloc (sizeof(int));
+		*(int *)args = POLLIN | POLLERR;
+		list_foreach_do (ifaces, (f_callback_t)iface_set_events,
+		                 args);
+		free (args);
 
-		current_iface = iface_get_current ();
-#ifndef NDEBUG
-		{
+		current_iface = list_peek (ifaces);
+		if (verbose) {
 			printf ("Interfaccia d'uscita: ");
 			if (current_iface != NULL)
 				iface_print (current_iface);
@@ -159,7 +174,6 @@ main (const int argc, const char *argv[])
 				printf ("nessuna");
 			printf ("\n"); fflush (stdout);
 		}
-#endif /* NDEBUG */
 
 		/*
 		 * Pulizia code datagram e calcolo timeout minimo.
@@ -167,34 +181,35 @@ main (const int argc, const char *argv[])
 		min.tv_sec = ONE_MILLION;
 		min.tv_usec = 0;
 
-		dgram_outward_all_unacked ();
 		dgram_purge_all_old ();
 
 		/* Keepalive. */
-		for (if_ptr = iface_iterator_get_first (&ii);
+		for (if_ptr = list_iterator_get_first (ifaces, &lit);
 		     if_ptr != NULL;
-		     if_ptr = iface_iterator_get_next (&ii)) {
+		     if_ptr = list_iterator_get_next (ifaces, &lit)) {
 			iface_keepalive_left (if_ptr, &left);
 			tv_min (&min, &min, &left);
 		}
 
-		dgram_timeout_min (&min);
+		/* Timeout minimo tra tutti i datagram out e unaked. */
+		list_foreach_do (out, (f_callback_t)dgram_min_timeout, &min);
+		list_foreach_do (unacked, (f_callback_t)dgram_min_timeout,
+		                 &min);
+
 
 		if (min.tv_sec == ONE_MILLION) {
 			/* All'inizio non ci sono interfacce attive e poll si
 			 * blocca in attesa di un messaggio di configurazione
 			 * da parte dell'interface monitor. */
 			next_tmout = -1;
-#ifndef NDEBUG
-			fprintf (stderr, "poll blocca indefinitamente\n");
-#endif /* NDEBUG */
+			if (verbose)
+				fprintf (stderr, "poll blocca indefinitamente\n");
 		} else if (tv_cmp (&min, &time_0ms) <= 0) {
 			/* C'e' un timeout gia' scaduto, la poll e'
 			 * istantanea. */
 			next_tmout = 0;
-#ifndef NDEBUG
-			fprintf (stderr, "poll non blocca\n");
-#endif /* NDEBUG */
+			if (verbose)
+				fprintf (stderr, "poll non blocca\n");
 		} else {
 			/* Il timeout piu' prossimo a scadere e' > 0 */
 			assert (tv_cmp (&min, &time_0ms) > 0);
@@ -203,9 +218,10 @@ main (const int argc, const char *argv[])
 			 * della conversione microsec -> millisec */
 #ifdef NDEBUG
 			assert (next_tmout <= 150);
-#else
-			fprintf (stderr, "poll blocca per %d ms\n", next_tmout);
 #endif /* NDEBUG */
+			if (verbose)
+				fprintf (stderr, "poll blocca per %d ms\n",
+				         next_tmout);
 		}
 
 		/*
@@ -214,25 +230,30 @@ main (const int argc, const char *argv[])
 
 		/* Se ho dati ricevuti dal server, voglio scrivere al
 		 * softphone */
-		if (dgram_list_peek (DGRAM_INWARD) != NULL)
+		if (list_peek (in) != NULL)
 			sp->events |= POLLOUT;
 
 		/* Se ho un'interfaccia wifi attiva e dati dal softphone,
 		 * scrivo al server. */
-		if (current_iface != NULL && dgram_list_peek (DGRAM_OUTWARD))
+		if (current_iface != NULL && list_peek (out))
 			iface_set_events (current_iface, POLLOUT);
 
 		/* POLLOUT se scaduto keepalive. */
-		for (if_ptr = iface_iterator_get_first (&ii);
+		for (if_ptr = list_iterator_get_first (ifaces, &lit);
 		     if_ptr != NULL;
-		     if_ptr = iface_iterator_get_next (&ii))
+		     if_ptr = list_iterator_get_next (ifaces, &lit))
 			if (iface_must_send_keepalive (if_ptr))
 				iface_set_events (if_ptr, POLLOUT);
 
 		/*
 		 * Poll
 		 */
-		iface_fill_pollfd (&fds[2], &ifaces_used);
+		/* Travaso pollfd interfacce in array. */
+		for (i = 2, if_ptr = list_iterator_get_first (ifaces, &lit);
+		     if_ptr != NULL;
+		     i++, if_ptr = list_iterator_get_next (ifaces, &lit))
+			memcpy (&fds[i], iface_get_pollfd (if_ptr),
+			        sizeof(struct pollfd));
 
 		nready = poll (fds, 2 + ifaces_used, next_tmout);
 		if (nready == -1) {
@@ -240,7 +261,11 @@ main (const int argc, const char *argv[])
 			exit (EXIT_FAILURE);
 		}
 
-		iface_read_pollfd (&fds[2]);
+		/* Travaso inverso. */
+		for (i = 2, if_ptr = list_iterator_get_first (ifaces, &lit);
+		     if_ptr != NULL;
+		     i++, if_ptr = list_iterator_get_next (ifaces, &lit))
+			iface_set_pollfd (if_ptr, &fds[i]);
 
 		/*
 		 * Eventi softphone.
@@ -252,24 +277,24 @@ main (const int argc, const char *argv[])
 			exit (EXIT_FAILURE);
 		}
 		if (sp->revents & POLLIN) {
-			struct timeval now;
-
-			printf ("POLLIN softphone\n");
+			if (verbose)
+				printf ("POLLIN softphone\n");
 			dg = dgram_read (sp->fd, NULL, NULL);
 			/* TODO controllo errore */
 			assert (dg->dg_life_to == NULL);
 			dg->dg_life_to = new_timeout (&time_150ms);
 			gettime (&now);
 			timeout_start (dg->dg_life_to, &now);
-			dgram_list_add (DGRAM_OUTWARD, dg);
+			list_enqueue (out, dg);
 		}
 		if (sp->revents & POLLOUT) {
-			printf ("POLLOUT softphone\n");
-			dg = dgram_list_pop (DGRAM_INWARD);
+			if (verbose)
+				printf ("POLLOUT softphone\n");
+			dg = list_dequeue (in);
 			assert (dg != NULL);
 			dgram_write (sp->fd, dg, NULL, 0);
 			/* TODO controllo errore */
-			dgram_free (dg);
+			dgram_destroy (dg);
 		}
 
 		/*
@@ -286,62 +311,65 @@ main (const int argc, const char *argv[])
 			char *cmd;
 			char *ip;
 			char *name;
-			printf ("POLLIN interface monitor\n");
+			if (verbose)
+				printf ("POLLIN interface monitor\n");
 			dg = dgram_read (im->fd, NULL, NULL);
 			parse_im_msg (&name, &cmd, &ip, dg->dg_data,
 			              dg->dg_datalen);
 			if (strcmp (cmd, "down") == 0)
-				iface_down (name, ip);
+				; /* FIXME iface_down (name, ip); */
 			else
-				iface_up (name, ip);
+				; /* FIXME iface_up (name, ip); */
 			free (name);
 			free (cmd);
 			free (ip);
-			dgram_free (dg);
+			dgram_destroy (dg);
 		}
 
 		/*
 		 * Spedizione interfaccia corrente.
 		 */
 		if (current_iface != NULL
-		    && dgram_list_peek (DGRAM_OUTWARD) != NULL
-		    && iface_get_events (current_iface) & POLLOUT) {
-			struct timeval now;
-			printf ("POLLOUT current iface");
-			dg = dgram_list_pop (DGRAM_OUTWARD);
+		    && list_peek (out) != NULL
+		    && (iface_get_events (current_iface) & POLLOUT)) {
+			if (verbose)
+				printf ("POLLOUT current iface");
+			dg = list_dequeue (out);
 			iface_write (current_iface, dg);
 			/* TODO controllo errore */
 			assert (dg->dg_retry_to == NULL);
 			dg->dg_retry_to = new_timeout (&time_30ms);
 			gettime (&now);
 			timeout_start (dg->dg_retry_to, &now);
-			dgram_list_add (DGRAM_UNACKED, dg);
+			list_enqueue (unacked, dg);
 		}
 
 		/*
 		 * Eventi per tutte le interfacce.
 		 */
-		for (if_ptr = iface_iterator_get_first (&ii);
+		for (if_ptr = list_iterator_get_first (ifaces, &lit);
 		     if_ptr != NULL;
-		     if_ptr = iface_iterator_get_next (&ii)) {
+		     if_ptr = list_iterator_get_next (ifaces, &lit)) {
 			int ev = iface_get_events (if_ptr);
 
 			/* Ricezione. */
 			if (ev & POLLIN) {
-				printf ("POLLIN interfaccia\n");
+				if (verbose)
+					printf ("POLLIN interfaccia\n");
 				dg = iface_read (if_ptr);
 				/* TODO controllo errore */
-				dgram_list_add (DGRAM_INWARD, dg);
+				list_enqueue (in, dg);
 			}
 
 			/* Spedizione keepalive. */
 			if ((ev & POLLOUT)
 			    && iface_must_send_keepalive (if_ptr)) {
-				printf ("POLLOUT interfaccia\n");
+				if (verbose)
+					printf ("POLLOUT interfaccia\n");
 				dg = dgram_create_keepalive ();
 				iface_write (if_ptr, dg);
 				/* TODO controllo errore */
-				dgram_free (dg);
+				dgram_destroy (dg);
 			}
 
 			if (ev & POLLERR)

@@ -14,50 +14,8 @@
 #include "util.h"
 #include "types.h"
 
-/*
- * Code per i datagram.
- */
-/* da softphone a server */
-static list_node_t *data_out;
-
-/* da server a softphone */
-static list_node_t *data_in;
-
-/* spediti, da confermare */
-static list_node_t *data_unaked;
 
 #define     BUFFER_LEN     1500
-
-
-static list_node_t **
-get_list (int list_id)
-{
-	assert (list_id == DGRAM_OUTWARD
-	        || list_id == DGRAM_INWARD
-		|| list_id == DGRAM_UNACKED);
-
-	switch (list_id) {
-	case DGRAM_OUTWARD:
-		return &data_out;
-	case DGRAM_INWARD:
-		return &data_in;
-	case DGRAM_UNACKED:
-		return &data_unaked;
-	default:
-		return NULL;
-	}
-}
-
-
-void
-dgram_list_print (int list_id)
-{
-	list_node_t **list;
-
-	list = get_list (list_id);
-
-	list_foreach_do (*list, (void (*)(void *, void *))dgram_print, NULL);
-}
 
 
 static ssize_t
@@ -108,12 +66,10 @@ id_match (void *dg_void, void *id_void)
 }
 
 
-static bool
-must_be_discarded (void *dg_void, void *now_void)
+bool
+dgram_must_be_discarded (dgram_t *dg, struct timeval *now)
 {
 	struct timeval left;
-	dgram_t *dg = (dgram_t *)dg_void;
-	struct timeval *now = (struct timeval *)now_void;
 
 	timeout_left (dg->dg_life_to, now, &left);
 	if (tv_cmp (&left, &time_0ms) <= 0)
@@ -122,12 +78,10 @@ must_be_discarded (void *dg_void, void *now_void)
 }
 
 
-static bool
-must_be_retransmitted (void *dg_void, void *now_void)
+bool
+dgram_must_be_retransmitted (dgram_t *dg, struct timeval *now)
 {
 	struct timeval left;
-	dgram_t *dg = (dgram_t *)dg_void;
-	struct timeval *now = (struct timeval *)now_void;
 
 	timeout_left (dg->dg_retry_to, now, &left);
 	if (tv_cmp (&left, &time_0ms) <= 0)
@@ -137,23 +91,12 @@ must_be_retransmitted (void *dg_void, void *now_void)
 
 
 static void
-free_reply_tmout (void *ptr, void *discard)
+free_reply_tmout (dgram_t *dg, void *discard)
 {
-	dgram_t *dg = (dgram_t *)ptr;
-
 	assert (dg->dg_retry_to != NULL);
 
 	free (dg->dg_retry_to);
 	dg->dg_retry_to = NULL;
-}
-
-
-void
-dgram_init_module (void)
-{
-	data_out = list_create ();
-	data_in = list_create ();
-	data_unaked = list_create ();
 }
 
 
@@ -238,85 +181,21 @@ dgram_purge_all_old (void)
 
 
 void
-dgram_timeout_min (struct timeval *min_result)
+dgram_min_timeout (dgram_t *dg, struct timeval *min_result)
 {
 	struct timeval now;
 	struct timeval left;
-	list_node_t *head;
-	list_node_t *node;
-	dgram_t *dg;
 
-	gettime (&now);
+	assert (dg->dg_life_to != NULL);
 
-	/* data out: hanno solo dg_life_to */
-	head = list_head (data_out);
-	node = head;
-	if (head != NULL)
-		do {
-			dg = (dgram_t *)node->n_ptr;
-			assert (dg->dg_retry_to == NULL);
-			timeout_left (dg->dg_life_to, &now, &left);
-			tv_min (min_result, min_result, &left);
-			node = list_next (node);
-		} while (node != head);
-
-	/* data unacked: hanno sia dg_life_to che dg_retry_to */
-	head = list_head (data_unaked);
-	node = head;
-	if (head != NULL)
-		do {
-			dg = (dgram_t *)node->n_ptr;
-			timeout_left (dg->dg_life_to, &now, &left);
-			tv_min (min_result, min_result, &left);
-			timeout_left (dg->dg_retry_to, &now, &left);
-			tv_min (min_result, min_result, &left);
-			node = list_next (node);
-		} while (node != head);
-}
-
-
-dgram_t *
-dgram_list_peek (int list_id)
-{
-	list_node_t **list;
-	list_node_t *node;
-
-	list = get_list (list_id);
-	node = list_head (*list);
-
-	if (node == NULL)
-		return NULL;
-	return node->n_ptr;
-}
-
-
-void
-dgram_list_add (int list_id, dgram_t *dg)
-{
-	list_node_t **list;
-
-	assert (dg != NULL);
-
-	list = get_list (list_id);
-	list_enqueue (list, new_node (dg));
-}
-
-
-dgram_t *
-dgram_list_pop (int list_id)
-{
-	list_node_t **list;
-	list_node_t *node;
-	dgram_t *dg;
-
-	list = get_list (list_id);
-	node = list_dequeue (list);
-	if (node != NULL) {
-		dg = node->n_ptr;
-		free (node);
-		return dg;
+	/* dg ha dg_retry_to solo se e' nella coda unacked. */
+	if (dg->dg_retry_to != NULL) {
+		timeout_left (dg->dg_retry_to, &now, &left);
+		tv_min (min_result, min_result, &left);
 	}
-	return NULL;
+
+	timeout_left (dg->dg_life_to, &now, &left);
+	tv_min (min_result, min_result, &left);
 }
 
 
@@ -407,7 +286,7 @@ dgram_print (const dgram_t *dg)
 
 
 void
-dgram_free (dgram_t *dg)
+dgram_destroy (dgram_t *dg)
 {
 	assert (dg != NULL);
 

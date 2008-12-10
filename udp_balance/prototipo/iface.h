@@ -31,26 +31,20 @@ typedef struct {
 } iface_t;
 
 
-typedef list_node_t * iface_iterator_t;
 
-
+/* iface.c */
 bool iface_must_send_keepalive(const iface_t *if_ptr);
-dgram_t *iface_read(iface_t *if_ptr);
-iface_t *iface_get_current(void);
-iface_t *iface_iterator_get_first(iface_iterator_t *ii_ptr);
-iface_t *iface_iterator_get_next(iface_iterator_t *ii_ptr);
+void iface_destroy(iface_t *if_ptr);
 int iface_get_events(iface_t *if_ptr);
-int iface_handle_err(iface_t *if_ptr);
-int iface_up(const char *name, const char *loc_ip);
-ssize_t iface_write(iface_t *if_ptr, dgram_t *dg);
-void iface_down(const char *name, const char *loc_ip);
-void iface_fill_pollfd(struct pollfd *pfd, size_t *pfd_used);
-void iface_init_module(void);
 void iface_keepalive_left(iface_t *if_ptr, struct timeval *result);
-void iface_print(iface_t *if_ptr);
-void iface_read_pollfd(struct pollfd *pfd);
-void iface_reset_events(iface_t *if_ptr);
 void iface_set_events(iface_t *if_ptr, int e);
+void iface_reset_events(iface_t *if_ptr);
+void iface_print(iface_t *if_ptr);
+struct pollfd *iface_get_pollfd(iface_t *if_ptr);
+void iface_set_pollfd(iface_t *if_ptr, struct pollfd *pfd);
+ssize_t iface_write(iface_t *if_ptr, dgram_t *dg);
+dgram_t *iface_read(iface_t *if_ptr);
+int iface_handle_err(iface_t *if_ptr);
 
 
 #endif /* ULB_PROTO_IFACE_H */

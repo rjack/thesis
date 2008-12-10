@@ -141,17 +141,6 @@ ifname_parse_error:
 }
 
 
-list_node_t *
-new_node (void *ptr)
-{
-	list_node_t *new;
-
-	new = my_alloc (sizeof(list_node_t));
-	new->n_ptr = ptr;
-	return new;
-}
-
-
 fd_t
 socket_bound_conn (const char *loc_ip, const char *loc_port,
                    const char *rem_ip, const char *rem_port)
