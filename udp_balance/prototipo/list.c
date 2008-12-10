@@ -63,7 +63,7 @@ module_ok (void)
 
 
 static struct list_node *
-list_remove (list_t lst, struct list_node *ptr)
+list_node_remove (list_t lst, struct list_node *ptr)
 {
 	struct list_info *linfo;
 
@@ -449,7 +449,7 @@ list_dequeue (list_t lst)
 	if (list_is_empty (lst))
 		return NULL;
 
-	rmvd = list_remove (lst, db[lst].li_tail_ptr->n_next);
+	rmvd = list_node_remove (lst, db[lst].li_tail_ptr->n_next);
 	assert (rmvd != NULL);
 
 	return list_node_destroy (rmvd);
@@ -514,10 +514,10 @@ list_remove_if (list_t lst, f_compare_t my_cmp, void *args)
 		else
 			nxt = cur->n_next;
 		if (my_cmp (cur->n_ptr, args) == 0) {
-			list_remove (lst, cur);
 			/* XXX brutto! list_enqueue alloca un nodo,
-			 * list_remove ritorna il nodo, quindi dobbiamo
+			 * list_node_remove ritorna il nodo, quindi dobbiamo
 			 * distruggerlo per poi ricrearlo! */
+			list_node_remove (lst, cur);
 			list_enqueue (rmvd, list_node_destroy (cur));
 		}
 		cur = nxt;

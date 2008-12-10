@@ -7,6 +7,11 @@
 #include "types.h"
 #include "crono.h"
 
+
+/****************************************************************************
+				     Tipi
+****************************************************************************/
+
 /*
  * Datagram.
  */
@@ -20,15 +25,27 @@ typedef struct dgram {
 } dgram_t;
 
 
-/* dgram.c */
-bool dgram_must_be_discarded(dgram_t *dg, struct timeval *now);
-bool dgram_must_be_retransmitted(dgram_t *dg, struct timeval *now);
+/*
+ * Struttura sock_notify_msg farlocca.
+ */
+struct sock_notify_msg {
+	bool nm_ack;
+	int nm_iface_id;
+	dgram_t nm_dgram;
+};
+
+
+/****************************************************************************
+				  Prototipi
+****************************************************************************/
+
+int dgram_cmp_id (dgram_t *dg_1, dgram_t *dg_2);
+bool dgram_must_be_discarded(dgram_t *dg);
+bool dgram_must_be_retransmitted(dgram_t *dg);
+void dgram_destroy_reply_timeout(dgram_t *dg);
 dgram_t *dgram_create(void);
-void dgram_discard(int id);
-void dgram_outward(int id);
-void dgram_outward_all_unacked(void);
-void dgram_purge_all_old(void);
 void dgram_min_timeout(dgram_t *dg, struct timeval *min_result);
+void dgram_set_life_timeout(dgram_t *dg);
 dgram_t *dgram_read(fd_t sfd, struct sockaddr_in *src_addr_result, socklen_t *src_addr_result_len);
 ssize_t dgram_write_getID(fd_t sfd, dgram_t *dg, struct sockaddr_in *rem_addr, socklen_t rem_addr_len);
 ssize_t dgram_write(fd_t sfd, dgram_t *dg, struct sockaddr_in *rem_addr, socklen_t rem_addr_len);

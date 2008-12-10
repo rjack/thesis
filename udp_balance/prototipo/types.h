@@ -30,16 +30,6 @@ typedef int bool;
 typedef int fd_t;
 
 
-/*
- * Strutture sock_notify_msg farlocca.
- */
-struct sock_notify_msg {
-	bool nm_ack;
-	int nm_dgram_id;
-	int nm_iface_id;
-};
-
-
 /****************************************************************************
 				   Costanti
 ****************************************************************************/

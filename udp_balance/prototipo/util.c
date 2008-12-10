@@ -11,7 +11,6 @@
 #include <unistd.h>
 
 #include "crono.h"
-#include "ted_fake.h"
 #include "util.h"
 #include "types.h"
 
@@ -29,6 +28,17 @@ my_strdup (const char *str)
 	strcpy (new_str, str); 
 
 	return new_str;
+}
+
+
+char *
+my_strncpy (char *dest, const char *src, size_t nbytes)
+{
+	strncpy (dest, src, nbytes);
+	if (nbytes > 0)
+		dest[nbytes - 1] = '\0';
+
+	return dest;
 }
 
 

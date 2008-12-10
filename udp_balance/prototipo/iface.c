@@ -6,6 +6,7 @@
 #include <linux/errqueue.h>
 #include <unistd.h>
 
+#include "errno.h"
 #include "crono.h"
 #include "dgram.h"
 #include "iface.h"
@@ -14,20 +15,13 @@
 #include "util.h"
 
 
-struct match_iface_args {
-	const char *mia_name;
-	const char *mia_loc_ip;
-};
-
-
-
-static bool
-match_iface (iface_t *if_ptr, iface_id_t *id)
+int
+iface_cmp_id (iface_t *if_ptr, iface_id_t *id)
 {
 	if (strcmp (if_ptr->if_id.ii_name, id->ii_name) == 0
 	    && strcmp (if_ptr->if_id.ii_loc_ip, id->ii_loc_ip) == 0)
-		return TRUE;
-	return FALSE;
+		return 0;
+	return 1;
 }
 
 
@@ -38,70 +32,44 @@ iface_must_send_keepalive (const iface_t *if_ptr)
 }
 
 
-#ifdef NON_COMPILARE
-int
-iface_up (const char *name, const char *loc_ip)
+iface_t *
+iface_create (const char *name, const char *loc_ip)
 {
 	struct timeval now;
-	iface_t *if_ptr;
+	iface_t *new_if;
 
 	gettime (&now);
 
-	assert (ifaces_len <= IFACE_MAX);
-	if (ifaces_len == IFACE_MAX) {
-		fprintf (stderr,
-			 "Impossibile aggiungere un'interfaccia di rete, "
-			 "numero massimo = %d\n", IFACE_MAX);
-		exit (EXIT_FAILURE);
-	}
+	new_if = my_alloc (sizeof(iface_t));
 
-	if_ptr = my_alloc (sizeof(iface_t));
+	new_if->if_suspected = FALSE;
+	new_if->if_must_send_keepalive = FALSE;
 
-	if_ptr->if_suspected = FALSE;
-	if_ptr->if_must_send_keepalive = FALSE;
-
-	strcpy (if_ptr->if_id.ii_name, name);
-	strcpy (if_ptr->if_id.ii_loc_ip, loc_ip);
-	strcpy (if_ptr->if_id.ii_loc_port, PX_LOC_PORT);
+	my_strncpy (new_if->if_id.ii_name, name, IFACE_ID_NAME_LEN);
+	my_strncpy (new_if->if_id.ii_loc_ip, loc_ip, IFACE_ID_LOC_IP_LEN);
+	my_strncpy (new_if->if_id.ii_loc_port, PX_LOC_PORT,
+	            IFACE_ID_LOC_PORT_LEN);
 	/* XXX PX_LOC_PORT potrebbe essere randomizzata finche' non se ne
 	 * trova una libera. */
-	if_ptr->if_pfd.fd = socket_bound_conn (loc_ip, PX_LOC_PORT,
+	new_if->if_pfd.fd = socket_bound_conn (loc_ip, PX_LOC_PORT,
 					       PX_REM_IP, PX_REM_PORT);
-	if_ptr->if_pfd.events = 0;
-	if_ptr->if_pfd.revents = 0;
-	timeout_set (&if_ptr->if_keepalive, &time_150ms);
-	timeout_start (&if_ptr->if_keepalive, &now);
-
-	list_enqueue (&ifaces, new_node (if_ptr));
-	ifaces_len++;
+	new_if->if_pfd.events = 0;
+	new_if->if_pfd.revents = 0;
+	timeout_set (&(new_if->if_keepalive), &time_150ms);
+	timeout_start (&(new_if->if_keepalive), &now);
 
 	/* TODO controllo errore socket_bound_conn */
-	return 1;
+
+	return new_if;
 }
-#endif /* NON_COMPILARE */
-
-
-#ifdef NON_COMPILARE
-void
-iface_down (iface_id_t *if_id)
-{
-	list_node_t *rmvd;
-
-	rmvd = list_remove_if (ifaces, (bool (*)(void *, void*))&match_iface,
-	                       if_id);
-	if (!list_is_empty (rmvd)) {
-		assert (list_node_is_last (rmvd, list_head (rmvd)));
-		list_destroy (&rmvd, &iface_destroy);
-		ifaces_len--;
-	}
-}
-#endif /* NON_COMPILARE */
 
 
 void
-iface_destroy (iface_t *if_ptr)     /* TODO */
+iface_destroy (iface_t *if_ptr)
 {
-	assert (FALSE);
+	assert (if_ptr != NULL);
+
+	free (if_ptr);
 }
 
 
@@ -219,9 +187,8 @@ iface_read (iface_t *if_ptr)
 }
 
 
-int
+dgram_t *
 iface_handle_err (iface_t *if_ptr)
-/* FIXME fa troppe cose! separare decisioni da meccanismo. */
 {
 	/* Puo' essere:
 	 * 1. IP_NOTIFY errore trasmissione
@@ -244,6 +211,7 @@ iface_handle_err (iface_t *if_ptr)
 	char cbuf[CONTROLBUFLEN];
 	struct msghdr msg;
 	struct cmsghdr *cmsg;
+	dgram_t *dg_err;
 
 	assert (if_ptr != NULL);
 
@@ -264,11 +232,11 @@ iface_handle_err (iface_t *if_ptr)
 	for (cmsg = CMSG_FIRSTHDR (&msg);
 	     cmsg != NULL;
 	     cmsg = CMSG_NXTHDR (&msg, cmsg)) {
-		/* Errore a livello IP, tira giu' l'interfaccia. */
 		if (cmsg->cmsg_level == SOL_IP) {
 			if (cmsg->cmsg_type == IP_RECVERR) {
 				struct sock_extended_err *ee;
-				ee = (struct sock_extended_err *) CMSG_DATA (cmsg);
+
+				ee = (struct sock_extended_err *)CMSG_DATA (cmsg);
 				fprintf (stderr, "ERRORE ");
 				if (ee->ee_origin == SO_EE_ORIGIN_LOCAL)
 					fprintf (stderr, "LOCALE");
@@ -281,19 +249,26 @@ iface_handle_err (iface_t *if_ptr)
 				iface_print (if_ptr);
 				fprintf (stderr, "\n");
 
-				/* FIXME iface_down (&if_ptr->if_id); */
+				errno = E_IFACE_FATAL;
+				dg_err = NULL;
 			}
 
 			else if (cmsg->cmsg_type == IP_NOTIFY) {
 				struct sock_notify_msg *nm;
-				nm = (struct sock_notify_msg *) CMSG_DATA (cmsg);
+
+				nm = (struct sock_notify_msg *)CMSG_DATA (cmsg);
 				if (nm->nm_ack == TRUE)
-					dgram_discard (nm->nm_dgram_id);
+					errno = E_IFACE_DG_ACK;
 				else
-					dgram_outward (nm->nm_dgram_id);
+					errno = E_IFACE_DG_NAK;
+				dg_err = &(nm->nm_dgram);
+			} else {
+				fprintf (stderr,
+				         "Che accidenti e' arrivato?\n");
+				exit (EXIT_FAILURE);
 			}
 		}
 	}
 
-	return 0;
+	return dg_err;
 }

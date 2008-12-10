@@ -54,24 +54,31 @@ do_dgram_write (fd_t sfd, dgram_t *dg, struct sockaddr_in *rem_addr,
 }
 
 
-static bool
-id_match (void *dg_void, void *id_void)
+int
+dgram_cmp_id (dgram_t *dg_1, dgram_t *dg_2)
 {
-	dgram_t *dg = (dgram_t *)dg_void;
-	int *id = (int *)id_void;
+	assert (dg_1 != NULL);
+	assert (dg_2 != NULL);
+	assert (dg_1->dg_id != -1);
+	assert (dg_2->dg_id != -1);
 
-	if (dg->dg_id == *id)
-		return TRUE;
-	return FALSE;
+	if (dg_1->dg_id == dg_2->dg_id)
+		return 0;
+	if (dg_1->dg_id < dg_2->dg_id)
+		return -1;
+	return 1;
 }
 
 
 bool
-dgram_must_be_discarded (dgram_t *dg, struct timeval *now)
+dgram_must_be_discarded (dgram_t *dg)
 {
+	struct timeval now;
 	struct timeval left;
 
-	timeout_left (dg->dg_life_to, now, &left);
+	gettime (&now);
+
+	timeout_left (dg->dg_life_to, &now, &left);
 	if (tv_cmp (&left, &time_0ms) <= 0)
 		return TRUE;
 	return FALSE;
@@ -79,19 +86,22 @@ dgram_must_be_discarded (dgram_t *dg, struct timeval *now)
 
 
 bool
-dgram_must_be_retransmitted (dgram_t *dg, struct timeval *now)
+dgram_must_be_retransmitted (dgram_t *dg)
 {
+	struct timeval now;
 	struct timeval left;
 
-	timeout_left (dg->dg_retry_to, now, &left);
+	gettime (&now);
+
+	timeout_left (dg->dg_retry_to, &now, &left);
 	if (tv_cmp (&left, &time_0ms) <= 0)
 		return TRUE;
 	return FALSE;
 }
 
 
-static void
-free_reply_tmout (dgram_t *dg, void *discard)
+void
+dgram_destroy_reply_timeout (dgram_t *dg)
 {
 	assert (dg->dg_retry_to != NULL);
 
@@ -118,69 +128,6 @@ dgram_create (void)
 
 
 void
-dgram_discard (int id)
-{
-	list_node_t *rmvd;
-
-	rmvd = list_remove_if (&data_unaked, id_match, &id);
-	if (list_is_empty (rmvd))
-		rmvd = list_remove_if (&data_out, id_match, &id);
-
-	if (!list_is_empty (rmvd)) {
-		assert (list_node_is_last (rmvd, list_head (rmvd)));
-		list_destroy (&rmvd, free);
-	}
-}
-
-
-void
-dgram_outward (int id)
-{
-	list_node_t *rmvd;
-
-	rmvd = list_remove_if (&data_unaked, id_match, &id);
-	if (!list_is_empty (rmvd)) {
-		assert (list_node_is_last (rmvd, list_head (rmvd)));
-		list_push (&data_out, list_head (rmvd));
-	}
-}
-
-
-void
-dgram_outward_all_unacked (void)
-{
-	struct timeval now;
-	list_node_t *rmvd;
-
-	gettime (&now);
-
-	rmvd = list_remove_if (&data_unaked, must_be_retransmitted, &now);
-
-	list_foreach_do (rmvd, free_reply_tmout, NULL);
-
-	data_out = list_cat (rmvd, data_out);
-}
-
-
-void
-dgram_purge_all_old (void)
-{
-	struct timeval now;
-	list_node_t *rmvd;
-
-	gettime (&now);
-
-	/* data_out */
-	rmvd = list_remove_if (&data_out, must_be_discarded, &now);
-	list_destroy (&rmvd, free);
-
-	/* data_unaked */
-	rmvd = list_remove_if (&data_unaked, must_be_discarded, &now);
-	list_destroy (&rmvd, free);
-}
-
-
-void
 dgram_min_timeout (dgram_t *dg, struct timeval *min_result)
 {
 	struct timeval now;
@@ -196,6 +143,20 @@ dgram_min_timeout (dgram_t *dg, struct timeval *min_result)
 
 	timeout_left (dg->dg_life_to, &now, &left);
 	tv_min (min_result, min_result, &left);
+}
+
+
+void
+dgram_set_life_timeout (dgram_t *dg)
+{
+	struct timeval now;
+
+	assert (dg != NULL);
+	assert (dg->dg_life_to == NULL);
+
+	dg->dg_life_to = new_timeout (&time_150ms);
+	gettime (&now);
+	timeout_start (dg->dg_life_to, &now);
 }
 
 

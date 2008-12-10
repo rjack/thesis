@@ -124,6 +124,7 @@ main (const int argc, const char *argv[])
 
 	while (!is_done ()) {
 		int i;
+		list_t rmvd;
 		dgram_t *dg;
 		void *args;
 		int nready;
@@ -176,14 +177,31 @@ main (const int argc, const char *argv[])
 		}
 
 		/*
-		 * Pulizia code datagram e calcolo timeout minimo.
+		 * Pulizia code datagram.
+		 */
+
+		/* Tutti i datagram che non hanno ricevuto l'ACK vanno
+		 * travasati da unacked a out per ritrasmetterli. */
+		rmvd = list_remove_if (unacked,
+				       (f_compare_t)dgram_must_be_retransmitted,
+	                               NULL);
+		list_cat (out, rmvd);
+		assert (list_is_empty (rmvd));
+		list_destroy (rmvd);
+
+		/* Tutti i datagram piu' vecchi di 150ms vanno scartati. */
+		rmvd = list_remove_if (out,
+		                       (f_compare_t)dgram_must_be_discarded,
+		                       NULL);
+		list_destroy (rmvd);
+
+		/*
+		 * Calcolo timeout minimo.
 		 */
 		min.tv_sec = ONE_MILLION;
 		min.tv_usec = 0;
 
-		dgram_purge_all_old ();
-
-		/* Keepalive. */
+		/* Confronto min vs. keepalive. */
 		for (if_ptr = list_iterator_get_first (ifaces, &lit);
 		     if_ptr != NULL;
 		     if_ptr = list_iterator_get_next (ifaces, &lit)) {
@@ -191,19 +209,20 @@ main (const int argc, const char *argv[])
 			tv_min (&min, &min, &left);
 		}
 
-		/* Timeout minimo tra tutti i datagram out e unaked. */
+		/* Confronto min vs. timeout ack e vita dei datagram delle
+		 * code out e unaked. */
 		list_foreach_do (out, (f_callback_t)dgram_min_timeout, &min);
 		list_foreach_do (unacked, (f_callback_t)dgram_min_timeout,
 		                 &min);
 
 
 		if (min.tv_sec == ONE_MILLION) {
-			/* All'inizio non ci sono interfacce attive e poll si
-			 * blocca in attesa di un messaggio di configurazione
-			 * da parte dell'interface monitor. */
+			/* Se non ci sono ifacce attive, timeout indefinito in
+			 * attesa di un messaggio dell'interface monitor. */
 			next_tmout = -1;
 			if (verbose)
-				fprintf (stderr, "poll blocca indefinitamente\n");
+				fprintf (stderr,
+				         "poll blocca indefinitamente\n");
 		} else if (tv_cmp (&min, &time_0ms) <= 0) {
 			/* C'e' un timeout gia' scaduto, la poll e'
 			 * istantanea. */
@@ -248,7 +267,8 @@ main (const int argc, const char *argv[])
 		/*
 		 * Poll
 		 */
-		/* Travaso pollfd interfacce in array. */
+
+		/* Travaso pollfd da interfacce all'array. */
 		for (i = 2, if_ptr = list_iterator_get_first (ifaces, &lit);
 		     if_ptr != NULL;
 		     i++, if_ptr = list_iterator_get_next (ifaces, &lit))
@@ -261,7 +281,7 @@ main (const int argc, const char *argv[])
 			exit (EXIT_FAILURE);
 		}
 
-		/* Travaso inverso. */
+		/* Travaso dall'array alle interfacce. */
 		for (i = 2, if_ptr = list_iterator_get_first (ifaces, &lit);
 		     if_ptr != NULL;
 		     i++, if_ptr = list_iterator_get_next (ifaces, &lit))
@@ -281,10 +301,7 @@ main (const int argc, const char *argv[])
 				printf ("POLLIN softphone\n");
 			dg = dgram_read (sp->fd, NULL, NULL);
 			/* TODO controllo errore */
-			assert (dg->dg_life_to == NULL);
-			dg->dg_life_to = new_timeout (&time_150ms);
-			gettime (&now);
-			timeout_start (dg->dg_life_to, &now);
+			dgram_set_life_timeout (dg);
 			list_enqueue (out, dg);
 		}
 		if (sp->revents & POLLOUT) {
@@ -372,8 +389,39 @@ main (const int argc, const char *argv[])
 				dgram_destroy (dg);
 			}
 
-			if (ev & POLLERR)
-				iface_handle_err (if_ptr);
+			if (ev & POLLERR) {
+				dgram_t *dg_err;
+				dg_err = iface_handle_err (if_ptr);
+				switch (errno) {
+
+				case E_IFACE_FATAL:
+					list_iterator_get_next (ifaces, &lit);
+					list_remove (if_ptr);
+					iface_destroy (if_ptr);
+					break;
+
+				/* TED ha confermato la ricezione di dg_err da
+				 * parte dell'AP: possiamo scartarlo. */
+				case E_IFACE_DG_ACK:
+					rmvd = list_remove_if (out, (f_compare_t)dgram_cmp_id, dg_err);
+					list_destroy (rmvd);
+					rmvd = list_remove_if (unacked, (f_compare_t)dgram_cmp_id, dg_err);
+					list_destroy (rmvd);
+					break;
+
+				/* TED ha segnalato che dg_err NON e' arrivato
+				 * all'AP: se e' ancora tra gli unacked
+				 * bisogna ritrasmetterlo. */
+				case E_IFACE_DG_NAK:
+					rmvd = list_remove_if (unacked, (f_compare_t)dgram_cmp_id, dg_err);
+					assert (list_length (rmvd) <= 1);
+					assert (list_length (rmvd) >= 0);
+					while (!list_is_empty (rmvd))
+						list_push (out, list_dequeue (rmvd));
+					list_dequeue (rmvd);
+					break;
+				}
+			}
 		}
 
 		/*
