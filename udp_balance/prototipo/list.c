@@ -116,21 +116,15 @@ list_node_destroy (struct list_node *node)
 
 
 static int
-list_insert (list_t lst, void *element)
+list_node_insert (list_t lst, struct list_node *new_node)
 /*
- * Inserisce un nuovo nodo tra la testa e la coda.
- * Il nuovo nodo punta ad element.
- * Ritorna la nuova lunghezza di lst se riesce, LIST_ERR se fallisce.
+ * Inserisce il nuovo nodo tra la testa e la coda.
+ * Ritorna la nuova lunghezza di lst.
  */
 {
-	struct list_node *new_node;
-
 	assert (module_ok ());
 	assert (list_is_valid (lst));
-
-	new_node = list_node_create (element);
-	if (new_node == NULL)
-		return LIST_ERR;
+	assert (new_node != NULL);
 
 	if (list_is_empty (lst)) {
 		new_node->n_next = new_node;
@@ -148,6 +142,25 @@ list_insert (list_t lst, void *element)
 	db[lst].li_list_len++;
 
 	return db[lst].li_list_len;
+}
+
+
+static int
+list_node_push (list_t lst, struct list_node *new_node)
+{
+	return list_node_insert (lst, new_node);
+}
+
+
+static int
+list_node_enqueue (list_t lst, struct list_node *new_node)
+{
+	int len;
+
+	len = list_node_insert (lst, new_node);
+	db[lst].li_tail_ptr = db[lst].li_tail_ptr->n_next;
+
+	return len;
 }
 
 
@@ -422,19 +435,24 @@ list_contains (list_t lst, f_compare_t my_cmp, void *term, int mode)
 int
 list_push (list_t lst, void *head_element)
 {
-	return list_insert (lst, head_element);
+	struct list_node *new_node;
+
+	new_node = list_node_create (head_element);
+	if (new_node == NULL)
+		return LIST_ERR;
+	return list_node_push (lst, new_node);
 }
 
 
 int
 list_enqueue (list_t lst, void *tail_element)
 {
-	int len;
+	struct list_node *new_node;
 
-	len = list_insert (lst, tail_element);
-	if (len != LIST_ERR)
-		db[lst].li_tail_ptr = db[lst].li_tail_ptr->n_next;
-	return len;
+	new_node = list_node_create (tail_element);
+	if (new_node == NULL)
+		return LIST_ERR;
+	return list_node_enqueue (lst, new_node);
 }
 
 
@@ -518,7 +536,7 @@ list_remove_if (list_t lst, f_compare_t my_cmp, void *args)
 			 * list_node_remove ritorna il nodo, quindi dobbiamo
 			 * distruggerlo per poi ricrearlo! */
 			list_node_remove (lst, cur);
-			list_enqueue (rmvd, list_node_destroy (cur));
+			list_node_enqueue (rmvd, cur);
 		}
 		cur = nxt;
 	}

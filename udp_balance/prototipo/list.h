@@ -34,7 +34,6 @@ typedef void (*f_callback_t)(void *, void *);
 #define     LIST_ERR                        -1
 
 #define     LIST_SCAN_BACKWARD             0x1
-#define     LIST_SCAN_STOP_ON_FIRST        0x2
 
 
 /****************************************************************************

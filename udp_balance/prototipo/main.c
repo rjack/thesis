@@ -396,8 +396,9 @@ main (const int argc, const char *argv[])
 
 				case E_IFACE_FATAL:
 					list_iterator_get_next (ifaces, &lit);
-					list_remove (if_ptr);
-					iface_destroy (if_ptr);
+					rmvd = list_remove_if (ifaces, cmp_ptr, if_ptr);
+					assert (list_length (rmvd) == 1);
+					list_destroy (rmvd);
 					break;
 
 				/* TED ha confermato la ricezione di dg_err da

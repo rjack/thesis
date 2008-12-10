@@ -4,6 +4,7 @@
 #include "types.h"
 
 /* util.c */
+int cmp_ptr (void *ptr_1, void *ptr_2);
 char *my_strdup(const char *str);
 char *my_strncpy(char *dest, const char *src, size_t nbytes);
 timeout_t *new_timeout(const struct timeval *value);
