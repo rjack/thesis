@@ -83,6 +83,14 @@ iface_get_events (iface_t *if_ptr)
 
 
 void
+iface_set_suspected (iface_t *if_ptr)
+{
+	assert (if_ptr != NULL);
+	if_ptr->if_suspected = TRUE;
+}
+
+
+void
 iface_keepalive_left (iface_t *if_ptr, struct timeval *result)
 {
 	struct timeval now;
@@ -165,10 +173,14 @@ iface_write (iface_t *if_ptr, dgram_t *dg)
 
 	assert (nsent == dg->dg_datalen);
 
-	/* reset timeout keepalive */
+	/* Reset timeout keepalive. */
 	gettime (&now);
 	timeout_start (&if_ptr->if_keepalive, &now);
 	if_ptr->if_must_send_keepalive = FALSE;
+
+	/* Marchia il dg con id interfaccia. */
+	dg->dg_iface_id = my_alloc (sizeof(iface_id_t));
+	memcpy (dg->dg_iface_id, &(if_ptr->if_id), sizeof(iface_id_t));
 
 	return nsent;
 }
@@ -187,7 +199,15 @@ iface_read (iface_t *if_ptr)
 }
 
 
-dgram_t *
+void
+iface_id_destroy (iface_id_t *if_id)
+{
+	assert (if_id != NULL);
+	free (if_id);
+}
+
+
+int
 iface_handle_err (iface_t *if_ptr)
 {
 	/* Puo' essere:
@@ -211,7 +231,7 @@ iface_handle_err (iface_t *if_ptr)
 	char cbuf[CONTROLBUFLEN];
 	struct msghdr msg;
 	struct cmsghdr *cmsg;
-	dgram_t *dg_err;
+	int dg_id;
 
 	assert (if_ptr != NULL);
 
@@ -250,7 +270,7 @@ iface_handle_err (iface_t *if_ptr)
 				fprintf (stderr, "\n");
 
 				errno = E_IFACE_FATAL;
-				dg_err = NULL;
+				dg_id = -1;
 			}
 
 			else if (cmsg->cmsg_type == IP_NOTIFY) {
@@ -261,7 +281,7 @@ iface_handle_err (iface_t *if_ptr)
 					errno = E_IFACE_DG_ACK;
 				else
 					errno = E_IFACE_DG_NAK;
-				dg_err = &(nm->nm_dgram);
+				dg_id = nm->nm_dgram_id;
 			} else {
 				fprintf (stderr,
 				         "Che accidenti e' arrivato?\n");
@@ -270,5 +290,5 @@ iface_handle_err (iface_t *if_ptr)
 		}
 	}
 
-	return dg_err;
+	return dg_id;
 }

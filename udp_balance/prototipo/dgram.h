@@ -6,6 +6,7 @@
 
 #include "types.h"
 #include "crono.h"
+#include "iface_id.h"
 
 
 /****************************************************************************
@@ -21,7 +22,7 @@ typedef struct dgram {
 	size_t dg_datalen;         /* lunghezza dati */
 	timeout_t *dg_life_to;     /* tempo di vita del datagram */
 	timeout_t *dg_retry_to;    /* timeout di ritrasmissione */
-	void *dg_info;
+	iface_id_t *dg_iface_id;   /* interfaccia di spedizione. */
 } dgram_t;
 
 
@@ -29,9 +30,8 @@ typedef struct dgram {
  * Struttura sock_notify_msg farlocca.
  */
 struct sock_notify_msg {
-	bool nm_ack;
-	int nm_iface_id;
-	dgram_t nm_dgram;
+	bool nm_ack;               /* TRUE -> ack; FALSE -> nak. */
+	int nm_dgram_id;           /* dgram a cui la notifica si riferisce. */
 };
 
 
@@ -39,7 +39,7 @@ struct sock_notify_msg {
 				  Prototipi
 ****************************************************************************/
 
-int dgram_cmp_id (dgram_t *dg_1, dgram_t *dg_2);
+int dgram_cmp_id(dgram_t *dg, int *id);
 bool dgram_must_be_discarded(dgram_t *dg);
 bool dgram_must_be_retransmitted(dgram_t *dg);
 void dgram_destroy_reply_timeout(dgram_t *dg);

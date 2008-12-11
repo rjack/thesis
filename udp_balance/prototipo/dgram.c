@@ -10,9 +10,10 @@
 
 #include "crono.h"
 #include "dgram.h"
+#include "iface.h"
 #include "list.h"
-#include "util.h"
 #include "types.h"
+#include "util.h"
 
 
 #define     BUFFER_LEN     1500
@@ -55,16 +56,16 @@ do_dgram_write (fd_t sfd, dgram_t *dg, struct sockaddr_in *rem_addr,
 
 
 int
-dgram_cmp_id (dgram_t *dg_1, dgram_t *dg_2)
+dgram_cmp_id (dgram_t *dg, int *id)
 {
-	assert (dg_1 != NULL);
-	assert (dg_2 != NULL);
-	assert (dg_1->dg_id != -1);
-	assert (dg_2->dg_id != -1);
+	assert (dg != NULL);
+	assert (id != NULL);
+	assert (dg->dg_id != -1);
+	assert (*id != -1);
 
-	if (dg_1->dg_id == dg_2->dg_id)
+	if (dg->dg_id == *id)
 		return 0;
-	if (dg_1->dg_id < dg_2->dg_id)
+	if (dg->dg_id < *id)
 		return -1;
 	return 1;
 }
@@ -122,6 +123,7 @@ dgram_create (void)
 	new_dg->dg_datalen = 0;
 	new_dg->dg_life_to = NULL;
 	new_dg->dg_retry_to = NULL;
+	new_dg->dg_iface_id = NULL;
 
 	return new_dg;
 }
@@ -257,6 +259,8 @@ dgram_destroy (dgram_t *dg)
 		free (dg->dg_life_to);
 	if (dg->dg_retry_to != NULL)
 		free (dg->dg_retry_to);
+	if (dg->dg_iface_id != NULL)
+		iface_id_destroy (dg->dg_iface_id);
 	free (dg);
 }
 

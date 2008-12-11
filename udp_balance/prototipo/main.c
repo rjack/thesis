@@ -18,6 +18,7 @@
 #include "types.h"
 #include "util.h"
 
+
 /****************************************************************************
 			       Variabili locali
 ****************************************************************************/
@@ -41,6 +42,25 @@ static bool
 is_done (void)
 {
 	return FALSE;
+}
+
+
+static void
+find_iface_and_set_suspected (dgram_t *dg, list_t *ifaces)
+{
+	iface_t *susp;
+
+	assert (dg != NULL);
+	assert (ifaces != NULL);
+	assert (dg->dg_iface_id != NULL);
+
+	susp = list_contains (*ifaces, (f_compare_t)iface_cmp_id, dg->dg_iface_id, 0);
+	if (susp != NULL)
+		/* Puo' essere NULL perche' tra spedizione datagram e
+		 * ricezione NAK (o scadenza timeout) l'interfaccia puo'
+		 * essere stata tirata giu' dall'interface manager o da un
+		 * errore ICMP. */
+		iface_set_suspected (susp);
 }
 
 
@@ -181,10 +201,15 @@ main (const int argc, const char *argv[])
 		 */
 
 		/* Tutti i datagram che non hanno ricevuto l'ACK vanno
-		 * travasati da unacked a out per ritrasmetterli. */
+		 * travasati da unacked a out per ritrasmetterli.
+		 * Le interfacce sui cui erano stati spediti diventano
+		 * "sospette". */
 		rmvd = list_remove_if (unacked,
 				       (f_compare_t)dgram_must_be_retransmitted,
 	                               NULL);
+		list_foreach_do (rmvd,
+		                 (f_callback_t)find_iface_and_set_suspected,
+		                 &ifaces);
 		list_cat (out, rmvd);
 		assert (list_is_empty (rmvd));
 		list_destroy (rmvd);
@@ -390,8 +415,9 @@ main (const int argc, const char *argv[])
 			}
 
 			if (ev & POLLERR) {
-				dgram_t *dg_err;
-				dg_err = iface_handle_err (if_ptr);
+				int dg_id;
+
+				dg_id = iface_handle_err (if_ptr);
 				switch (errno) {
 
 				case E_IFACE_FATAL:
@@ -401,12 +427,12 @@ main (const int argc, const char *argv[])
 					list_destroy (rmvd);
 					break;
 
-				/* TED ha confermato la ricezione di dg_err da
+				/* TED ha confermato la ricezione di dg_id da
 				 * parte dell'AP: possiamo scartarlo. */
 				case E_IFACE_DG_ACK:
-					rmvd = list_remove_if (out, (f_compare_t)dgram_cmp_id, dg_err);
+					rmvd = list_remove_if (out, (f_compare_t)dgram_cmp_id, &dg_id);
 					list_destroy (rmvd);
-					rmvd = list_remove_if (unacked, (f_compare_t)dgram_cmp_id, dg_err);
+					rmvd = list_remove_if (unacked, (f_compare_t)dgram_cmp_id, &dg_id);
 					list_destroy (rmvd);
 					break;
 
@@ -414,7 +440,7 @@ main (const int argc, const char *argv[])
 				 * all'AP: se e' ancora tra gli unacked
 				 * bisogna ritrasmetterlo. */
 				case E_IFACE_DG_NAK:
-					rmvd = list_remove_if (unacked, (f_compare_t)dgram_cmp_id, dg_err);
+					rmvd = list_remove_if (unacked, (f_compare_t)dgram_cmp_id, &dg_id);
 					assert (list_length (rmvd) <= 1);
 					assert (list_length (rmvd) >= 0);
 					while (!list_is_empty (rmvd))
@@ -425,14 +451,8 @@ main (const int argc, const char *argv[])
 			}
 		}
 
-		/*
-		 * TODO simulare ted
-		 * se TED_FAKE_POSITIVE == TRUE:
-		 * 	TED avverte quando un datagram arriva all'AP
-		 *
-		 * se TED_FAKE_POSITIVE == FALSE:
-		 * 	TED avverte quando un datagram NON arriva all'AP
-		 */
+		/* Simula TED. */
+		ted_fake();
 	}
 
 	return 0;
