@@ -7,7 +7,7 @@ CFLAGS=-g -pipe
 LDFLAGS=-lc
 
 ULB_EXE=ulb-proto
-ULB_OBJ=crono.o dgram.o iface.o util.o list.o
+ULB_OBJ=crono.o dgram.o iface.o util.o list.o ted_fake.o
 
 PRX_EXE=proxy
 

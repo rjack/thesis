@@ -55,14 +55,6 @@ typedef int fd_t;
 
 #define     ONE_MILLION     1000000
 
-#define     IFACE_MAX       16
-
-#define     DGRAM_INWARD    0
-#define     DGRAM_OUTWARD   1
-#define     DGRAM_UNACKED   2
-
-#define     FAIL_PERCENT    30
-
 #define     CONTROLBUFLEN   1024
 
 #define     MIN(a,b)        ((a) < (b) ? (a) : (b))
@@ -71,11 +63,6 @@ typedef int fd_t;
 #define     ARRAYLEN(a)     (sizeof((a))/sizeof(*(a)))
 
 #define     IP_NOTIFY       4242
-
-/* TRUE simula un TED che conferma l'avvenuta ricezione da parte dell'AP,
- * FALSE simula un TED che segnala il fallimento della spedizione. */
-#define     TED_FAKE_POSITIVE     TRUE
-
 
 
 /****************************************************************************

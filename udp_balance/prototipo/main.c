@@ -15,6 +15,7 @@
 #include "crono.h"
 #include "dgram.h"
 #include "iface.h"
+#include "ted_fake.h"
 #include "types.h"
 #include "util.h"
 
@@ -27,7 +28,14 @@ static const char *program_name = NULL;
 
 
 /****************************************************************************
-				   Funzioni
+				   Costanti
+****************************************************************************/
+
+#define     IFACE_MAX       16
+
+
+/****************************************************************************
+			       Funzioni locali
 ****************************************************************************/
 
 static void
@@ -141,6 +149,11 @@ main (const int argc, const char *argv[])
 	                            IM_REM_IP, IM_REM_PORT);
 	if (im->fd == -1)
 		goto socket_bound_conn_err;
+
+	/*
+	 * Init TED farlocco.
+	 */
+	ted_init ();
 
 	while (!is_done ()) {
 		int i;
@@ -380,7 +393,7 @@ main (const int argc, const char *argv[])
 			iface_write (current_iface, dg);
 			/* TODO controllo errore */
 			assert (dg->dg_retry_to == NULL);
-			dg->dg_retry_to = new_timeout (&time_30ms);
+			dg->dg_retry_to = timeout_create (&time_30ms);
 			gettime (&now);
 			timeout_start (dg->dg_retry_to, &now);
 			list_enqueue (unacked, dg);
@@ -452,7 +465,7 @@ main (const int argc, const char *argv[])
 		}
 
 		/* Simula TED. */
-		ted_fake();
+		ted_run (ifaces);
 	}
 
 	return 0;

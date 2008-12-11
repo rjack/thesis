@@ -42,7 +42,7 @@ main (int argc, char *argv[])
 			if (datagram->dg_datalen == 0) {
 				printf ("ricevuto keepalive\n");
 				fflush (stdin);
-				dgram_free (datagram);
+				dgram_destroy (datagram);
 				datagram = NULL;
 			} else {
 				printf ("ricevuto datagram: ");
@@ -52,7 +52,7 @@ main (int argc, char *argv[])
 			}
 		} else {
 			dgram_write (fd, datagram, &cli_addr, cli_addrlen);
-			dgram_free (datagram);
+			dgram_destroy (datagram);
 			datagram = NULL;
 		}
 

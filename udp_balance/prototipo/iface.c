@@ -11,6 +11,7 @@
 #include "dgram.h"
 #include "iface.h"
 #include "list.h"
+#include "ted_fake.h"
 #include "types.h"
 #include "util.h"
 
@@ -159,6 +160,13 @@ iface_set_pollfd (iface_t *if_ptr, struct pollfd *pfd)
 
 
 ssize_t
+iface_cmsg_write (iface_t *if_ptr, void *data, size_t data_len)
+{
+	return -1;
+}
+
+
+ssize_t
 iface_write (iface_t *if_ptr, dgram_t *dg)
 {
 	ssize_t nsent;
@@ -166,6 +174,10 @@ iface_write (iface_t *if_ptr, dgram_t *dg)
 
 	assert (if_ptr != NULL);
 	assert (dg != NULL);
+
+	/* Marchia il dg con id interfaccia. */
+	dg->dg_iface_id = my_alloc (sizeof(iface_id_t));
+	memcpy (dg->dg_iface_id, &(if_ptr->if_id), sizeof(iface_id_t));
 
 	nsent = dgram_write_getID (if_ptr->if_pfd.fd, dg, NULL, 0);
 	if (nsent == -1)
@@ -178,9 +190,20 @@ iface_write (iface_t *if_ptr, dgram_t *dg)
 	timeout_start (&if_ptr->if_keepalive, &now);
 	if_ptr->if_must_send_keepalive = FALSE;
 
-	/* Marchia il dg con id interfaccia. */
-	dg->dg_iface_id = my_alloc (sizeof(iface_id_t));
-	memcpy (dg->dg_iface_id, &(if_ptr->if_id), sizeof(iface_id_t));
+	/*
+	 * Simulazione TED.
+	 * Positivo: segnala ricezione da parte dell'AP.
+	 * Negativo: segnala fallimento trasmissione all'AP.
+	 */
+	if (!TED_FAKE_POSITIVE && nsent == SENDMSG_FAKE_ERR)
+		ted_set_acked (dg, FALSE);
+	if (TED_FAKE_POSITIVE && nsent != SENDMSG_FAKE_ERR)
+		ted_set_acked (dg, TRUE);
+
+	/* La simulazione dell'errore di ricezione dell'AP deve essere
+	 * silenziosa, come nella realta'. */
+	if (nsent == SENDMSG_FAKE_ERR)
+		nsent = dg->dg_datalen;
 
 	return nsent;
 }

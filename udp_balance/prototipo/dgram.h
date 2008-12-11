@@ -26,15 +26,6 @@ typedef struct dgram {
 } dgram_t;
 
 
-/*
- * Struttura sock_notify_msg farlocca.
- */
-struct sock_notify_msg {
-	bool nm_ack;               /* TRUE -> ack; FALSE -> nak. */
-	int nm_dgram_id;           /* dgram a cui la notifica si riferisce. */
-};
-
-
 /****************************************************************************
 				  Prototipi
 ****************************************************************************/

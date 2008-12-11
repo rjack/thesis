@@ -5,6 +5,7 @@
 #include <sys/time.h>
 #include <unistd.h>
 
+#include "util.h"
 #include "types.h"
 #include "crono.h"
 
@@ -27,6 +28,20 @@ timeout_set (timeout_t *to, const struct timeval *max)
 	assert (max != NULL);
 
 	memcpy (&to->to_maxval, max, sizeof(struct timeval));
+}
+
+
+timeout_t *
+timeout_create (const struct timeval *value)
+{
+	timeout_t *new;
+
+	new = my_alloc (sizeof(timeout_t));
+
+	if (value != NULL)
+		timeout_set (new, value);
+
+	return new;
 }
 
 

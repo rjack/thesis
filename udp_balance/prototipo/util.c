@@ -52,42 +52,6 @@ my_strncpy (char *dest, const char *src, size_t nbytes)
 }
 
 
-timeout_t *
-new_timeout (const struct timeval *value)
-{
-	timeout_t *new;
-
-	new = my_alloc (sizeof(timeout_t));
-	timeout_set (new, value);
-
-	return new;
-}
-
-
-ssize_t
-sendmsg_getID_fake (int sfd, const struct msghdr *msg, int flags,
-                    int *id_result)
-{
-	static int id;
-
-	assert (id_result != NULL);
-
-	id++;
-	if (id == -1)
-		id++;
-	*id_result = id;
-
-	if ((rand() % 100) < FAIL_PERCENT) {
-		if (!TED_FAKE_POSITIVE)
-			ted_set_failed (id);
-		return msg->msg_iov->iov_len;
-	}
-	if (TED_FAKE_POSITIVE)
-		ted_set_acked (id);
-	return sendmsg (sfd, msg, flags);
-}
-
-
 bool
 parse_im_msg (char **ifname_result, char **cmd_result, char **ip_result,
               const char *msg, size_t msg_len)

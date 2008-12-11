@@ -12,6 +12,7 @@
 #include "dgram.h"
 #include "iface.h"
 #include "list.h"
+#include "ted_fake.h"
 #include "types.h"
 #include "util.h"
 
@@ -47,10 +48,11 @@ do_dgram_write (fd_t sfd, dgram_t *dg, struct sockaddr_in *rem_addr,
 			nsent = sendmsg_getID_fake (sfd, &hdr, 0, id_result);
 		} while (nsent == -1 && errno == EINTR);
 
-	if (nsent == -1)
-		return -1;
+#ifndef NDEBUG
+	if (nsent >= 0)
+		assert (nsent == dg->dg_datalen);
+#endif /* NDEBUG */
 
-	assert (nsent == dg->dg_datalen);
 	return nsent;
 }
 
@@ -156,7 +158,7 @@ dgram_set_life_timeout (dgram_t *dg)
 	assert (dg != NULL);
 	assert (dg->dg_life_to == NULL);
 
-	dg->dg_life_to = new_timeout (&time_150ms);
+	dg->dg_life_to = timeout_create (&time_150ms);
 	gettime (&now);
 	timeout_start (dg->dg_life_to, &now);
 }

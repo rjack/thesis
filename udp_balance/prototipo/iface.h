@@ -1,11 +1,14 @@
 #ifndef ULB_PROTO_IFACE_H
 #define ULB_PROTO_IFACE_H
 
-#include "errno.h"
-#include "iface_id.h"
+#include <errno.h>
+
 #include "crono.h"
+#include "dgram.h"
+#include "iface_id.h"
 #include "list.h"
 #include "types.h"
+
 
 /*
  * Interfaccia.
@@ -27,9 +30,6 @@ typedef struct {
 #define     E_IFACE_DG_ACK     ECHILD
 #define     E_IFACE_DG_NAK     EDQUOT
 
-
-#include "dgram.h"
-
 int iface_cmp_id(iface_t *if_ptr, iface_id_t *id);
 bool iface_must_send_keepalive(const iface_t *if_ptr);
 iface_t *iface_create(const char *name, const char *loc_ip);
@@ -42,6 +42,7 @@ void iface_reset_events(iface_t *if_ptr);
 void iface_print(iface_t *if_ptr);
 struct pollfd *iface_get_pollfd(iface_t *if_ptr);
 void iface_set_pollfd(iface_t *if_ptr, struct pollfd *pfd);
+ssize_t iface_cmsg_write(iface_t *if_ptr, void *data, size_t data_len);
 ssize_t iface_write(iface_t *if_ptr, dgram_t *dg);
 dgram_t *iface_read(iface_t *if_ptr);
 void iface_id_destroy(iface_id_t *if_id);
