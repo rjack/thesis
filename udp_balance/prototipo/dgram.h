@@ -31,8 +31,8 @@ typedef struct dgram {
 ****************************************************************************/
 
 int dgram_cmp_id(dgram_t *dg, int *id);
-bool dgram_must_be_discarded(dgram_t *dg);
-bool dgram_must_be_retransmitted(dgram_t *dg);
+bool dgram_discard_cmp(dgram_t *dg);
+bool dgram_retry_cmp(dgram_t *dg);
 void dgram_destroy_reply_timeout(dgram_t *dg);
 dgram_t *dgram_create(void);
 void dgram_min_timeout(dgram_t *dg, struct timeval *min_result);

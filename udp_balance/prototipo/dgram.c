@@ -74,7 +74,7 @@ dgram_cmp_id (dgram_t *dg, int *id)
 
 
 bool
-dgram_must_be_discarded (dgram_t *dg)
+dgram_discard_cmp (dgram_t *dg)
 {
 	struct timeval now;
 	struct timeval left;
@@ -83,13 +83,13 @@ dgram_must_be_discarded (dgram_t *dg)
 
 	timeout_left (dg->dg_life_to, &now, &left);
 	if (tv_cmp (&left, &time_0ms) <= 0)
-		return TRUE;
-	return FALSE;
+		return 0;
+	return 1;
 }
 
 
 bool
-dgram_must_be_retransmitted (dgram_t *dg)
+dgram_retry_cmp (dgram_t *dg)
 {
 	struct timeval now;
 	struct timeval left;
@@ -98,8 +98,8 @@ dgram_must_be_retransmitted (dgram_t *dg)
 
 	timeout_left (dg->dg_retry_to, &now, &left);
 	if (tv_cmp (&left, &time_0ms) <= 0)
-		return TRUE;
-	return FALSE;
+		return 0;
+	return 1;
 }
 
 
@@ -138,6 +138,8 @@ dgram_min_timeout (dgram_t *dg, struct timeval *min_result)
 	struct timeval left;
 
 	assert (dg->dg_life_to != NULL);
+
+	gettime (&now);
 
 	/* dg ha dg_retry_to solo se e' nella coda unacked. */
 	if (dg->dg_retry_to != NULL) {

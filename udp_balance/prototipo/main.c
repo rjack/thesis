@@ -80,7 +80,6 @@ int
 main (const int argc, const char *argv[])
 {
 	struct pollfd fds[2 + IFACE_MAX];
-	size_t ifaces_used = 0;
 
 	struct pollfd *sp = &fds[0];
 	struct pollfd *im = &fds[1];
@@ -156,10 +155,9 @@ main (const int argc, const char *argv[])
 	ted_init ();
 
 	while (!is_done ()) {
-		int i;
+		int i, len;
 		list_t rmvd;
 		dgram_t *dg;
-		void *args;
 		int nready;
 		int next_tmout;
 		struct timeval min;
@@ -193,11 +191,6 @@ main (const int argc, const char *argv[])
 		im->revents = 0;
 		list_foreach_do (ifaces,
 		                 (f_callback_t)iface_reset_events, NULL);
-		args = my_alloc (sizeof(int));
-		*(int *)args = POLLIN | POLLERR;
-		list_foreach_do (ifaces, (f_callback_t)iface_set_events,
-		                 args);
-		free (args);
 
 		current_iface = list_peek (ifaces);
 		if (verbose) {
@@ -218,7 +211,7 @@ main (const int argc, const char *argv[])
 		 * Le interfacce sui cui erano stati spediti diventano
 		 * "sospette". */
 		rmvd = list_remove_if (unacked,
-				       (f_compare_t)dgram_must_be_retransmitted,
+				       (f_compare_t)dgram_retry_cmp,
 	                               NULL);
 		list_foreach_do (rmvd,
 		                 (f_callback_t)find_iface_and_set_suspected,
@@ -229,7 +222,7 @@ main (const int argc, const char *argv[])
 
 		/* Tutti i datagram piu' vecchi di 150ms vanno scartati. */
 		rmvd = list_remove_if (out,
-		                       (f_compare_t)dgram_must_be_discarded,
+		                       (f_compare_t)dgram_discard_cmp,
 		                       NULL);
 		list_destroy (rmvd);
 
@@ -281,6 +274,7 @@ main (const int argc, const char *argv[])
 				         next_tmout);
 		}
 
+
 		/*
 		 * Impostazione eventi attesi.
 		 */
@@ -313,7 +307,7 @@ main (const int argc, const char *argv[])
 			memcpy (&fds[i], iface_get_pollfd (if_ptr),
 			        sizeof(struct pollfd));
 
-		nready = poll (fds, 2 + ifaces_used, next_tmout);
+		nready = poll (fds, 2 + list_length (ifaces), next_tmout);
 		if (nready == -1) {
 			perror ("poll");
 			exit (EXIT_FAILURE);
@@ -366,15 +360,23 @@ main (const int argc, const char *argv[])
 			char *cmd;
 			char *ip;
 			char *name;
+			iface_t *if_ptr;
+
 			if (verbose)
 				printf ("POLLIN interface monitor\n");
 			dg = dgram_read (im->fd, NULL, NULL);
 			parse_im_msg (&name, &cmd, &ip, dg->dg_data,
 			              dg->dg_datalen);
-			if (strcmp (cmd, "down") == 0)
-				; /* FIXME iface_down (name, ip); */
-			else
-				; /* FIXME iface_up (name, ip); */
+			if (strcmp (cmd, "down") == 0) {
+				iface_id_t if_id;
+				iface_id_set (&if_id, name, ip, "port_is_not_used");
+				if_ptr = list_contains (ifaces, (f_compare_t)iface_cmp_id, &if_id, 0);
+				iface_destroy (if_ptr);
+			} else {
+				if_ptr = iface_create (name, ip);
+				len = list_push (ifaces, if_ptr);
+				assert (len != LIST_ERR);
+			}
 			free (name);
 			free (cmd);
 			free (ip);

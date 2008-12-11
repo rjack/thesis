@@ -45,11 +45,8 @@ iface_create (const char *name, const char *loc_ip)
 
 	new_if->if_suspected = FALSE;
 	new_if->if_must_send_keepalive = FALSE;
+	iface_id_set (&(new_if->if_id), name, loc_ip, PX_LOC_PORT);
 
-	my_strncpy (new_if->if_id.ii_name, name, IFACE_ID_NAME_LEN);
-	my_strncpy (new_if->if_id.ii_loc_ip, loc_ip, IFACE_ID_LOC_IP_LEN);
-	my_strncpy (new_if->if_id.ii_loc_port, PX_LOC_PORT,
-	            IFACE_ID_LOC_PORT_LEN);
 	/* XXX PX_LOC_PORT potrebbe essere randomizzata finche' non se ne
 	 * trova una libera. */
 	new_if->if_pfd.fd = socket_bound_conn (loc_ip, PX_LOC_PORT,
@@ -62,6 +59,16 @@ iface_create (const char *name, const char *loc_ip)
 	/* TODO controllo errore socket_bound_conn */
 
 	return new_if;
+}
+
+
+void
+iface_id_set (iface_id_t *if_id, const char *name, const char *ip,
+              const char *port)
+{
+	my_strncpy (if_id->ii_name, name, IFACE_ID_NAME_LEN);
+	my_strncpy (if_id->ii_loc_ip, ip, IFACE_ID_LOC_IP_LEN);
+	my_strncpy (if_id->ii_loc_port, port, IFACE_ID_LOC_PORT_LEN);
 }
 
 
@@ -120,7 +127,7 @@ iface_reset_events (iface_t *if_ptr)
 {
 	assert (if_ptr != NULL);
 
-	if_ptr->if_pfd.events = 0;
+	if_ptr->if_pfd.events = POLLIN | POLLERR;
 	if_ptr->if_pfd.revents = 0;
 }
 
@@ -176,7 +183,10 @@ iface_write (iface_t *if_ptr, dgram_t *dg)
 	if (nsent == -1)
 		return -1;
 
-	assert (nsent == dg->dg_datalen);
+#ifndef NDEBUG
+	if (nsent >= 0)
+		assert (nsent == dg->dg_datalen);
+#endif /* NDEBUG */
 
 	/* Reset timeout keepalive. */
 	gettime (&now);

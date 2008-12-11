@@ -89,7 +89,7 @@ crono_measure (crono_t *cr, const struct timeval *now,
 	assert (cr != NULL);
 	assert (now != NULL);
 
-	tv_diff (&cr->cr_elapsed, now, &cr->cr_start);
+	tv_diff (&(cr->cr_elapsed), now, &(cr->cr_start));
 
 	crono_read (cr, result);
 }

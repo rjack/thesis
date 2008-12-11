@@ -525,7 +525,10 @@ list_remove_if (list_t lst, f_compare_t my_cmp, void *args)
 	rmvd = list_create (db[lst].li_node_value_destroy,
 	                    db[lst].li_node_value_size);
 
-	cur = db[lst].li_tail_ptr->n_next;
+	if (!list_is_empty (lst))
+		cur = db[lst].li_tail_ptr->n_next;
+	else
+		cur = NULL;
 	while (!list_is_empty (lst) && cur != NULL) {
 		if (cur->n_next == db[lst].li_tail_ptr)
 			nxt = NULL;

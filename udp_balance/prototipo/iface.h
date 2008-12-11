@@ -33,6 +33,7 @@ typedef struct {
 int iface_cmp_id(iface_t *if_ptr, iface_id_t *id);
 bool iface_must_send_keepalive(const iface_t *if_ptr);
 iface_t *iface_create(const char *name, const char *loc_ip);
+void iface_id_set(iface_id_t *if_id, const char *name, const char *ip, const char *port);
 void iface_destroy(iface_t *if_ptr);
 int iface_get_events(iface_t *if_ptr);
 void iface_set_suspected(iface_t *if_ptr);
@@ -42,7 +43,6 @@ void iface_reset_events(iface_t *if_ptr);
 void iface_print(iface_t *if_ptr);
 struct pollfd *iface_get_pollfd(iface_t *if_ptr);
 void iface_set_pollfd(iface_t *if_ptr, struct pollfd *pfd);
-ssize_t iface_cmsg_write(iface_t *if_ptr, void *data, size_t data_len);
 ssize_t iface_write(iface_t *if_ptr, dgram_t *dg);
 dgram_t *iface_read(iface_t *if_ptr);
 void iface_id_destroy(iface_id_t *if_id);
