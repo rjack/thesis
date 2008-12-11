@@ -160,13 +160,6 @@ iface_set_pollfd (iface_t *if_ptr, struct pollfd *pfd)
 
 
 ssize_t
-iface_cmsg_write (iface_t *if_ptr, void *data, size_t data_len)
-{
-	return -1;
-}
-
-
-ssize_t
 iface_write (iface_t *if_ptr, dgram_t *dg)
 {
 	ssize_t nsent;
