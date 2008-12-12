@@ -56,6 +56,11 @@ iface_create (const char *name, const char *loc_ip)
 	timeout_set (&(new_if->if_keepalive), &time_150ms);
 	timeout_start (&(new_if->if_keepalive), &now);
 
+	/* Ha un firmware che notifica i dgram ricevuti o i dgram non
+	 * ricevuti? Affidiamoci alla sorte. */
+	new_if->if_firmware_positive = ((rand () % 100) > 50) ?
+	                               TRUE : FALSE;
+
 	/* TODO controllo errore socket_bound_conn */
 
 	return new_if;
@@ -198,10 +203,10 @@ iface_write (iface_t *if_ptr, dgram_t *dg)
 	 * Positivo: segnala ricezione da parte dell'AP.
 	 * Negativo: segnala fallimento trasmissione all'AP.
 	 */
-	if (!TED_FAKE_POSITIVE && nsent == SENDMSG_FAKE_ERR)
-		ted_set_acked (dg, FALSE);
-	if (TED_FAKE_POSITIVE && nsent != SENDMSG_FAKE_ERR)
-		ted_set_acked (dg, TRUE);
+	if (!if_ptr->if_firmware_positive && nsent == SENDMSG_FAKE_ERR)
+		ted_fake_set_acked (dg, FALSE);
+	if (if_ptr->if_firmware_positive && nsent != SENDMSG_FAKE_ERR)
+		ted_fake_set_acked (dg, TRUE);
 
 	/* La simulazione dell'errore di ricezione dell'AP deve essere
 	 * silenziosa, come nella realta'. */
@@ -236,22 +241,34 @@ iface_id_destroy (struct iface_id *if_id)
 int
 iface_handle_err (iface_t *if_ptr)
 {
-	/* Puo' essere:
-	 * 1. IP_NOTIFY errore trasmissione
-	 *    -> leggere id
-	 *    -> recuperare dai dgram unaked il dgram
-	 *       con quell'id
-	 *    -> rimetterlo tra i dgram in uscita
+	/*
+	 * XXX Premessa: questa funzione e' *BRUTTA*.
 	 *
-	 * 2. IP_NOTIFY riuscita trasmissione
-	 *    -> leggere id
-	 *    -> recuperare dai dgram unaked il dgram
-	 *       con quell'id
-	 *    -> buttarlo
+	 * Nell'ULB finale, errori ICMP e notifiche TED vengono tutti pescati
+	 * dalla msg_errqueue.
 	 *
-	 * 3. ICMP errore
-	 *    -> fprintf
-	 *    -> iface_down */
+	 * Nel prototipo, le notifiche TED vanno pescate per vie traverse,
+	 * perche' non si puo' imbrogliare la errqueue di un socket udp
+	 * mandandole cmsg farlocchi.
+	 *
+	 * Quindi, prima proviamo  a leggere l'errqueue per gli errori ICMP,
+	 * in modo NON BLOCCANTE (puo' essere che non ce ne siano e che siamo
+	 * qui per colpa del TED).
+	 *
+	 * Se la errqueue e' vuota, chiamiamo il TED simulato.
+	 *
+	 * L'esito e' indicato da errno:
+	 *    E_IFACE_FATAL   errore ICMP
+	 *    E_IFACE_DG_ACK  il datagram e' arrivato all'AP
+	 *    E_IFACE_DG_NAK  il datagram non e' arrivato all'AP
+	 *
+	 * ACK o NAK dipende dal firmware della scheda, quindi il
+	 * comportamento puo' essere potenzialmente diverso da interfaccia a
+	 * interfaccia.
+	 *
+	 * FIXME ora TED si comporta allo stesso modo per tutte le
+	 * FIXME interfacce!
+	 */
 
 	ssize_t nrecv;
 	char cbuf[CONTROLBUFLEN];
@@ -269,10 +286,24 @@ iface_handle_err (iface_t *if_ptr)
 	msg.msg_controllen = CONTROLBUFLEN;
 	msg.msg_flags = 0;
 
-	nrecv = recvmsg (if_ptr->if_pfd.fd, &msg, MSG_ERRQUEUE);
+	nrecv = recvmsg (if_ptr->if_pfd.fd, &msg,
+	                 MSG_ERRQUEUE | MSG_DONTWAIT);
 	if (nrecv == -1) {
-		perror ("Errore nella gestione dell'errore");
-		exit (EXIT_FAILURE);
+		struct sock_notify_msg *nm;
+
+		if (errno != EAGAIN) {
+			perror ("Errore nella gestione dell'errore");
+			exit (EXIT_FAILURE);
+		}
+
+		nm = ted_fake_get_notify (if_ptr);
+		if (nm->nm_ack == TRUE)
+			errno = E_IFACE_DG_ACK;
+		else
+			errno = E_IFACE_DG_NAK;
+		dg_id = nm->nm_dgram_id;
+		free (nm);
+		goto happy_ending;
 	}
 
 	for (cmsg = CMSG_FIRSTHDR (&msg);
@@ -299,6 +330,10 @@ iface_handle_err (iface_t *if_ptr)
 				dg_id = -1;
 			}
 
+			/* XXX OK, non si puo' imbrogliare la errqueue di un
+			 * XXX socket udp. Era anche abbastanza ovvio, ma
+			 * XXX provare non costava nulla, a parte tempo e
+			 * XXX sudore.
 			else if (cmsg->cmsg_type == IP_NOTIFY) {
 				struct sock_notify_msg *nm;
 
@@ -308,13 +343,18 @@ iface_handle_err (iface_t *if_ptr)
 				else
 					errno = E_IFACE_DG_NAK;
 				dg_id = nm->nm_dgram_id;
-			} else {
+			}
+			*/
+
+			else {
 				fprintf (stderr,
-				         "Che accidenti e' arrivato?\n");
+				         "iface_handle_err: che accidenti e' "
+				         "arrivato?\n");
 				exit (EXIT_FAILURE);
 			}
 		}
 	}
 
+happy_ending:
 	return dg_id;
 }

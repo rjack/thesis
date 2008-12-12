@@ -26,14 +26,15 @@ struct sock_notify_msg {
 
 #define     SENDMSG_FAKE_ERR     (-2)
 
-/* TRUE simula un TED che conferma l'avvenuta ricezione da parte dell'AP,
- * FALSE simula un TED che segnala il fallimento della spedizione. */
-#define     TED_FAKE_POSITIVE     TRUE
 
+/****************************************************************************
+				  Prototipi
+****************************************************************************/
 
-void ted_init(void);
-ssize_t sendmsg_getID_fake(int sfd, const struct msghdr *msg, int flags, int *id_result);
-void ted_set_acked(dgram_t *dg, bool acked);
-void ted_run(list_t ifaces);
+void ted_fake_init(void);
+ssize_t sendmsg_getID_fake(int sfd, const struct msghdr *hdr, int flags, int *id_result);
+void ted_fake_set_acked(dgram_t *dg, bool acked);
+struct sock_notify_msg *ted_fake_get_notify(iface_t *if_ptr);
+void ted_fake_set_errqueue_events(iface_t *if_ptr);
 
 #endif /* ULB_PROTO_TED_FAKE_H */

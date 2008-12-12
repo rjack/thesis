@@ -152,7 +152,7 @@ main (const int argc, const char *argv[])
 	/*
 	 * Init TED farlocco.
 	 */
-	ted_init ();
+	ted_fake_init ();
 
 	while (!is_done ()) {
 		int i, len;
@@ -319,6 +319,8 @@ main (const int argc, const char *argv[])
 		     i++, if_ptr = list_iterator_get_next (ifaces, &lit))
 			iface_set_pollfd (if_ptr, &fds[i]);
 
+		list_foreach_do (ifaces, (f_callback_t)ted_fake_set_errqueue_events, NULL);
+
 		/*
 		 * Eventi softphone.
 		 */
@@ -465,9 +467,6 @@ main (const int argc, const char *argv[])
 				}
 			}
 		}
-
-		/* Simula TED. */
-		ted_run (ifaces);
 	}
 
 	return 0;

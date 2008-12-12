@@ -14,11 +14,13 @@
  * Interfaccia.
  */
 typedef struct {
-	bool if_suspected;
-	bool if_must_send_keepalive;
+	bool if_firmware_positive;       /* TRUE: ack quando AP riceve; FALSE:
+	                                    nak quando AP non riceve. */
+	bool if_must_send_keepalive;     /* TRUE: deve mandare un keepalive. */
+	bool if_suspected;               /* TRUE: ifaccia scarsa. */
+	struct iface_id if_id;           /* Identificativo. */
 	struct pollfd if_pfd;
 	timeout_t if_keepalive;
-	struct iface_id if_id;
 } iface_t;
 
 

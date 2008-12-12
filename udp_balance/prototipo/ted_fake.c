@@ -18,41 +18,18 @@
 static list_t nm_list;
 
 
-static struct msghdr *
-create_msghdr_notify (struct sock_notify_msg *nm) {
-	struct msghdr *hdr;
-	struct cmsghdr *cmsg;
-	char *buf;
-	size_t buflen;
-	void *ptr;
-
+static int
+nm_cmp_iface (struct sock_notify_msg *nm, iface_t *if_ptr)
+{
 	assert (nm != NULL);
+	assert (if_ptr != NULL);
 
-	hdr = my_alloc (sizeof(*hdr));
-	memset (hdr, 0, sizeof(*hdr));
-
-	buflen = CMSG_SPACE (sizeof(*nm));
-	buf = my_alloc (buflen);
-
-	hdr->msg_control = buf;
-	hdr->msg_controllen = buflen;
-
-	cmsg = CMSG_FIRSTHDR (hdr);
-	cmsg->cmsg_level = SOL_IP;
-	cmsg->cmsg_type = IP_NOTIFY;
-	cmsg->cmsg_len = CMSG_LEN (sizeof(*nm));
-
-	ptr = (void *)CMSG_DATA (cmsg);
-	memcpy (ptr, nm, sizeof(*nm));
-
-	hdr->msg_controllen = CMSG_SPACE (cmsg->cmsg_len);
-
-	return hdr;
+	return iface_cmp_id (if_ptr, &(nm->nm_iface_id));
 }
 
 
 void
-ted_init (void)
+ted_fake_init (void)
 {
 	nm_list = list_create (free, sizeof(struct sock_notify_msg));
 	if (nm_list == LIST_ERR) {
@@ -82,7 +59,7 @@ sendmsg_getID_fake (int sfd, const struct msghdr *hdr, int flags,
 
 
 void
-ted_set_acked (dgram_t *dg, bool acked)
+ted_fake_set_acked (dgram_t *dg, bool acked)
 {
 	struct sock_notify_msg *new_msg;
 
@@ -97,33 +74,33 @@ ted_set_acked (dgram_t *dg, bool acked)
 }
 
 
-void
-ted_run (list_t ifaces)
+struct sock_notify_msg *
+ted_fake_get_notify (iface_t *if_ptr)
 {
-	iface_t *if_ptr;
+	list_t rmvd;
 	struct sock_notify_msg *nm;
 
-	while (!list_is_empty (nm_list)) {
-		nm = list_dequeue (nm_list);
-		if_ptr = list_contains (ifaces, (f_compare_t)iface_cmp_id, &(nm->nm_iface_id), 0);
-		if (if_ptr != NULL) {
-			ssize_t nsent;
-			struct pollfd *pfd;
-			struct msghdr *hdr;
+	assert (if_ptr != NULL);
 
-			pfd = iface_get_pollfd (if_ptr);
-			hdr = create_msghdr_notify (nm);
+	rmvd = list_remove_if (nm_list, (f_compare_t)nm_cmp_iface, if_ptr);
+	if (list_is_empty (rmvd)) {
+		list_destroy (rmvd);
+		return NULL;
+	}
+	assert (list_length (rmvd) == 1);
+	nm = list_dequeue (rmvd);
+	list_destroy (rmvd);
 
-			do {
-				nsent = sendmsg (pfd->fd, hdr, 0);
-			} while (nsent == -1 && errno == EINTR);
-			if (nsent == -1) {
-				perror ("ted_run sendmsg");
-				exit (EXIT_FAILURE);
-			}
-			free (hdr->msg_control);
-			free (hdr);
-		}
-		free (nm);
+	return nm;
+}
+
+
+void
+ted_fake_set_errqueue_events (iface_t *if_ptr)
+{
+	struct pollfd *pfd;
+	if (list_contains (nm_list, (f_compare_t)nm_cmp_iface, if_ptr, 0)) {
+		pfd = iface_get_pollfd (if_ptr);
+		pfd->revents |= POLLERR;
 	}
 }
