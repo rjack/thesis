@@ -110,10 +110,10 @@ main (const int argc, const char *argv[])
 	time_150ms.tv_usec = 150000;
 #else
 	/* Valori dilatati, per capire che succede. */
-	time_30ms.tv_sec = ONE_MILLION - 1;
+	time_30ms.tv_sec = 3;
 	time_30ms.tv_usec = 0;
 
-	time_150ms.tv_sec = ONE_MILLION - 1;
+	time_150ms.tv_sec = 15;
 	time_150ms.tv_usec = 0;
 #endif /* NDEBUG */
 
@@ -396,8 +396,8 @@ main (const int argc, const char *argv[])
 			dg = list_dequeue (out);
 			iface_write (current_iface, dg);
 			/* TODO controllo errore */
-			assert (dg->dg_retry_to == NULL);
-			dg->dg_retry_to = timeout_create (&time_30ms);
+			if (dg->dg_retry_to == NULL)
+				dg->dg_retry_to = timeout_create (&time_30ms);
 			gettime (&now);
 			timeout_start (dg->dg_retry_to, &now);
 			list_enqueue (unacked, dg);
