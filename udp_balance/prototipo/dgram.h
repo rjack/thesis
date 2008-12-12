@@ -17,12 +17,12 @@
  * Datagram.
  */
 typedef struct dgram {
-	int dg_id;                 /* id univoco indicato da sendmsg_getID */
-	char *dg_data;             /* dati letti da recvmsg */
-	size_t dg_datalen;         /* lunghezza dati */
-	timeout_t *dg_life_to;     /* tempo di vita del datagram */
-	timeout_t *dg_retry_to;    /* timeout di ritrasmissione */
-	iface_id_t *dg_iface_id;   /* interfaccia di spedizione. */
+	int dg_id;                      /* id indicato da sendmsg_getID */
+	char *dg_data;                  /* dati letti da recvmsg */
+	size_t dg_datalen;              /* lunghezza dati */
+	timeout_t *dg_life_to;          /* tempo di vita del datagram */
+	timeout_t *dg_retry_to;         /* timeout di ritrasmissione */
+	struct iface_id *dg_iface_id;   /* interfaccia di spedizione. */
 } dgram_t;
 
 

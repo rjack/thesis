@@ -368,7 +368,7 @@ main (const int argc, const char *argv[])
 			parse_im_msg (&name, &cmd, &ip, dg->dg_data,
 			              dg->dg_datalen);
 			if (strcmp (cmd, "down") == 0) {
-				iface_id_t if_id;
+				struct iface_id if_id;
 				iface_id_set (&if_id, name, ip, "port_is_not_used");
 				if_ptr = list_contains (ifaces, (f_compare_t)iface_cmp_id, &if_id, 0);
 				iface_destroy (if_ptr);

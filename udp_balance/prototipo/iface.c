@@ -17,7 +17,7 @@
 
 
 int
-iface_cmp_id (iface_t *if_ptr, iface_id_t *id)
+iface_cmp_id (iface_t *if_ptr, struct iface_id *id)
 {
 	if (strcmp (if_ptr->if_id.ii_name, id->ii_name) == 0
 	    && strcmp (if_ptr->if_id.ii_loc_ip, id->ii_loc_ip) == 0)
@@ -63,7 +63,7 @@ iface_create (const char *name, const char *loc_ip)
 
 
 void
-iface_id_set (iface_id_t *if_id, const char *name, const char *ip,
+iface_id_set (struct iface_id *if_id, const char *name, const char *ip,
               const char *port)
 {
 	my_strncpy (if_id->ii_name, name, IFACE_ID_NAME_LEN);
@@ -176,8 +176,8 @@ iface_write (iface_t *if_ptr, dgram_t *dg)
 	assert (dg != NULL);
 
 	/* Marchia il dg con id interfaccia. */
-	dg->dg_iface_id = my_alloc (sizeof(iface_id_t));
-	memcpy (dg->dg_iface_id, &(if_ptr->if_id), sizeof(iface_id_t));
+	dg->dg_iface_id = my_alloc (sizeof(struct iface_id));
+	memcpy (dg->dg_iface_id, &(if_ptr->if_id), sizeof(struct iface_id));
 
 	nsent = dgram_write_getID (if_ptr->if_pfd.fd, dg, NULL, 0);
 	if (nsent == -1)
@@ -226,7 +226,7 @@ iface_read (iface_t *if_ptr)
 
 
 void
-iface_id_destroy (iface_id_t *if_id)
+iface_id_destroy (struct iface_id *if_id)
 {
 	assert (if_id != NULL);
 	free (if_id);

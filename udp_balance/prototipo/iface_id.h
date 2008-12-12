@@ -9,10 +9,10 @@
 #define     IFACE_ID_NAME_LEN         10
 #define     IFACE_ID_LOC_IP_LEN       16
 #define     IFACE_ID_LOC_PORT_LEN      6
-typedef struct {
+struct iface_id {
 	char ii_name[IFACE_ID_NAME_LEN];
 	char ii_loc_ip[IFACE_ID_LOC_IP_LEN];
 	char ii_loc_port[IFACE_ID_LOC_PORT_LEN];
-} iface_id_t;
+};
 
 #endif /* ULB_PROTO_IFACE_ID_H */

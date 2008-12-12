@@ -62,8 +62,6 @@ typedef int fd_t;
 
 #define     ARRAYLEN(a)     (sizeof((a))/sizeof(*(a)))
 
-#define     IP_NOTIFY       4242
-
 
 /****************************************************************************
 			      Variabili globali

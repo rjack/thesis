@@ -91,6 +91,7 @@ ted_set_acked (dgram_t *dg, bool acked)
 	new_msg = my_alloc(sizeof(struct sock_notify_msg));
 	new_msg->nm_ack = acked;
 	new_msg->nm_dgram_id = dg->dg_id;
+	memcpy (&(new_msg->nm_iface_id), dg->dg_iface_id, sizeof(struct iface_id));
 
 	list_enqueue (nm_list, new_msg);
 }
@@ -116,6 +117,10 @@ ted_run (list_t ifaces)
 			do {
 				nsent = sendmsg (pfd->fd, hdr, 0);
 			} while (nsent == -1 && errno == EINTR);
+			if (nsent == -1) {
+				perror ("ted_run sendmsg");
+				exit (EXIT_FAILURE);
+			}
 			free (hdr->msg_control);
 			free (hdr);
 		}

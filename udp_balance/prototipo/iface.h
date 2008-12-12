@@ -18,7 +18,7 @@ typedef struct {
 	bool if_must_send_keepalive;
 	struct pollfd if_pfd;
 	timeout_t if_keepalive;
-	iface_id_t if_id;
+	struct iface_id if_id;
 } iface_t;
 
 
@@ -30,10 +30,10 @@ typedef struct {
 #define     E_IFACE_DG_ACK     ECHILD
 #define     E_IFACE_DG_NAK     EDQUOT
 
-int iface_cmp_id(iface_t *if_ptr, iface_id_t *id);
+int iface_cmp_id(iface_t *if_ptr, struct iface_id *id);
 bool iface_must_send_keepalive(const iface_t *if_ptr);
 iface_t *iface_create(const char *name, const char *loc_ip);
-void iface_id_set(iface_id_t *if_id, const char *name, const char *ip, const char *port);
+void iface_id_set(struct iface_id *if_id, const char *name, const char *ip, const char *port);
 void iface_destroy(iface_t *if_ptr);
 int iface_get_events(iface_t *if_ptr);
 void iface_set_suspected(iface_t *if_ptr);
@@ -45,7 +45,7 @@ struct pollfd *iface_get_pollfd(iface_t *if_ptr);
 void iface_set_pollfd(iface_t *if_ptr, struct pollfd *pfd);
 ssize_t iface_write(iface_t *if_ptr, dgram_t *dg);
 dgram_t *iface_read(iface_t *if_ptr);
-void iface_id_destroy(iface_id_t *if_id);
+void iface_id_destroy(struct iface_id *if_id);
 int iface_handle_err(iface_t *if_ptr);
 
 #endif /* ULB_PROTO_IFACE_H */

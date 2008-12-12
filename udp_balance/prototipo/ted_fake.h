@@ -14,7 +14,7 @@
 struct sock_notify_msg {
 	bool nm_ack;               /* TRUE -> ack; FALSE -> nak. */
 	int nm_dgram_id;           /* dgram a cui la notifica si riferisce. */
-	iface_id_t nm_iface_id;    /* if su cui e' stato spedito il dg. */
+	struct iface_id nm_iface_id;    /* if su cui e' stato spedito il dg. */
 };
 
 
