@@ -1,0 +1,11 @@
+Problema:
+
+Un datagram viene spedito su un interfaccia con firmware che notifica gli
+errori (non c'e' bisogno di timeout di ritrasmissione).
+Il datagram viene perso, ma l'interfaccia va giu' prima di poterlo notificare.
+Quel datagram non viene rispedito.
+
+Soluzione:
+
+a) amen, capita cosi' raramente che non influisce sulla qualita' della
+   conversazione.
