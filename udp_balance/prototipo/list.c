@@ -405,7 +405,7 @@ list_iterator_get_prev (list_t lst, list_iterator_t *lit)
 
 
 void *
-list_contains (list_t lst, f_compare_t my_cmp, void *term, int mode)
+list_contains (list_t lst, f_bool_t my_cmp, void *term, int mode)
 /*
  * Ritorna il primo elemento che soddisfi la funzione my_cmp, NULL se la lista
  * e' vuota o nessun elemento soddisfa la funzione data.
@@ -508,7 +508,7 @@ list_inorder_insert (list_t lst, void *new_element, f_compare_t my_cmp)
 
 
 list_t
-list_remove_if (list_t lst, f_compare_t my_cmp, void *args)
+list_remove_if (list_t lst, f_bool_t my_cmp, void *args)
 /*
  * Ritorna una nuova lista formata da tutti gli elementi rimossi da lst che
  * hanno soddisfatto la funzione my_cmp.

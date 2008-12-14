@@ -6,7 +6,7 @@
 
 #include "types.h"
 #include "crono.h"
-#include "iface_id.h"
+#include "iface_type.h"
 
 
 /****************************************************************************
@@ -22,7 +22,9 @@ typedef struct dgram {
 	size_t dg_datalen;              /* lunghezza dati */
 	timeout_t *dg_life_to;          /* tempo di vita del datagram */
 	timeout_t *dg_retry_to;         /* timeout di ritrasmissione */
-	struct iface_id *dg_iface_id;   /* interfaccia di spedizione. */
+	iface_t *dg_if_ptr;             /* interfaccia di spedizione. */
+	/* XXX quando si distrugge un'interfaccia, bisogna scorrere tutte le
+	 * XXX liste di datagram per NULLare anche questo puntatore! */
 } dgram_t;
 
 
@@ -30,11 +32,12 @@ typedef struct dgram {
 				  Prototipi
 ****************************************************************************/
 
-int dgram_cmp_id(dgram_t *dg, int *id);
-bool dgram_discard_cmp(dgram_t *dg);
-bool dgram_retry_cmp(dgram_t *dg);
+bool dgram_has_id(dgram_t *dg, int *id);
+bool dgram_must_discarded(dgram_t *dg);
+bool dgram_must_retry(dgram_t *dg);
 void dgram_destroy_reply_timeout(dgram_t *dg);
 dgram_t *dgram_create(void);
+void dgram_clear_iface_ptr (dgram_t *dg, iface_t *if_ptr);
 void dgram_min_timeout(dgram_t *dg, struct timeval *min_result);
 void dgram_set_life_timeout(dgram_t *dg);
 dgram_t *dgram_read(fd_t sfd, struct sockaddr_in *src_addr_result, socklen_t *src_addr_result_len);

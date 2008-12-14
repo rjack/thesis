@@ -3,26 +3,10 @@
 
 #include <errno.h>
 
-#include "crono.h"
 #include "dgram.h"
-#include "iface_id.h"
+#include "iface_type.h"
 #include "list.h"
 #include "types.h"
-
-
-/*
- * Interfaccia.
- */
-typedef struct {
-	bool if_firmware_positive;       /* TRUE: ack quando AP riceve; FALSE:
-	                                    nak quando AP non riceve. */
-	bool if_must_send_keepalive;     /* TRUE: deve mandare un keepalive. */
-	bool if_suspected;               /* TRUE: ifaccia scarsa. */
-	struct iface_id if_id;           /* Identificativo. */
-	struct pollfd if_pfd;
-	timeout_t if_keepalive;
-} iface_t;
-
 
 /*
  * Codici errno ritornati da iface_handle_err.
@@ -32,10 +16,15 @@ typedef struct {
 #define     E_IFACE_DG_ACK     ECHILD
 #define     E_IFACE_DG_NAK     EDQUOT
 
-int iface_cmp_id(iface_t *if_ptr, struct iface_id *id);
+
+/****************************************************************************
+				  Prototipi
+****************************************************************************/
+
+bool iface_has_name (const iface_t *if_ptr, const char *name);
 bool iface_must_send_keepalive(const iface_t *if_ptr);
 iface_t *iface_create(const char *name, const char *loc_ip);
-void iface_id_set(struct iface_id *if_id, const char *name, const char *ip, const char *port);
+void iface_set_name(iface_t *if_ptr, const char *name, const char *ip, const char *port);
 void iface_destroy(iface_t *if_ptr);
 int iface_get_events(iface_t *if_ptr);
 void iface_set_suspected(iface_t *if_ptr);
@@ -47,7 +36,6 @@ struct pollfd *iface_get_pollfd(iface_t *if_ptr);
 void iface_set_pollfd(iface_t *if_ptr, struct pollfd *pfd);
 ssize_t iface_write(iface_t *if_ptr, dgram_t *dg);
 dgram_t *iface_read(iface_t *if_ptr);
-void iface_id_destroy(struct iface_id *if_id);
 int iface_handle_err(iface_t *if_ptr);
 
 #endif /* ULB_PROTO_IFACE_H */

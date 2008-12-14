@@ -18,13 +18,15 @@
 static list_t nm_list;
 
 
-static int
-nm_cmp_iface (struct sock_notify_msg *nm, iface_t *if_ptr)
+static bool
+nm_has_iface (struct sock_notify_msg *nm, iface_t *if_ptr)
 {
 	assert (nm != NULL);
 	assert (if_ptr != NULL);
 
-	return iface_cmp_id (if_ptr, &(nm->nm_iface_id));
+	if (nm->nm_iface == if_ptr)
+		return TRUE;
+	return FALSE;
 }
 
 
@@ -48,12 +50,17 @@ sendmsg_getID_fake (int sfd, const struct msghdr *hdr, int flags,
 	assert (id_result != NULL);
 
 	id++;
+	/* -1 sta a dire "nessun id" */
 	if (id == -1)
 		id++;
 	*id_result = id;
 
-	if ((rand() % 100) < FAIL_PERCENT)
+	if ((rand() % 100) < FAIL_PERCENT) {
+		if (verbose)
+			printf ("sendmsg_getID_fake: simulato errore "
+			        "trasmissione dgram %d\n", *id_result);
 		return SENDMSG_FAKE_ERR;
+	}
 	return sendmsg (sfd, hdr, flags);
 }
 
@@ -68,7 +75,7 @@ ted_fake_set_acked (dgram_t *dg, bool acked)
 	new_msg = my_alloc(sizeof(struct sock_notify_msg));
 	new_msg->nm_ack = acked;
 	new_msg->nm_dgram_id = dg->dg_id;
-	memcpy (&(new_msg->nm_iface_id), dg->dg_iface_id, sizeof(struct iface_id));
+	new_msg->nm_iface = dg->dg_if_ptr;
 
 	list_enqueue (nm_list, new_msg);
 }
@@ -82,7 +89,7 @@ ted_fake_get_notify (iface_t *if_ptr)
 
 	assert (if_ptr != NULL);
 
-	rmvd = list_remove_if (nm_list, (f_compare_t)nm_cmp_iface, if_ptr);
+	rmvd = list_remove_if (nm_list, (f_compare_t)nm_has_iface, if_ptr);
 	if (list_is_empty (rmvd)) {
 		list_destroy (rmvd);
 		return NULL;
@@ -96,10 +103,24 @@ ted_fake_get_notify (iface_t *if_ptr)
 
 
 void
+ted_fake_clear_iface_ptr (iface_t *if_ptr)
+{
+	struct sock_notify_msg *nm;
+	list_iterator_t lit;
+
+	for (nm = list_iterator_get_first (nm_list, &lit);
+	     nm != NULL;
+	     nm = list_iterator_get_next (nm_list, &lit))
+		if (nm->nm_iface == if_ptr)
+			nm->nm_iface = NULL;
+}
+
+
+void
 ted_fake_set_errqueue_events (iface_t *if_ptr)
 {
 	struct pollfd *pfd;
-	if (list_contains (nm_list, (f_compare_t)nm_cmp_iface, if_ptr, 0)) {
+	if (list_contains (nm_list, (f_compare_t)nm_has_iface, if_ptr, 0)) {
 		pfd = iface_get_pollfd (if_ptr);
 		pfd->revents |= POLLERR;
 	}

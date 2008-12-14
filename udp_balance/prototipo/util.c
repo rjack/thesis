@@ -15,14 +15,12 @@
 #include "types.h"
 
 
-int
-cmp_ptr (void *ptr_1, void *ptr_2)
+bool
+ptr_eq (void *ptr_1, void *ptr_2)
 {
 	if (ptr_1 == ptr_2)
-		return 0;
-	if (ptr_1 < ptr_2)
-		return -1;
-	return 1;
+		return TRUE;
+	return FALSE;
 }
 
 char *

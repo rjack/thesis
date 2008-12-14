@@ -57,8 +57,8 @@ do_dgram_write (fd_t sfd, dgram_t *dg, struct sockaddr_in *rem_addr,
 }
 
 
-int
-dgram_cmp_id (dgram_t *dg, int *id)
+bool
+dgram_has_id (dgram_t *dg, int *id)
 {
 	assert (dg != NULL);
 	assert (id != NULL);
@@ -66,15 +66,13 @@ dgram_cmp_id (dgram_t *dg, int *id)
 	assert (*id != -1);
 
 	if (dg->dg_id == *id)
-		return 0;
-	if (dg->dg_id < *id)
-		return -1;
-	return 1;
+		return TRUE;
+	return FALSE;
 }
 
 
 bool
-dgram_discard_cmp (dgram_t *dg)
+dgram_must_discarded (dgram_t *dg)
 {
 	struct timeval now;
 	struct timeval left;
@@ -83,13 +81,13 @@ dgram_discard_cmp (dgram_t *dg)
 
 	timeout_left (dg->dg_life_to, &now, &left);
 	if (tv_cmp (&left, &time_0ms) <= 0)
-		return 0;
-	return 1;
+		return TRUE;
+	return FALSE;
 }
 
 
 bool
-dgram_retry_cmp (dgram_t *dg)
+dgram_must_retry (dgram_t *dg)
 {
 	struct timeval now;
 	struct timeval left;
@@ -98,8 +96,8 @@ dgram_retry_cmp (dgram_t *dg)
 
 	timeout_left (dg->dg_retry_to, &now, &left);
 	if (tv_cmp (&left, &time_0ms) <= 0)
-		return 0;
-	return 1;
+		return TRUE;
+	return FALSE;
 }
 
 
@@ -125,9 +123,20 @@ dgram_create (void)
 	new_dg->dg_datalen = 0;
 	new_dg->dg_life_to = NULL;
 	new_dg->dg_retry_to = NULL;
-	new_dg->dg_iface_id = NULL;
+	new_dg->dg_if_ptr = NULL;
 
 	return new_dg;
+}
+
+
+void
+dgram_clear_iface_ptr (dgram_t *dg, iface_t *if_ptr)
+{
+	assert (dg != NULL);
+	assert (if_ptr != NULL);
+
+	if (dg->dg_if_ptr == if_ptr)
+		dg->dg_if_ptr = NULL;
 }
 
 
@@ -170,11 +179,11 @@ dgram_t *
 dgram_read (fd_t sfd, struct sockaddr_in *src_addr_result,
             socklen_t *src_addr_result_len)
 {
+	dgram_t *dg;
 	ssize_t nrecv;
 	struct msghdr hdr;
-	dgram_t *dg;
-	char buffer[BUFFER_LEN];
 	struct iovec iov[1];
+	char buffer[BUFFER_LEN];
 
 	iov[0].iov_base = buffer;
 	iov[0].iov_len = BUFFER_LEN;
@@ -263,8 +272,6 @@ dgram_destroy (dgram_t *dg)
 		free (dg->dg_life_to);
 	if (dg->dg_retry_to != NULL)
 		free (dg->dg_retry_to);
-	if (dg->dg_iface_id != NULL)
-		iface_id_destroy (dg->dg_iface_id);
 	free (dg);
 }
 

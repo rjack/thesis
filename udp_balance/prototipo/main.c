@@ -60,15 +60,14 @@ find_iface_and_set_suspected (dgram_t *dg, list_t *ifaces)
 
 	assert (dg != NULL);
 	assert (ifaces != NULL);
-	assert (dg->dg_iface_id != NULL);
 
-	susp = list_contains (*ifaces, (f_compare_t)iface_cmp_id, dg->dg_iface_id, 0);
-	if (susp != NULL)
-		/* Puo' essere NULL perche' tra spedizione datagram e
-		 * ricezione NAK (o scadenza timeout) l'interfaccia puo'
-		 * essere stata tirata giu' dall'interface manager o da un
-		 * errore ICMP. */
+	/* Puo' essere NULL perche' tra spedizione datagram e ricezione NAK (o
+	 * scadenza timeout) l'interfaccia puo' essere stata tirata giu'
+	 * dall'interface manager o da un errore ICMP. */
+	if (dg->dg_if_ptr != NULL) {
+		assert (list_contains (*ifaces, (f_bool_t)ptr_eq, dg->dg_if_ptr, 0));
 		iface_set_suspected (susp);
+	}
 }
 
 
@@ -206,24 +205,29 @@ main (const int argc, const char *argv[])
 		 * Pulizia code datagram.
 		 */
 
+		/* Tutti i datagram piu' vecchi di 150ms vanno scartati. */
+		rmvd = list_remove_if (out,
+		                       (f_bool_t)dgram_must_discarded,
+		                       NULL);
+		list_destroy (rmvd);
+		rmvd = list_remove_if (unacked,
+		                       (f_bool_t)dgram_must_discarded,
+		                       NULL);
+		list_destroy (rmvd);
+
+
 		/* Tutti i datagram che non hanno ricevuto l'ACK vanno
 		 * travasati da unacked a out per ritrasmetterli.
 		 * Le interfacce sui cui erano stati spediti diventano
 		 * "sospette". */
 		rmvd = list_remove_if (unacked,
-				       (f_compare_t)dgram_retry_cmp,
+				       (f_bool_t)dgram_must_retry,
 	                               NULL);
 		list_foreach_do (rmvd,
 		                 (f_callback_t)find_iface_and_set_suspected,
 		                 &ifaces);
 		list_cat (out, rmvd);
 		assert (list_is_empty (rmvd));
-		list_destroy (rmvd);
-
-		/* Tutti i datagram piu' vecchi di 150ms vanno scartati. */
-		rmvd = list_remove_if (out,
-		                       (f_compare_t)dgram_discard_cmp,
-		                       NULL);
 		list_destroy (rmvd);
 
 		/*
@@ -266,9 +270,6 @@ main (const int argc, const char *argv[])
 			next_tmout = (int)(tv2d (&min, FALSE) * 1000);
 			/* next_tmout puo' essere zero per effetto
 			 * della conversione microsec -> millisec */
-#ifdef NDEBUG
-			assert (next_tmout <= 150);
-#endif /* NDEBUG */
 			if (verbose)
 				fprintf (stderr, "poll blocca per %d ms\n",
 				         next_tmout);
@@ -319,7 +320,9 @@ main (const int argc, const char *argv[])
 		     i++, if_ptr = list_iterator_get_next (ifaces, &lit))
 			iface_set_pollfd (if_ptr, &fds[i]);
 
-		list_foreach_do (ifaces, (f_callback_t)ted_fake_set_errqueue_events, NULL);
+		list_foreach_do (ifaces,
+		                 (f_callback_t)ted_fake_set_errqueue_events,
+		                 NULL);
 
 		/*
 		 * Eventi softphone.
@@ -370,19 +373,20 @@ main (const int argc, const char *argv[])
 			parse_im_msg (&name, &cmd, &ip, dg->dg_data,
 			              dg->dg_datalen);
 			if (strcmp (cmd, "down") == 0) {
-				struct iface_id if_id;
-				iface_id_set (&if_id, name, ip, "port_is_not_used");
-				if_ptr = list_contains (ifaces, (f_compare_t)iface_cmp_id, &if_id, 0);
+				if_ptr = list_contains (ifaces, (f_bool_t)iface_has_name, name, 0);
 				iface_destroy (if_ptr);
+				list_foreach_do (out, (f_callback_t)dgram_clear_iface_ptr, if_ptr);
+				list_foreach_do (unacked, (f_callback_t)dgram_clear_iface_ptr, if_ptr);
+				ted_fake_clear_iface_ptr (if_ptr);
 			} else {
 				if_ptr = iface_create (name, ip);
 				len = list_push (ifaces, if_ptr);
 				assert (len != LIST_ERR);
 			}
+			dgram_destroy (dg);
 			free (name);
 			free (cmd);
 			free (ip);
-			dgram_destroy (dg);
 		}
 
 		/*
@@ -396,10 +400,17 @@ main (const int argc, const char *argv[])
 			dg = list_dequeue (out);
 			iface_write (current_iface, dg);
 			/* TODO controllo errore */
-			if (dg->dg_retry_to == NULL)
-				dg->dg_retry_to = timeout_create (&time_30ms);
-			gettime (&now);
-			timeout_start (dg->dg_retry_to, &now);
+			if (current_iface->if_firmware_positive) {
+				if (dg->dg_retry_to == NULL)
+					dg->dg_retry_to = timeout_create (&time_30ms);
+				gettime (&now);
+				timeout_start (dg->dg_retry_to, &now);
+			} else
+				/* Se il firmware e' negativo ritrasmette solo
+				 * quando arriva una notifica dal TED. */
+				if (dg->dg_retry_to != NULL)
+					dgram_destroy_reply_timeout (dg);
+
 			list_enqueue (unacked, dg);
 		}
 
@@ -439,7 +450,7 @@ main (const int argc, const char *argv[])
 
 				case E_IFACE_FATAL:
 					list_iterator_get_next (ifaces, &lit);
-					rmvd = list_remove_if (ifaces, cmp_ptr, if_ptr);
+					rmvd = list_remove_if (ifaces, ptr_eq, if_ptr);
 					assert (list_length (rmvd) == 1);
 					list_destroy (rmvd);
 					break;
@@ -447,9 +458,9 @@ main (const int argc, const char *argv[])
 				/* TED ha confermato la ricezione di dg_id da
 				 * parte dell'AP: possiamo scartarlo. */
 				case E_IFACE_DG_ACK:
-					rmvd = list_remove_if (out, (f_compare_t)dgram_cmp_id, &dg_id);
+					rmvd = list_remove_if (out, (f_bool_t)dgram_has_id, &dg_id);
 					list_destroy (rmvd);
-					rmvd = list_remove_if (unacked, (f_compare_t)dgram_cmp_id, &dg_id);
+					rmvd = list_remove_if (unacked, (f_bool_t)dgram_has_id, &dg_id);
 					list_destroy (rmvd);
 					break;
 
@@ -457,7 +468,7 @@ main (const int argc, const char *argv[])
 				 * all'AP: se e' ancora tra gli unacked
 				 * bisogna ritrasmetterlo. */
 				case E_IFACE_DG_NAK:
-					rmvd = list_remove_if (unacked, (f_compare_t)dgram_cmp_id, &dg_id);
+					rmvd = list_remove_if (unacked, (f_bool_t)dgram_has_id, &dg_id);
 					assert (list_length (rmvd) <= 1);
 					assert (list_length (rmvd) >= 0);
 					while (!list_is_empty (rmvd))

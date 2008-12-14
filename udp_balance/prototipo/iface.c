@@ -16,13 +16,15 @@
 #include "util.h"
 
 
-int
-iface_cmp_id (iface_t *if_ptr, struct iface_id *id)
+bool
+iface_has_name (const iface_t *if_ptr, const char *name)
 {
-	if (strcmp (if_ptr->if_id.ii_name, id->ii_name) == 0
-	    && strcmp (if_ptr->if_id.ii_loc_ip, id->ii_loc_ip) == 0)
-		return 0;
-	return 1;
+	assert (if_ptr != NULL);
+	assert (name != NULL);
+
+	if (strcmp (if_ptr->if_name, name) == 0)
+		return TRUE;
+	return FALSE;
 }
 
 
@@ -36,6 +38,7 @@ iface_must_send_keepalive (const iface_t *if_ptr)
 iface_t *
 iface_create (const char *name, const char *loc_ip)
 {
+	static int id = 0;
 	struct timeval now;
 	iface_t *new_if;
 
@@ -43,9 +46,10 @@ iface_create (const char *name, const char *loc_ip)
 
 	new_if = my_alloc (sizeof(iface_t));
 
+	new_if->if_id = id++;
 	new_if->if_suspected = FALSE;
 	new_if->if_must_send_keepalive = FALSE;
-	iface_id_set (&(new_if->if_id), name, loc_ip, PX_LOC_PORT);
+	iface_set_name (new_if, name, loc_ip, PX_LOC_PORT);
 
 	/* XXX PX_LOC_PORT potrebbe essere randomizzata finche' non se ne
 	 * trova una libera. */
@@ -68,12 +72,12 @@ iface_create (const char *name, const char *loc_ip)
 
 
 void
-iface_id_set (struct iface_id *if_id, const char *name, const char *ip,
-              const char *port)
+iface_set_name (iface_t *if_ptr, const char *name, const char *ip,
+                const char *port)
 {
-	my_strncpy (if_id->ii_name, name, IFACE_ID_NAME_LEN);
-	my_strncpy (if_id->ii_loc_ip, ip, IFACE_ID_LOC_IP_LEN);
-	my_strncpy (if_id->ii_loc_port, port, IFACE_ID_LOC_PORT_LEN);
+	my_strncpy (if_ptr->if_name, name, IFACE_ID_NAME_LEN);
+	my_strncpy (if_ptr->if_loc_ip, ip, IFACE_ID_LOC_IP_LEN);
+	my_strncpy (if_ptr->if_loc_port, port, IFACE_ID_LOC_PORT_LEN);
 }
 
 
@@ -142,10 +146,11 @@ iface_print (iface_t *if_ptr)
 {
 	assert (if_ptr != NULL);
 
-	printf ("%s %s:%s [%c%c] ",
-		if_ptr->if_id.ii_name,
-		if_ptr->if_id.ii_loc_ip,
-		if_ptr->if_id.ii_loc_port,
+	printf ("%d %s %s:%s [%c%c] ",
+		if_ptr->if_id,
+		if_ptr->if_name,
+		if_ptr->if_loc_ip,
+		if_ptr->if_loc_port,
 		if_ptr->if_suspected ? 's' : '-',
 		if_ptr->if_must_send_keepalive ? 'k' : '-');
 	printf ("keepalive");
@@ -181,8 +186,7 @@ iface_write (iface_t *if_ptr, dgram_t *dg)
 	assert (dg != NULL);
 
 	/* Marchia il dg con id interfaccia. */
-	dg->dg_iface_id = my_alloc (sizeof(struct iface_id));
-	memcpy (dg->dg_iface_id, &(if_ptr->if_id), sizeof(struct iface_id));
+	dg->dg_if_ptr = if_ptr;
 
 	nsent = dgram_write_getID (if_ptr->if_pfd.fd, dg, NULL, 0);
 	if (nsent == -1)
@@ -227,14 +231,6 @@ iface_read (iface_t *if_ptr)
 	dg = dgram_read (if_ptr->if_pfd.fd, NULL, NULL);
 
 	return dg;
-}
-
-
-void
-iface_id_destroy (struct iface_id *if_id)
-{
-	assert (if_id != NULL);
-	free (if_id);
 }
 
 

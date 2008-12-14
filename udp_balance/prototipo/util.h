@@ -3,7 +3,7 @@
 
 #include "types.h"
 
-int cmp_ptr(void *ptr_1, void *ptr_2);
+bool ptr_eq(void *ptr_1, void *ptr_2);
 char *my_strdup(const char *str);
 char *my_strncpy(char *dest, const char *src, size_t nbytes);
 bool parse_im_msg(char **ifname_result, char **cmd_result, char **ip_result, const char *msg, size_t msg_len);
