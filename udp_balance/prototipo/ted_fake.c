@@ -89,7 +89,7 @@ ted_fake_get_notify (iface_t *if_ptr)
 
 	assert (if_ptr != NULL);
 
-	rmvd = list_remove_if (nm_list, (f_compare_t)nm_has_iface, if_ptr);
+	rmvd = list_remove_if (nm_list, (f_bool_t)nm_has_iface, if_ptr);
 	if (list_is_empty (rmvd)) {
 		list_destroy (rmvd);
 		return NULL;
@@ -120,8 +120,17 @@ void
 ted_fake_set_errqueue_events (iface_t *if_ptr)
 {
 	struct pollfd *pfd;
-	if (list_contains (nm_list, (f_compare_t)nm_has_iface, if_ptr, 0)) {
+	if (list_contains (nm_list, (f_bool_t)nm_has_iface, if_ptr, 0)) {
 		pfd = iface_get_pollfd (if_ptr);
 		pfd->revents |= POLLERR;
 	}
+}
+
+
+bool
+ted_fake_events_pending (void)
+{
+	if (!list_is_empty (nm_list))
+		return TRUE;
+	return FALSE;
 }

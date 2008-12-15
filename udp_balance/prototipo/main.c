@@ -266,6 +266,8 @@ main (const int argc, const char *argv[])
 		                 &min);
 
 
+		if (ted_fake_events_pending ())
+			next_tmout = 0;
 		if (min.tv_sec == ONE_MILLION) {
 			/* Se non ci sono ifacce attive, timeout indefinito in
 			 * attesa di un messaggio dell'interface monitor. */

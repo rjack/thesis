@@ -24,7 +24,7 @@ struct sock_notify_msg {
 				   Costanti
 ****************************************************************************/
 
-#define     FAIL_PERCENT    30
+#define     FAIL_PERCENT    100
 
 #define     SENDMSG_FAKE_ERR     (-2)
 
@@ -39,5 +39,6 @@ void ted_fake_set_acked(dgram_t *dg, bool acked);
 struct sock_notify_msg *ted_fake_get_notify(iface_t *if_ptr);
 void ted_fake_clear_iface_ptr(iface_t *if_ptr);
 void ted_fake_set_errqueue_events(iface_t *if_ptr);
+bool ted_fake_events_pending (void);
 
 #endif /* ULB_PROTO_TED_FAKE_H */

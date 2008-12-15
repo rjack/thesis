@@ -453,7 +453,7 @@ list_contains (list_t lst, f_bool_t my_test, void *term, int mode)
 	          list_iterator_get_last (lst, &lit) :
 		  list_iterator_get_first (lst, &lit);
 
-	while (element != NULL && my_test (element, term))
+	while (element != NULL && !my_test (element, term))
 		element = (mode & LIST_SCAN_BACKWARD) ?
 		           list_iterator_get_prev (lst, &lit) :
 		           list_iterator_get_next (lst, &lit);
