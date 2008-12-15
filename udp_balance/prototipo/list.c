@@ -559,7 +559,7 @@ list_remove_if (list_t lst, f_bool_t my_test, void *args)
 	else
 		cur = NULL;
 	while (!list_is_empty (lst) && cur != NULL) {
-		if (cur->n_next == db[lst].li_tail_ptr)
+		if (cur->n_next == db[lst].li_tail_ptr->n_next)
 			nxt = NULL;
 		else
 			nxt = cur->n_next;
