@@ -251,6 +251,7 @@ dgram_print (const dgram_t *dg)
 	printf ("[");
 	printf ("id:%d data:%.*s datalen:%d ",
 		dg->dg_id, dg->dg_datalen, dg->dg_data, dg->dg_datalen);
+	/*
 	printf ("life_to: ");
 
 	if (dg->dg_life_to == NULL)
@@ -263,6 +264,7 @@ dgram_print (const dgram_t *dg)
 		printf ("-");
 	else
 		timeout_print (dg->dg_retry_to);
+	*/
 }
 
 
