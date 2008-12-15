@@ -61,10 +61,12 @@ find_iface_and_set_suspected (dgram_t *dg, list_t *ifaces)
 	assert (dg != NULL);
 	assert (ifaces != NULL);
 
+	susp = dg->dg_if_ptr;
+
 	/* Puo' essere NULL perche' tra spedizione datagram e ricezione NAK (o
 	 * scadenza timeout) l'interfaccia puo' essere stata tirata giu'
 	 * dall'interface manager o da un errore ICMP. */
-	if (dg->dg_if_ptr != NULL) {
+	if (susp != NULL) {
 		assert (list_contains (*ifaces, (f_bool_t)ptr_eq, dg->dg_if_ptr, 0));
 		iface_set_suspected (susp);
 	}
