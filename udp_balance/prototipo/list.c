@@ -23,8 +23,7 @@ struct list_info {
 			       Variabili locali
 ****************************************************************************/
 
-/* Array di liste, indicizzato dagli handler di tipo list_t.
- * Invariante: tutti gli slot usati all'inizio dell'array. */
+/* Array di liste, indicizzato dagli handler di tipo list_t. */
 static struct list_info *db;
 static size_t db_size;
 static size_t db_used;
@@ -60,6 +59,30 @@ module_ok (void)
 	return ok;
 }
 #endif /* NDEBUG */
+
+
+static bool
+list_info_is_used (struct list_info *li)
+{
+	assert (li != NULL);
+
+	if (li->li_tail_ptr == NULL
+	    && li->li_list_len == 0
+	    && li->li_node_value_destroy == NULL
+	    && li->li_node_value_size == 0)
+		return FALSE;
+	return TRUE;
+
+}
+
+
+static void
+list_info_set_unused (struct list_info *li)
+{
+	assert (li != NULL);
+
+	memset (li, 0, sizeof(*li));
+}
 
 
 static struct list_node *
@@ -182,18 +205,25 @@ list_create (f_destroy_t node_value_destroy, size_t node_value_size)
 
 	assert (module_ok ());
 
-	if ((db_size - db_used) == 0) {
-		struct list_info *new_db;
-		new_db = realloc (db, (db_size + 1)
-		                       * sizeof(struct list_info));
-		if (new_db == NULL)
-			return LIST_ERR;
-		db = new_db;
-		db_size++;
-	}
+	/* Ricerca list_info inutilizzato. */
+	for (new_handle = 0;
+	     new_handle < db_used && list_info_is_used (&(db[new_handle]));
+	     new_handle++);
 
-	new_handle = db_used;
-	db_used++;
+	/* Tutti utilizzati, aggiunta in coda. */
+	if (new_handle == db_used) {
+		/* Niente spazio in coda, riallocazione db. */
+		if ((db_size - db_used) == 0) {
+			struct list_info *new_db;
+			new_db = realloc (db, (db_size + 1)
+					       * sizeof(struct list_info));
+			if (new_db == NULL)
+				return LIST_ERR;
+			db = new_db;
+			db_size++;
+		}
+		db_used++;
+	}
 
 	new_list_info = &(db[new_handle]);
 	new_list_info->li_tail_ptr = NULL;
@@ -223,11 +253,10 @@ list_destroy (list_t lst)
 	my_free = db[lst].li_node_value_destroy;
 	while ((element = list_dequeue (lst)) != NULL)
 		my_free (element);
+	list_info_set_unused (&(db[lst]));
 
-	/* Rimozione da db. */
-	db_used--;
-	if (db_used != 0)
-		memcpy (&(db[lst]), &(db[db_used]), sizeof(*db));
+	if (lst == db_used - 1)
+		db_used--;
 }
 
 
@@ -405,9 +434,9 @@ list_iterator_get_prev (list_t lst, list_iterator_t *lit)
 
 
 void *
-list_contains (list_t lst, f_bool_t my_cmp, void *term, int mode)
+list_contains (list_t lst, f_bool_t my_test, void *term, int mode)
 /*
- * Ritorna il primo elemento che soddisfi la funzione my_cmp, NULL se la lista
+ * Ritorna il primo elemento che soddisfi la funzione my_test, NULL se la lista
  * e' vuota o nessun elemento soddisfa la funzione data.
  * Se la flag LIST_SCAN_BACKWARD e' impostata in mode, comincia a cercare
  * dalla fine della lista.
@@ -418,13 +447,13 @@ list_contains (list_t lst, f_bool_t my_cmp, void *term, int mode)
 
 	assert (module_ok ());
 	assert (list_is_valid (lst));
-	assert (my_cmp != NULL);
+	assert (my_test != NULL);
 
 	element = (mode & LIST_SCAN_BACKWARD) ?
 	          list_iterator_get_last (lst, &lit) :
 		  list_iterator_get_first (lst, &lit);
 
-	while (element != NULL && my_cmp (element, term) != 0)
+	while (element != NULL && my_test (element, term))
 		element = (mode & LIST_SCAN_BACKWARD) ?
 		           list_iterator_get_prev (lst, &lit) :
 		           list_iterator_get_next (lst, &lit);
@@ -508,10 +537,10 @@ list_inorder_insert (list_t lst, void *new_element, f_compare_t my_cmp)
 
 
 list_t
-list_remove_if (list_t lst, f_bool_t my_cmp, void *args)
+list_remove_if (list_t lst, f_bool_t my_test, void *args)
 /*
  * Ritorna una nuova lista formata da tutti gli elementi rimossi da lst che
- * hanno soddisfatto la funzione my_cmp.
+ * hanno soddisfatto la funzione my_test.
  */
 {
 	struct list_node *cur;
@@ -520,7 +549,7 @@ list_remove_if (list_t lst, f_bool_t my_cmp, void *args)
 
 	assert (module_ok ());
 	assert (list_is_valid (lst));
-	assert (my_cmp != NULL);
+	assert (my_test != NULL);
 
 	rmvd = list_create (db[lst].li_node_value_destroy,
 	                    db[lst].li_node_value_size);
@@ -534,7 +563,7 @@ list_remove_if (list_t lst, f_bool_t my_cmp, void *args)
 			nxt = NULL;
 		else
 			nxt = cur->n_next;
-		if (my_cmp (cur->n_ptr, args) == 0) {
+		if (my_test (cur->n_ptr, args)) {
 			/* XXX brutto! list_enqueue alloca un nodo,
 			 * list_node_remove ritorna il nodo, quindi dobbiamo
 			 * distruggerlo per poi ricrearlo! */

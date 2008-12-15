@@ -92,6 +92,11 @@ dgram_must_retry (dgram_t *dg)
 	struct timeval now;
 	struct timeval left;
 
+	/* I datagram spediti su interfaccia con fw negativo non hanno bisogno
+	 * di timeout e aspettano un NAK dal TED per essere ritrasmessi. */
+	if (dg->dg_retry_to == NULL)
+		return FALSE;
+
 	gettime (&now);
 
 	timeout_left (dg->dg_retry_to, &now, &left);

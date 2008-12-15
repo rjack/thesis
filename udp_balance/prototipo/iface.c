@@ -146,15 +146,18 @@ iface_print (iface_t *if_ptr)
 {
 	assert (if_ptr != NULL);
 
-	printf ("%d %s %s:%s [%c%c] ",
+	printf ("%d %s %s %s:%s [%c%c] ",
 		if_ptr->if_id,
 		if_ptr->if_name,
+		if_ptr->if_firmware_positive ? "fw_pos" : "fw_neg",
 		if_ptr->if_loc_ip,
 		if_ptr->if_loc_port,
 		if_ptr->if_suspected ? 's' : '-',
 		if_ptr->if_must_send_keepalive ? 'k' : '-');
+	/*
 	printf ("keepalive");
 	timeout_print (&if_ptr->if_keepalive);
+	*/
 }
 
 

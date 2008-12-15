@@ -109,10 +109,10 @@ main (const int argc, const char *argv[])
 	time_150ms.tv_usec = 150000;
 #else
 	/* Valori dilatati, per capire che succede. */
-	time_30ms.tv_sec = 3;
+	time_30ms.tv_sec = 30;
 	time_30ms.tv_usec = 0;
 
-	time_150ms.tv_sec = 15;
+	time_150ms.tv_sec = 150;
 	time_150ms.tv_usec = 0;
 #endif /* NDEBUG */
 
@@ -168,6 +168,7 @@ main (const int argc, const char *argv[])
 		struct timeval now;
 
 		if (verbose) {
+			printf ("Code PRE PULIZIA\n");
 			printf ("in: ");
 			list_foreach_do (in, (f_callback_t)dgram_print, NULL);
 			printf ("\n");
@@ -215,7 +216,6 @@ main (const int argc, const char *argv[])
 		                       NULL);
 		list_destroy (rmvd);
 
-
 		/* Tutti i datagram che non hanno ricevuto l'ACK vanno
 		 * travasati da unacked a out per ritrasmetterli.
 		 * Le interfacce sui cui erano stati spediti diventano
@@ -229,6 +229,21 @@ main (const int argc, const char *argv[])
 		list_cat (out, rmvd);
 		assert (list_is_empty (rmvd));
 		list_destroy (rmvd);
+
+		if (verbose) {
+			printf ("Code POST PULIZIA\n");
+			printf ("in: ");
+			list_foreach_do (in, (f_callback_t)dgram_print, NULL);
+			printf ("\n");
+			printf ("out: ");
+			list_foreach_do (out, (f_callback_t)dgram_print,
+			                 NULL);
+			printf ("\n");
+			printf ("unacked: ");
+			list_foreach_do (unacked, (f_callback_t)dgram_print,
+			                 NULL);
+			printf ("\n");
+		}
 
 		/*
 		 * Calcolo timeout minimo.
