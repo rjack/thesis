@@ -111,10 +111,10 @@ main (const int argc, const char *argv[])
 	time_150ms.tv_usec = 150000;
 #else
 	/* Valori dilatati, per capire che succede. */
-	time_30ms.tv_sec = 30;
+	time_30ms.tv_sec = 3;
 	time_30ms.tv_usec = 0;
 
-	time_150ms.tv_sec = 150;
+	time_150ms.tv_sec = 15;
 	time_150ms.tv_usec = 0;
 #endif /* NDEBUG */
 
@@ -194,6 +194,7 @@ main (const int argc, const char *argv[])
 		list_foreach_do (ifaces,
 		                 (f_callback_t)iface_reset_events, NULL);
 
+		/* TODO trovarne una non sospetta */
 		current_iface = list_peek (ifaces);
 		if (verbose) {
 			printf ("Interfaccia d'uscita: ");
@@ -270,7 +271,7 @@ main (const int argc, const char *argv[])
 
 		if (ted_fake_events_pending ())
 			next_tmout = 0;
-		if (min.tv_sec == ONE_MILLION) {
+		else if (min.tv_sec == ONE_MILLION) {
 			/* Se non ci sono ifacce attive, timeout indefinito in
 			 * attesa di un messaggio dell'interface monitor. */
 			next_tmout = -1;
@@ -492,7 +493,7 @@ main (const int argc, const char *argv[])
 					assert (list_length (rmvd) >= 0);
 					while (!list_is_empty (rmvd))
 						list_push (out, list_dequeue (rmvd));
-					list_dequeue (rmvd);
+					list_destroy (rmvd);
 					break;
 				}
 			}
