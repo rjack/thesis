@@ -132,10 +132,18 @@ crono_print (const crono_t *cr)
 int
 tv_cmp (const struct timeval *tv_1, const struct timeval *tv_2)
 {
+	int result;
 	struct timeval diff;
 
 	assert (tv_1 != NULL);
 	assert (tv_2 != NULL);
+
+	if (verbose) {
+		printf ("tv_cmp: ");
+		tv_print (tv_1);
+		printf (" vs. ");
+		tv_print (tv_2);
+	}
 
 	tv_diff (&diff, tv_1, tv_2);
 
@@ -143,13 +151,17 @@ tv_cmp (const struct timeval *tv_1, const struct timeval *tv_2)
 
 	if (diff.tv_sec == 0) {
 		if (diff.tv_usec == 0)
-			return 0;
-		return 1;
-	}
+			result = 0;
+		else
+			result = 1;
+	} else if (diff.tv_sec > 0)
+		result = 1;
+	else
+		result = -1;
 
-	if (diff.tv_sec > 0)
-		return 1;
-	return -1;
+	if (verbose)
+		printf (" %d\n", result);
+	return result;
 }
 
 
@@ -204,7 +216,7 @@ tv_diff (struct timeval *result, const struct timeval *min,
 {
 	struct timeval mymin;
 
-	mymin = *min;
+	memcpy (&mymin, min, sizeof(mymin));
 
 	while (mymin.tv_usec < sub->tv_usec) {
 		mymin.tv_sec--;

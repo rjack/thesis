@@ -69,6 +69,11 @@ iface_create (const char *name, const char *loc_ip)
 
 	/* TODO controllo errore socket_bound_conn */
 
+	if (verbose) {
+		printf ("Creata interfaccia ");
+		iface_print (new_if);
+	}
+
 	return new_if;
 }
 
@@ -87,6 +92,11 @@ void
 iface_destroy (iface_t *if_ptr)
 {
 	assert (if_ptr != NULL);
+
+	if (verbose) {
+		printf ("Rimossa interfaccia ");
+		iface_print (if_ptr);
+	}
 
 	free (if_ptr);
 }

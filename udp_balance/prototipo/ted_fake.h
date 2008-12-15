@@ -24,7 +24,7 @@ struct sock_notify_msg {
 				   Costanti
 ****************************************************************************/
 
-#define     FAIL_PERCENT    100
+#define     FAIL_PERCENT    50
 
 #define     SENDMSG_FAKE_ERR     (-2)
 

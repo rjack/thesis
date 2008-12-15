@@ -94,7 +94,6 @@ ted_fake_get_notify (iface_t *if_ptr)
 		list_destroy (rmvd);
 		return NULL;
 	}
-	assert (list_length (rmvd) == 1);
 	nm = list_dequeue (rmvd);
 	list_destroy (rmvd);
 
@@ -123,6 +122,11 @@ ted_fake_set_errqueue_events (iface_t *if_ptr)
 	if (list_contains (nm_list, (f_bool_t)nm_has_iface, if_ptr, 0)) {
 		pfd = iface_get_pollfd (if_ptr);
 		pfd->revents |= POLLERR;
+		if (verbose) {
+			printf ("ted_fake_set_errqueue_events: interfaccia ");
+			iface_print (if_ptr);
+			printf (" impostato POLLERR\n");
+		}
 	}
 }
 

@@ -194,17 +194,6 @@ main (const int argc, const char *argv[])
 		list_foreach_do (ifaces,
 		                 (f_callback_t)iface_reset_events, NULL);
 
-		/* TODO trovarne una non sospetta */
-		current_iface = list_peek (ifaces);
-		if (verbose) {
-			printf ("Interfaccia d'uscita: ");
-			if (current_iface != NULL)
-				iface_print (current_iface);
-			else
-				printf ("nessuna");
-			printf ("\n"); fflush (stdout);
-		}
-
 		/*
 		 * Pulizia code datagram.
 		 */
@@ -213,10 +202,21 @@ main (const int argc, const char *argv[])
 		rmvd = list_remove_if (out,
 		                       (f_bool_t)dgram_must_discarded,
 		                       NULL);
+		if (verbose) {
+			printf ("Datagram scaduti rimossi da coda out: ");
+			list_foreach_do (rmvd, (f_callback_t)dgram_print, NULL);
+			printf ("\n");
+		}
 		list_destroy (rmvd);
+
 		rmvd = list_remove_if (unacked,
 		                       (f_bool_t)dgram_must_discarded,
 		                       NULL);
+		if (verbose) {
+			printf ("Datagram scaduti rimossi da coda unacked: ");
+			list_foreach_do (rmvd, (f_callback_t)dgram_print, NULL);
+			printf ("\n");
+		}
 		list_destroy (rmvd);
 
 		/* Tutti i datagram che non hanno ricevuto l'ACK vanno
@@ -229,6 +229,11 @@ main (const int argc, const char *argv[])
 		list_foreach_do (rmvd,
 		                 (f_callback_t)find_iface_and_set_suspected,
 		                 &ifaces);
+		if (verbose) {
+			printf ("Datagram da ritrasmettere per timeout: ");
+			list_foreach_do (rmvd, (f_callback_t)dgram_print, NULL);
+			printf ("\n");
+		}
 		list_cat (out, rmvd);
 		assert (list_is_empty (rmvd));
 		list_destroy (rmvd);
@@ -268,22 +273,23 @@ main (const int argc, const char *argv[])
 		list_foreach_do (unacked, (f_callback_t)dgram_min_timeout,
 		                 &min);
 
-
-		if (ted_fake_events_pending ())
+		/* Tirando le somme... */
+		if (ted_fake_events_pending ()) {
 			next_tmout = 0;
-		else if (min.tv_sec == ONE_MILLION) {
+			if (verbose)
+				printf ("ted_fake_events_pending ha detto si'\n");
+		} else if (min.tv_sec == ONE_MILLION) {
 			/* Se non ci sono ifacce attive, timeout indefinito in
 			 * attesa di un messaggio dell'interface monitor. */
 			next_tmout = -1;
 			if (verbose)
-				fprintf (stderr,
-				         "poll blocca indefinitamente\n");
+				printf ("poll blocca indefinitamente\n");
 		} else if (tv_cmp (&min, &time_0ms) <= 0) {
 			/* C'e' un timeout gia' scaduto, la poll e'
 			 * istantanea. */
 			next_tmout = 0;
 			if (verbose)
-				fprintf (stderr, "poll non blocca\n");
+				printf ("poll non blocca\n");
 		} else {
 			/* Il timeout piu' prossimo a scadere e' > 0 */
 			assert (tv_cmp (&min, &time_0ms) > 0);
@@ -291,9 +297,23 @@ main (const int argc, const char *argv[])
 			/* next_tmout puo' essere zero per effetto
 			 * della conversione microsec -> millisec */
 			if (verbose)
-				fprintf (stderr, "poll blocca per %d ms\n",
-				         next_tmout);
+				printf ("poll blocca per %d ms\n", next_tmout);
 		}
+
+
+		/*
+		 * Scelta interfaccia.
+		 */
+		current_iface = list_peek (ifaces);
+		if (verbose) {
+			printf ("current_iface: ");
+			if (current_iface != NULL)
+				iface_print (current_iface);
+			else
+				printf ("nessuna");
+			printf ("\n");
+		}
+
 
 
 		/*
@@ -355,15 +375,19 @@ main (const int argc, const char *argv[])
 		}
 		if (sp->revents & POLLIN) {
 			if (verbose)
-				printf ("POLLIN softphone\n");
+				printf ("Lettura dal softphone: ");
 			dg = dgram_read (sp->fd, NULL, NULL);
 			/* TODO controllo errore */
 			dgram_set_life_timeout (dg);
 			list_enqueue (out, dg);
+			if (verbose) {
+				dgram_print (dg);
+				printf ("\n");
+			}
 		}
 		if (sp->revents & POLLOUT) {
 			if (verbose)
-				printf ("POLLOUT softphone\n");
+				printf ("Scrittura al softphone\n");
 			dg = list_dequeue (in);
 			assert (dg != NULL);
 			dgram_write (sp->fd, dg, NULL, 0);
@@ -387,8 +411,6 @@ main (const int argc, const char *argv[])
 			char *name;
 			iface_t *if_ptr;
 
-			if (verbose)
-				printf ("POLLIN interface monitor\n");
 			dg = dgram_read (im->fd, NULL, NULL);
 			parse_im_msg (&name, &cmd, &ip, dg->dg_data,
 			              dg->dg_datalen);
@@ -415,8 +437,6 @@ main (const int argc, const char *argv[])
 		if (current_iface != NULL
 		    && list_peek (out) != NULL
 		    && (iface_get_events (current_iface) & POLLOUT)) {
-			if (verbose)
-				printf ("POLLOUT current iface");
 			dg = list_dequeue (out);
 			iface_write (current_iface, dg);
 			/* TODO controllo errore */
@@ -444,8 +464,6 @@ main (const int argc, const char *argv[])
 
 			/* Ricezione. */
 			if (ev & POLLIN) {
-				if (verbose)
-					printf ("POLLIN interfaccia\n");
 				dg = iface_read (if_ptr);
 				/* TODO controllo errore */
 				list_enqueue (in, dg);
@@ -454,8 +472,6 @@ main (const int argc, const char *argv[])
 			/* Spedizione keepalive. */
 			if ((ev & POLLOUT)
 			    && iface_must_send_keepalive (if_ptr)) {
-				if (verbose)
-					printf ("POLLOUT interfaccia\n");
 				dg = dgram_create_keepalive ();
 				iface_write (if_ptr, dg);
 				/* TODO controllo errore */
@@ -486,13 +502,19 @@ main (const int argc, const char *argv[])
 
 				/* TED ha segnalato che dg_err NON e' arrivato
 				 * all'AP: se e' ancora tra gli unacked
-				 * bisogna ritrasmetterlo. */
+				 * bisogna ritrasmetterlo e segnare
+				 * l'interfaccia che lo aveva spedito come
+				 * sospetta. */
 				case E_IFACE_DG_NAK:
 					rmvd = list_remove_if (unacked, (f_bool_t)dgram_has_id, &dg_id);
 					assert (list_length (rmvd) <= 1);
 					assert (list_length (rmvd) >= 0);
-					while (!list_is_empty (rmvd))
-						list_push (out, list_dequeue (rmvd));
+					while (!list_is_empty (rmvd)) {
+						dgram_t *dg;
+						dg = list_dequeue (rmvd);
+						find_iface_and_set_suspected (dg, &ifaces);
+						list_push (out, dg);
+					}
 					list_destroy (rmvd);
 					break;
 				}
