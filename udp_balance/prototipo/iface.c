@@ -61,9 +61,11 @@ iface_create (const char *name, const char *loc_ip)
 	timeout_start (&(new_if->if_keepalive), &now);
 
 	/* Ha un firmware che notifica i dgram ricevuti o i dgram non
-	 * ricevuti? Affidiamoci alla sorte. */
+	 * ricevuti? Affidiamoci alla sorte.
 	new_if->if_firmware_positive = ((rand () % 100) > 50) ?
 	                               TRUE : FALSE;
+	 */
+	new_if->if_firmware_positive = FALSE;
 
 	/* TODO controllo errore socket_bound_conn */
 
@@ -274,6 +276,7 @@ iface_handle_err (iface_t *if_ptr)
 	struct msghdr msg;
 	struct cmsghdr *cmsg;
 	int dg_id;
+	int my_errno;
 
 	assert (if_ptr != NULL);
 
@@ -297,9 +300,9 @@ iface_handle_err (iface_t *if_ptr)
 
 		nm = ted_fake_get_notify (if_ptr);
 		if (nm->nm_ack == TRUE)
-			errno = E_IFACE_DG_ACK;
+			my_errno = E_IFACE_DG_ACK;
 		else
-			errno = E_IFACE_DG_NAK;
+			my_errno = E_IFACE_DG_NAK;
 		dg_id = nm->nm_dgram_id;
 		free (nm);
 		goto happy_ending;
@@ -325,7 +328,7 @@ iface_handle_err (iface_t *if_ptr)
 				iface_print (if_ptr);
 				fprintf (stderr, "\n");
 
-				errno = E_IFACE_FATAL;
+				my_errno = E_IFACE_FATAL;
 				dg_id = -1;
 			}
 
@@ -338,9 +341,9 @@ iface_handle_err (iface_t *if_ptr)
 
 				nm = (struct sock_notify_msg *)CMSG_DATA (cmsg);
 				if (nm->nm_ack == TRUE)
-					errno = E_IFACE_DG_ACK;
+					my_errno = E_IFACE_DG_ACK;
 				else
-					errno = E_IFACE_DG_NAK;
+					my_errno = E_IFACE_DG_NAK;
 				dg_id = nm->nm_dgram_id;
 			}
 			*/
@@ -355,5 +358,6 @@ iface_handle_err (iface_t *if_ptr)
 	}
 
 happy_ending:
+	errno = my_errno;
 	return dg_id;
 }
