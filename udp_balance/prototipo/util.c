@@ -39,6 +39,13 @@ my_strdup (const char *str)
 }
 
 
+void
+print_dot (void)
+{
+	printf (".");
+}
+
+
 char *
 my_strncpy (char *dest, const char *src, size_t nbytes)
 {

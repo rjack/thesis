@@ -61,11 +61,9 @@ iface_create (const char *name, const char *loc_ip)
 	timeout_start (&(new_if->if_keepalive), &now);
 
 	/* Ha un firmware che notifica i dgram ricevuti o i dgram non
-	 * ricevuti? Affidiamoci alla sorte.
+	 * ricevuti? Affidiamoci alla sorte. */
 	new_if->if_firmware_positive = ((rand () % 100) > 50) ?
 	                               TRUE : FALSE;
-	 */
-	new_if->if_firmware_positive = FALSE;
 
 	/* TODO controllo errore socket_bound_conn */
 

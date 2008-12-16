@@ -69,6 +69,10 @@ find_iface_and_set_suspected (dgram_t *dg, list_t *ifaces)
 	if (susp != NULL) {
 		assert (list_contains (*ifaces, (f_bool_t)ptr_eq, dg->dg_if_ptr, 0));
 		iface_set_suspected (susp);
+		if (verbose) {
+			iface_print (susp);
+			printf (" impostata come sospetta.\n");
+		}
 	}
 }
 
@@ -169,21 +173,6 @@ main (const int argc, const char *argv[])
 		iface_t *if_ptr;
 		struct timeval now;
 
-		if (verbose) {
-			printf ("Code PRE PULIZIA\n");
-			printf ("in: ");
-			list_foreach_do (in, (f_callback_t)dgram_print, NULL);
-			printf ("\n");
-			printf ("out: ");
-			list_foreach_do (out, (f_callback_t)dgram_print,
-			                 NULL);
-			printf ("\n");
-			printf ("unacked: ");
-			list_foreach_do (unacked, (f_callback_t)dgram_print,
-			                 NULL);
-			printf ("\n");
-		}
-
 		/*
 		 * Tutti i socket si devono aspettare dati ed errori.
 		 */
@@ -239,17 +228,14 @@ main (const int argc, const char *argv[])
 		list_destroy (rmvd);
 
 		if (verbose) {
-			printf ("Code POST PULIZIA\n");
 			printf ("in: ");
-			list_foreach_do (in, (f_callback_t)dgram_print, NULL);
+			list_foreach_do (in, (f_callback_t)print_dot, NULL);
 			printf ("\n");
 			printf ("out: ");
-			list_foreach_do (out, (f_callback_t)dgram_print,
-			                 NULL);
+			list_foreach_do (out, (f_callback_t)print_dot, NULL);
 			printf ("\n");
 			printf ("unacked: ");
-			list_foreach_do (unacked, (f_callback_t)dgram_print,
-			                 NULL);
+			list_foreach_do (unacked, (f_callback_t)print_dot, NULL);
 			printf ("\n");
 		}
 
@@ -268,7 +254,7 @@ main (const int argc, const char *argv[])
 		}
 
 		/* Confronto min vs. timeout ack e vita dei datagram delle
-		 * code out e unaked. */
+		 * code out e unacked. */
 		list_foreach_do (out, (f_callback_t)dgram_min_timeout, &min);
 		list_foreach_do (unacked, (f_callback_t)dgram_min_timeout,
 		                 &min);
@@ -494,9 +480,27 @@ main (const int argc, const char *argv[])
 				/* TED ha confermato la ricezione di dg_id da
 				 * parte dell'AP: possiamo scartarlo. */
 				case E_IFACE_DG_ACK:
+					if (verbose) {
+						printf ("Rimozione dgram ACKED su ");
+						iface_print (if_ptr);
+						printf (": ");
+					}
+					/* Rimozione da out. */
 					rmvd = list_remove_if (out, (f_bool_t)dgram_has_id, &dg_id);
+					if (verbose) {
+						printf ("   out ");
+						list_foreach_do (rmvd, (f_callback_t)dgram_print, NULL);
+						printf ("\n");
+					}
 					list_destroy (rmvd);
+
+					/* Rimozione da unacked. */
 					rmvd = list_remove_if (unacked, (f_bool_t)dgram_has_id, &dg_id);
+					if (verbose) {
+						printf ("   unacked ");
+						list_foreach_do (rmvd, (f_callback_t)dgram_print, NULL);
+						printf ("\n");
+					}
 					list_destroy (rmvd);
 					break;
 
@@ -512,6 +516,10 @@ main (const int argc, const char *argv[])
 					while (!list_is_empty (rmvd)) {
 						dgram_t *dg;
 						dg = list_dequeue (rmvd);
+						if (verbose) {
+							dgram_print (dg);
+							printf (" non e' stato ricevuto, rimesso in out.\n");
+						}
 						find_iface_and_set_suspected (dg, &ifaces);
 						list_push (out, dg);
 					}

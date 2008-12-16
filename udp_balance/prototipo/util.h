@@ -3,6 +3,7 @@
 
 #include "types.h"
 
+void print_dot (void);
 bool ptr_eq(void *ptr_1, void *ptr_2);
 char *my_strdup(const char *str);
 char *my_strncpy(char *dest, const char *src, size_t nbytes);

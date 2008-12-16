@@ -138,12 +138,14 @@ tv_cmp (const struct timeval *tv_1, const struct timeval *tv_2)
 	assert (tv_1 != NULL);
 	assert (tv_2 != NULL);
 
+	/*
 	if (verbose) {
 		printf ("tv_cmp: ");
 		tv_print (tv_1);
 		printf (" vs. ");
 		tv_print (tv_2);
 	}
+	*/
 
 	tv_diff (&diff, tv_1, tv_2);
 
@@ -159,8 +161,10 @@ tv_cmp (const struct timeval *tv_1, const struct timeval *tv_2)
 	else
 		result = -1;
 
+	/*
 	if (verbose)
 		printf (" %d\n", result);
+		*/
 	return result;
 }
 
