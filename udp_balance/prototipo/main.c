@@ -77,6 +77,19 @@ find_iface_and_set_suspected (dgram_t *dg, list_t *ifaces)
 }
 
 
+static iface_t *
+select_working_interface (list_t ifaces)
+{
+	iface_t *selected;
+
+	selected = list_contains (ifaces, (f_bool_t)iface_is_working, NULL, 0);
+	if (selected == NULL)
+		selected = list_peek (ifaces);
+
+	return selected;
+}
+
+
 /****************************************************************************
 				     Main
 ****************************************************************************/
@@ -290,7 +303,8 @@ main (const int argc, const char *argv[])
 		/*
 		 * Scelta interfaccia.
 		 */
-		current_iface = list_peek (ifaces);
+		if (!iface_is_working (current_iface))
+			current_iface = select_working_interface (ifaces);
 		if (verbose) {
 			printf ("current_iface: ");
 			if (current_iface != NULL)
@@ -299,7 +313,6 @@ main (const int argc, const char *argv[])
 				printf ("nessuna");
 			printf ("\n");
 		}
-
 
 
 		/*
@@ -401,11 +414,18 @@ main (const int argc, const char *argv[])
 			parse_im_msg (&name, &cmd, &ip, dg->dg_data,
 			              dg->dg_datalen);
 			if (strcmp (cmd, "down") == 0) {
-				if_ptr = list_contains (ifaces, (f_bool_t)iface_has_name, name, 0);
-				iface_destroy (if_ptr);
-				list_foreach_do (out, (f_callback_t)dgram_clear_iface_ptr, if_ptr);
-				list_foreach_do (unacked, (f_callback_t)dgram_clear_iface_ptr, if_ptr);
-				ted_fake_clear_iface_ptr (if_ptr);
+				rmvd = list_remove_if (ifaces, (f_bool_t)iface_has_name, name);
+				if (!list_is_empty (rmvd)) {
+					assert (list_length (rmvd) == 1);
+					if_ptr = list_dequeue (rmvd);
+					list_destroy (rmvd);
+					iface_destroy (if_ptr);
+					list_foreach_do (out, (f_callback_t)dgram_clear_iface_ptr, if_ptr);
+					list_foreach_do (unacked, (f_callback_t)dgram_clear_iface_ptr, if_ptr);
+					ted_fake_clear_iface_ptr (if_ptr);
+					if (if_ptr == current_iface)
+						current_iface = select_working_interface (ifaces);
+				}
 			} else {
 				if_ptr = iface_create (name, ip);
 				len = list_push (ifaces, if_ptr);

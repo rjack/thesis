@@ -86,6 +86,17 @@ iface_set_name (iface_t *if_ptr, const char *name, const char *ip,
 }
 
 
+bool
+iface_is_working (iface_t *if_ptr)
+{
+	assert (if_ptr != NULL);
+
+	if (if_ptr->if_suspected)
+		return FALSE;
+	return TRUE;
+}
+
+
 void
 iface_destroy (iface_t *if_ptr)
 {

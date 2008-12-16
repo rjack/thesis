@@ -21,6 +21,7 @@
 				  Prototipi
 ****************************************************************************/
 
+bool iface_is_working (iface_t *if_ptr);
 bool iface_has_name (const iface_t *if_ptr, const char *name);
 bool iface_must_send_keepalive(const iface_t *if_ptr);
 iface_t *iface_create(const char *name, const char *loc_ip);
