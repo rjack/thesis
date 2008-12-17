@@ -135,7 +135,7 @@ main (const int argc, const char *argv[])
 	time_150ms.tv_usec = 0;
 #endif /* NDEBUG */
 
-	verbose = FALSE;
+	verbose = TRUE;
 
 
 	/*

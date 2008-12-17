@@ -1,3 +1,28 @@
+Algoritmo di riabilitazione interfaccia: attualmente un'interfaccia SUSPECTED
+torna ad essere considerata working quando riesce a spedire o a ricevere un
+datagram. Rischio di selezionare come affidabile un'interfaccia inaffidabile
+solo per un successo isolato.
+
+Soluzione:
+
+a) Ogni interfaccia mantiene una storia pesata del suo comportamento: successi
+   e fallimenti passati contano meno di quelli recenti. L'interfaccia
+   selezionata e' quella che ha il "curriculum" migliore.
+
+-----------------------------------------------------------------------------
+
+Come segnare i keepalive in modo che il Proxy Server li riconosca facilmente
+come tali e li scarti?
+
+Soluzioni:
+
+a) Spedire datagram UDP con payload vuoto.
+   DUBBIO: Possono venire bloccati da firewall troppo zelanti?
+
+b) Qualsiasi byte prefissato che non si confonda con un header SIP o RTP.
+
+-----------------------------------------------------------------------------
+
 Un datagram viene spedito su un interfaccia con firmware che notifica gli
 errori (non c'e' bisogno di timeout di ritrasmissione).
 Il datagram viene perso, ma l'interfaccia va giu' prima di poterlo notificare.
@@ -7,4 +32,3 @@ Soluzione:
 
 a) amen, capita cosi' raramente che non influisce sulla qualita' della
    conversazione.
-
