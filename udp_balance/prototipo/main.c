@@ -135,7 +135,7 @@ main (const int argc, const char *argv[])
 	time_150ms.tv_usec = 0;
 #endif /* NDEBUG */
 
-	verbose = TRUE;
+	verbose = FALSE;
 
 
 	/*
@@ -180,7 +180,7 @@ main (const int argc, const char *argv[])
 		int next_tmout;
 		struct timeval min;
 		struct timeval left;
-		iface_t *current_iface;
+		iface_t *current_iface = NULL;
 		/* per i cicli */
 		list_iterator_t lit;
 		iface_t *if_ptr;
@@ -303,7 +303,9 @@ main (const int argc, const char *argv[])
 		/*
 		 * Scelta interfaccia.
 		 */
-		if (!iface_is_working (current_iface))
+		if (list_is_empty (ifaces))
+			current_iface = NULL;
+		else if (!iface_is_working (current_iface))
 			current_iface = select_working_interface (ifaces);
 		if (verbose) {
 			printf ("current_iface: ");
@@ -346,6 +348,10 @@ main (const int argc, const char *argv[])
 		     i++, if_ptr = list_iterator_get_next (ifaces, &lit))
 			memcpy (&fds[i], iface_get_pollfd (if_ptr),
 			        sizeof(struct pollfd));
+#ifndef NDEBUG
+		for (i = 0; i < 2 + list_length (ifaces); i++)
+			assert (fds[i].fd != -1);
+#endif /* NDEBUG */
 
 		nready = poll (fds, 2 + list_length (ifaces), next_tmout);
 		if (nready == -1) {
@@ -540,10 +546,15 @@ main (const int argc, const char *argv[])
 							dgram_print (dg);
 							printf (" non e' stato ricevuto, rimesso in out.\n");
 						}
-						find_iface_and_set_suspected (dg, &ifaces);
+						assert (dg->dg_if_ptr == if_ptr);
 						list_push (out, dg);
 					}
 					list_destroy (rmvd);
+					if (list_contains (ifaces, (f_bool_t)ptr_eq, if_ptr, 0))
+						/* Nella realta' non puo' non
+						 * esserci, nella simulazione
+						 * meglio stare sul sicuro. */
+						iface_set_suspected (if_ptr);
 					break;
 				}
 			}

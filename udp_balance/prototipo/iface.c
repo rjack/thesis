@@ -89,9 +89,8 @@ iface_set_name (iface_t *if_ptr, const char *name, const char *ip,
 bool
 iface_is_working (iface_t *if_ptr)
 {
-	assert (if_ptr != NULL);
 
-	if (if_ptr->if_suspected)
+	if (if_ptr == NULL || if_ptr->if_suspected)
 		return FALSE;
 	return TRUE;
 }
@@ -102,8 +101,10 @@ iface_destroy (iface_t *if_ptr)
 {
 	assert (if_ptr != NULL);
 
+	close (if_ptr->if_pfd.fd);
+
 	if (verbose) {
-		printf ("Rimossa interfaccia ");
+		printf ("Distrutta interfaccia ");
 		iface_print (if_ptr);
 	}
 
@@ -240,6 +241,9 @@ iface_write (iface_t *if_ptr, dgram_t *dg)
 	 * silenziosa, come nella realta'. */
 	if (nsent == SENDMSG_FAKE_ERR)
 		nsent = dg->dg_datalen;
+	else
+		/* Spedizione riuscita, l'interfaccia non e' sospetta. */
+		if_ptr->if_suspected = FALSE;
 
 	return nsent;
 }
@@ -253,6 +257,9 @@ iface_read (iface_t *if_ptr)
 	assert (if_ptr != NULL);
 
 	dg = dgram_read (if_ptr->if_pfd.fd, NULL, NULL);
+
+	/* Ricezione riuscita, l'interfaccia non e' sospetta. */
+	if_ptr->if_suspected = FALSE;
 
 	return dg;
 }
