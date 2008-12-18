@@ -1,0 +1,51 @@
+  COMPILAZIONE
+
+make
+Eseguibili creati: ulb-proto, proxy
+
+in config.mk si puo' decommentare NDEBUG per avere i valori di timeout reali
+(150 e 30 millisecondi). Attualmente sono dilatati per il debug.
+
+
+  ESECUZIONE
+
+# Un programma per terminale
+
+./ulb-proto     # load balancer
+./phone         # finto softphone
+./im            # finto interface manager
+./proxy         # finto proxy, un semplice echo server
+
+Softphone e interface manager sono in realta' wrapper di netcat.
+
+Scrivendo nell'im si possono simulare i messaggi di configurazione, che hanno
+formato
+
+   $nome_interfaccia {up|down} $ip_interfaccia
+
+es: lo1 up 127.0.0.1
+    lo2 up 127.0.0.2
+    lo1 down 127.0.0.1
+
+Scrivendo nel phone, il proxy dovrebbe fare eco.
+
+
+   NOTE
+
+* ulb-proto implementa l'algoritmo presentato nell'articolo "Robust Wireless
+  Medium Access for VoWLAN Applications: A CrossLayer QoS Mechanism"
+
+* sendmsg_getID e' simulata da sendmsg_getID_fake, che ritorna un ID
+  incrementale e, a random, silenziosamente non invia datagram per simulare
+  errori wifi.
+
+* viene simulato il TED.
+
+* simulate sia interfacce con firmware positivo (ovvero: ack se dgram
+  arriva) sia negativo (nak quando non arriva). Decide il caso quando
+  l'interfaccia viene creata.
+
+  NON IMPLEMENTATA la differenziazione del traffico: non guarda se il dgram e'
+  SIP o RTP, quindi non c'e' differenza di priorita'.
+
+Sembra funzionare.
