@@ -1,29 +1,49 @@
-            +-----------------+           +----------+
-EKIGA       |          iface0 +----AP0----+          |
-  |         |                 |           |          |
-  |         |          iface1 +----AP1----+          |
-  +-loop----+ LOAD            |           | INTERNET +----- PROXY
-            | BALANCER   ...  | ...AP2... |          |
-  +---------+                 |           |          |
-  |         |          ifacen +----APn----+          |
-KERNEL      +-----------------+           +----------+
+	       QoS a supporto della mobilità di sistemi VoWLAN
 
 
-Protocolli: RTP e SIP entrambi su UDP.
+Schema dello scenario:
 
-Interfacce dicono al kernel quando un pacchetto non e' arrivato all'AP.
-Il kernel notifica il LOAD BALANCER con il risultato della send.
+            +-----------------+                           +-------+
+SOFTPHONE   |          iface0 +----AP0--------------------+       |
+  |         |                 |                           |       |
+  |         |          iface1 +----AP1--------------------+       |
+  +---lo----+ LOAD            |             INTERNET      | PROXY +---...
+            | BALANCER   ...  | ...APi................... |       |
+  +-MSG_ERR-+                 |                           |       |
+  |         |          ifacen +----APn--------------------+       |
+KERNEL      +-------------+---+                           +-------+
+                          |
+                     INTERFACE
+                      MANAGER
 
-Eventuale ritrasmissione traffico RTP solo entro 150ms.
+Legenda:
 
-INTERNET = fw + nat vari.
+* SOFTPHONE: software VoIP (es. Ekiga).
+* lo: interfaccia di loopback
+* MSG_ERR: i socket UDP del LOAD BALANCER sono configurati con l'opzione
+  IP_RECVERR e ricevono l'esito delle sendmsg_getID attraverso la MSG_ERRQUEUE
+  del socket.
+* iface0...n: interfacce wifi.
+* AP0...n: Access Point
+* INTERNET: NAT + firewall + pacchetti persi.
 
-Serve keepalive per
-* manterenere i nat attivi
-* far conoscere al proxy le interfacce sveglie, cosi' puo' scegliere a quale
-  rispondere.
+
+  Qualità del servizio
+
+a) nel First-Hop (LB <-> AP)
+b) nel Full-Path (LB <-> PX)
 
 
-Necessario:
+a) QoS nel First-Hop usa TED (sendmsg_getID, MSG_ERRQUEUE + IP_NOTIFY) per
+   ritrasmettere i dgram che non arrivano all'AP usando le notifiche del
+   firmware dell'interfaccia wireless.
 
-- distinguere traffico SIP (non urgente) da traffico RTP (urgente)
+b) QoS nel Full-Path usa dgram di controllo per monitorare la qualità di tutto
+   il percorso, dall'interfaccia al proxy.
+
+
+  Valutazione interfaccia
+
+Interfacce ordinate per valutazione: si utilizza la migliore.
+
+Voto finale = voto first-step * voto full-path.

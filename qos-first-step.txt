@@ -1,0 +1,33 @@
+				QoS FIRST STEP
+
+  FUNZIONAMENTO DI BASE
+
+Spedizione datagram (DG):
+
+	send DG su IFACE
+	if IFACE.firmware segnala ACK
+		set DG retry_timeout
+		enqueue DG in lista unacked
+	else
+		enqueue DG in lista sent
+
+Quando scade il retry_timeout di un DG:
+
+	remove DG da unacked
+	push DG in lista outgoing
+
+Quando controllo l'IP_NOTIFY nella MSG_ERRQUEUE:
+
+	if msg.ack
+		remove DG con msg.id dalla coda in cui si trova
+		free DG     // non serve più
+	else  // msg.nak
+		remove DG con msg.id dalla coda sent
+		push DG in lista outgoing
+
+
+  VALUTAZIONE INTERFACCIA
+
+Voto = arrivati / spediti
+
+TODO: storia pesata!
