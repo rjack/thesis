@@ -28,6 +28,17 @@ Quando controllo l'IP_NOTIFY nella MSG_ERRQUEUE:
 
   VALUTAZIONE INTERFACCIA
 
-Voto = arrivati / spediti
+Voto = numero di DG arrivati all'AP rispetto al numero di DG spediti all'AP.
 
-TODO: storia pesata!
+Non si puo' fare un semplice rapporto arrivati / spediti, perche' il passato
+potrebbe influenzare troppo il presente.
+
+Media pesata degli ultimi n datagram di cui si conosce l'esito.
+Peso del datagram: funzione dell'istante di invio e del momento del controllo
+del voto.
+
+
+  KEEPALIVE
+
+Ogni k secondi di inattivita', spedire un keepalive per controllare lo stato
+dell'interfaccia e per far saper al Proxy Server che l'interfaccia e' viva.
