@@ -1,3 +1,58 @@
 				QoS FULL PATH
 
+ULB e PROXY devono sapere se i dati arrivano al peer, interfaccia per
+interfaccia.
 
+PROXY deve sapere quali interfacce sono attive anche se ULB non trasmette.
+
+Uso di dgram PROBE per controllare lo stato del PATH di ogni interfaccia.
+
+
+  FORMATO PROBE
+
+Numero incrementale, inizia ULB
+
+  ULB if0 --- 0 --> PROXY     // ULB manda primo probe su iface0
+  ULB if1 --- 0 --> PROXY     // idem per ogni interfaccia
+
+  ULB if0 <-- 0 --- PROXY     // PROXY fa eco, if0 riceve quindi path ok
+  ULB if1  *- 0 --- PROXY     // PROBE perso, if1 non riceve risposta
+
+  ULB if0 --- 1 --> PROXY     // if0 manda secondo probe
+  ULB if1 --- 1 --> PROXY     // idem per ogni interfaccia
+
+  ULB if0 <-- 1 --- PROXY     // if0 continua a funzionare bene
+  ULB if1 <-- 1 --- PROXY     // if1 riceve probe 1, ma non il probe 0!
+
+In questo modo if1 vede che c'e' un problema: ha mandato due PROBE, ma ha
+ricevuto solo il secondo.
+
+ULB e PROXY possono misurare la qualita' di un PATH in base a quanti "buchi"
+ci sono nella numerazione incrementale dei pacchetti PROBE ricevuti: meno
+"buchi" ci sono, migliore e' la qualita' del path.
+
+OCCHIO! UDP non mantiene l'ordine, quindi nulla vieta al PROBE n+1 di essere
+ricevuto *prima* del PROBE n.
+
+Non dovrebbe essere un problema: i probe devono essere DISTANZIATI tra loro
+nel tempo, quindi ai fini pratici un PROBE in ritardo clamoroso conta comunque
+come perso.
+
+
+   AGGIUNTE AL PROBE
+
+Visto che il PROBE e' praticamente un ping, ULB puo' misurare l'RTT di ogni
+path e considerarla nella valutazione.
+
+Problema: il PROXY non ha modo di misurare l'RTT, perche' i PROBE devono
+partire dall'ULB.
+
+Soluzione 1: il PROXY fa senza e non tiene conto della latenza.
+Soluzione 2: ogni probe inviato dall'ULB contiene, in aggiunta al numero
+             incrementale, l'RTT misurato del probe precedente.
+   Vantaggi: il PROXY ha modo di scegliere il path con latenza minore perche'
+             riceve l'RTT del path come misurato dall'ULB.
+  Svantaggi: la latenza comunicata si riferisce a una misurazione precedente,
+	     quindi potrebbe non essere piu' significativa o anche fuorviante.
+	     La dimensione dei PROBE aumenta, quindi e' piu' facile che
+	     vengano persi.
