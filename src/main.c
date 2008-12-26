@@ -188,6 +188,8 @@ main (const int argc, const char *argv[])
 
 		/*
 		 * Tutti i socket si devono aspettare dati ed errori.
+		 * XXX probabilmente non necessario!
+		 * XXX ricontrollare commenti su poll.h
 		 */
 		sp->events = POLLIN | POLLERR;
 		sp->revents = 0;
