@@ -1,0 +1,54 @@
+				  ALGORITMO
+creazione strutture dati
+
+setup socket per:
+- softphone
+- interface manager
+
+loop
+	pulizia code datagram:
+		scarto dgram scaduti da tutte le code
+		rimuovo da coda unacked i dg che sono stati inviati su
+		+un'interfaccia con firmware positivo e che non hanno ricevuto
+		+l'ACK dall'AP in tempo, e li metto nella coda out.
+
+	calcolo timeout minimo tra tutti i timeout del programma (per poll)
+		dovrebbe esserci un modulo che tiene dietro a tutti i timeout.
+	
+	calcolo valutazione interfacce e scelgo interfaccia migliore
+
+	impostazione eventi attesi:
+		dati ricevuti dal proxy server -> POLLOUT softphone
+		ho un'interfaccia e dati in uscita -> POLLOUT best_iface
+		XXX i PROBALIVE meglio da gestire a parte o come dati
+		+qualunque?
+		POLLIN e POLLERR dovrebbero essere impostati di default
+		+(vedere poll.h)
+	
+	poll
+
+	poller softphone -> exit failure
+	poller interface manager -> exit failure
+
+	pollin softphone:
+		lettura DG da socket
+		set timeout vita DG
+		accoda in uscita
+	
+	pollout softphone:
+		rimozione DG da coda in entrata
+		scrittura DG su socket
+		scarto DG
+	
+	pollin interface manager:
+		lettura DG da socket
+		parsing comando
+		se down
+			distruggi interfaccia
+			se era quella migliore
+				ricalcola interfaccia migliore
+		se up
+			crea interfaccia
+	
+	TODO interfaccia corrente e altre interfacce
+	
