@@ -20,8 +20,7 @@ loop
 	impostazione eventi attesi:
 		dati ricevuti dal proxy server -> POLLOUT softphone
 		ho un'interfaccia e dati in uscita -> POLLOUT best_iface
-		XXX i PROBALIVE meglio da gestire a parte o come dati
-		+qualunque?
+		XXX ogni interfaccia ha la propria gestione del PROBALIVE!
 		POLLIN e POLLERR dovrebbero essere impostati di default
 		+(vedere poll.h)
 	
