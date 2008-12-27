@@ -1,0 +1,17 @@
+				 SIMULAZIONE
+
+  Da simulare nel First-Step
+
+- mancata trasmissione datagram if -> AP (il caso AP -> if fa parte del
+  Full-Path perche' non e' rilevabile dal TED)
+
+- attivazione nuova interfaccia
+
+- disattivazione interfaccia
+
+
+  Da simulare nel Full-Path
+
+- mancata trasmissione datagram AP -> PROXY, PROXY -> AP, AP -> if
+
+- variazioni di latenza
