@@ -205,25 +205,12 @@ list_create (f_destroy_t node_value_destroy, size_t node_value_size)
 
 	assert (module_ok ());
 
-	/* Ricerca list_info inutilizzato. */
-	for (new_handle = 0;
-	     new_handle < db_used && list_info_is_used (&(db[new_handle]));
-	     new_handle++);
-
-	/* Tutti utilizzati, aggiunta in coda. */
-	if (new_handle == db_used) {
-		/* Niente spazio in coda, riallocazione db. */
-		if ((db_size - db_used) == 0) {
-			struct list_info *new_db;
-			new_db = realloc (db, (db_size + 1)
-					       * sizeof(struct list_info));
-			if (new_db == NULL)
-				return LIST_ERR;
-			db = new_db;
-			db_size++;
-		}
-		db_used++;
-	}
+	/* TODO CONTROLLAMI
+	 * new_handle = create (&db, &db_size, &db_used, sizeof(*db),
+	 *                      list_info_is_used);
+	 */
+	if (new_handle == -1)
+		return LIST_ERR;
 
 	new_list_info = &(db[new_handle]);
 	new_list_info->li_tail_ptr = NULL;
@@ -253,10 +240,8 @@ list_destroy (list_t lst)
 	my_free = db[lst].li_node_value_destroy;
 	while ((element = list_dequeue (lst)) != NULL)
 		my_free (element);
-	list_info_set_unused (&(db[lst]));
 
-	if (lst == db_used - 1)
-		db_used--;
+	/* TODO dm_destroy */
 }
 
 
@@ -267,24 +252,7 @@ list_garbage_collect (void)
  * se vuoto.
  */
 {
-	struct list_info *new_db;
-
-	assert (module_ok ());
-
-	if (db_size == db_used)
-		return;
-
-	if (db_used == 0) {
-		free (db);
-		db = NULL;
-		db_size = 0;
-	} else {
-		new_db = realloc (db, db_used * sizeof(*db));
-		if (new_db != NULL) {
-			db = new_db;
-			db_size = db_used;
-		}
-	}
+	/* TODO dm_garbage_collect */
 }
 
 
