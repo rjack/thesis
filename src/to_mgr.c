@@ -163,8 +163,22 @@ tmout_print (timeout_t handle)
 
 
 void
-to_mgr_garbage_collect (void)
+tm_garbage_collect (void)
 {
 	dtable_clear ((void **)&table_, &table_len_, &table_used_,
 	              sizeof(*table_));
+}
+
+
+void
+tm_min_time_left (struct timeval *min_result, const struct timeval *now)
+{
+	int i;
+	struct timeval left;
+
+	for (i = 0; i < table_used_; i++)
+		if (is_used (table_, i)) {
+			tmout_left (i, now, &left);
+			tv_min (min_result, min_result, &left);
+		}
 }
