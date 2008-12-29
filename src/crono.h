@@ -13,21 +13,6 @@ typedef struct {
 	struct timeval cr_start;
 } crono_t;
 
-
-/*
- * Timeout.
- */
-typedef struct timeout_t {
-	/* Durata del timeout e cronometro. */
-	struct timeval to_maxval;
-	crono_t to_crono;
-} timeout_t;
-
-void timeout_set(timeout_t *to, const struct timeval *max);
-timeout_t *timeout_create(const struct timeval *value);
-void timeout_start(timeout_t *to, const struct timeval *now);
-void timeout_left(timeout_t *to, const struct timeval *now, struct timeval *result);
-void timeout_print(const timeout_t *to);
 void crono_measure(crono_t *cr, const struct timeval *now, struct timeval *result);
 void crono_read(crono_t *cr, struct timeval *result);
 void crono_start(crono_t *cr, const struct timeval *now);

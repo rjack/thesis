@@ -16,67 +16,6 @@
 			      Funzioni pubbliche
 *******************************************************************************/
 
-
-/*
- * Timeout.
- */
-
-void
-timeout_set (timeout_t *to, const struct timeval *max)
-{
-	assert (to != NULL);
-	assert (max != NULL);
-
-	memcpy (&to->to_maxval, max, sizeof(struct timeval));
-}
-
-
-timeout_t *
-timeout_create (const struct timeval *value)
-{
-	timeout_t *new;
-
-	new = my_alloc (sizeof(timeout_t));
-
-	if (value != NULL)
-		timeout_set (new, value);
-
-	return new;
-}
-
-
-void
-timeout_start (timeout_t *to, const struct timeval *now)
-{
-	assert (to != NULL);
-	assert (now != NULL);
-
-	crono_start (&to->to_crono, now);
-}
-
-
-void
-timeout_left (timeout_t *to, const struct timeval *now,
-              struct timeval *result)
-{
-	struct timeval elapsed;
-
-	crono_measure (&to->to_crono, now, &elapsed);
-	tv_diff (result, &to->to_maxval, &elapsed);
-}
-
-
-void
-timeout_print (const timeout_t *to)
-{
-	printf ("at ");
-	crono_print (&to->to_crono);
-
-	printf (" max ");
-	tv_print (&to->to_maxval);
-}
-
-
 /*
  * Cronometri.
  */
