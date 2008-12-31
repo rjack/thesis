@@ -49,14 +49,18 @@ tmout_start (timeout_t handle, const struct timeval *now);
  */
 
 
-void
+bool
 tmout_left (timeout_t handle, const struct timeval *now,
             struct timeval *result);
 /*
- * Fill result with the time left before the given timeout expires.
- * Use now as reference.
+ * If result is not NULL, fill it with the time left before the given timeout
+ * expires, using now as reference.
  * NOTE: result value for expired timeouts can be zero or negative.
+ * Returns
+ * 	TRUE if timeout is not expired yet
+ * or	FALSE if timeout is expired.
  */
+
 
 void
 tmout_print (timeout_t handle);

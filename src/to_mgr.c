@@ -130,18 +130,25 @@ tmout_start (timeout_t handle, const struct timeval *now)
 }
 
 
-void
+bool
 tmout_left (timeout_t handle, const struct timeval *now,
             struct timeval *result)
 {
 	struct timeval elapsed;
+	struct timeval left;
 	struct timeout *tmout;
 
 	assert (is_valid_handle (handle));
+	assert (now != NULL);
 
 	tmout = &(table_[handle]);
 	crono_measure (&(tmout->to_crono), now, &elapsed);
-	tv_diff (result, &(tmout->to_maxval), &elapsed);
+	tv_diff (&left, &(tmout->to_maxval), &elapsed);
+	if (result)
+		memcpy (result, &left, sizeof(*result));
+	if (tv_cmp (&left, &time_0ms) <= 0)
+		return FALSE;
+	return TRUE;
 }
 
 
