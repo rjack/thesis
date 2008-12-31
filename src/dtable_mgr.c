@@ -2,8 +2,8 @@
 #include <stdlib.h>
 #include <sys/types.h>
 
-#include "dtable_mgr.h"
-#include "types.h"
+#include "h/dtable_mgr.h"
+#include "h/types.h"
 
 
 /*******************************************************************************

@@ -10,9 +10,9 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "crono.h"
-#include "util.h"
-#include "types.h"
+#include "h/crono.h"
+#include "h/util.h"
+#include "h/types.h"
 
 
 bool

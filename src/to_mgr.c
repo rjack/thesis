@@ -5,10 +5,10 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "crono.h"
-#include "dtable_mgr.h"
-#include "to_mgr.h"
-#include "types.h"
+#include "h/crono.h"
+#include "h/dtable_mgr.h"
+#include "h/to_mgr.h"
+#include "h/types.h"
 
 
 /*******************************************************************************

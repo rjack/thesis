@@ -5,9 +5,9 @@
 #include <sys/time.h>
 #include <unistd.h>
 
-#include "util.h"
-#include "types.h"
-#include "crono.h"
+#include "h/util.h"
+#include "h/types.h"
+#include "h/crono.h"
 
 
 
