@@ -33,7 +33,7 @@ my_strdup (const char *str)
 
 	len = strlen (str) + 1;
 	new_str = my_alloc (len * sizeof(char));
-	strcpy (new_str, str); 
+	strcpy (new_str, str);
 
 	return new_str;
 }

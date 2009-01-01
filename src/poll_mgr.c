@@ -69,7 +69,7 @@ pm_fd_set (int fd, int ev)
 /* Aggiunge fd all'array con gli eventi specificati. */
 {
 	int i;
-	
+
 	i = add_fd (fd);
 	fds_[i].events = ev;
 }
