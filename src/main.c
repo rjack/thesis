@@ -104,14 +104,6 @@ main_loop (void)
 	// 		remove from unacked
 	// 		inorder insert dentro a out
 
-	/*
-	 * Travaso da sent a out per i dgram che hanno ricevuto il NAK.
-	 */
-	// per ogni dgram dentro a sent
-	// 	se ricevuto NAK associato al suo ID
-	// 		remove from sent
-	// 		inorder insert dentro a out
-
 
 	/*
 	 * Valutazione interfaccia migliore e assegnazione prossimo dgram da
@@ -146,7 +138,7 @@ main_loop (void)
 	// 	iface POLLIN | POLLERR
 	// 	se iface ha un dgram assegnato in uscita
 	// 		iface POLLOUT
-	// pm_poll
+	// pm_poll (poll_timeout);
 
 
 	/*
