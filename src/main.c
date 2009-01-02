@@ -60,6 +60,15 @@ static int
 main_loop (void)
 {
 	/*
+	 * Esecuzione messaggi interface monitor.
+	 */
+	// while !vuota coda ifconf
+	// 	dgram dequeue ifconf
+	// 	cmd = dgram get payload
+	// 	ifmon do cmd
+
+
+	/*
 	 * Controllo timeout: lettura timeout minimo tra tutti quelli attivi.
 	 */
 	// gettime (&now);
@@ -118,6 +127,12 @@ main_loop (void)
 	 */
 	// pm_fd_zero ();
 	//
+	// softphone POLLIN | POLLERR
+	// se !vuota coda in
+	// 	softphone POLLOUT
+	//
+	// ifmon POLLIN | POLLERR
+	//
 	// per ogni interfaccia iface
 	// 	iface POLLIN | POLLERR
 	// 	se iface ha un dgram assegnato in uscita
@@ -126,8 +141,33 @@ main_loop (void)
 
 
 	/*
-	 * Gestione eventi.
+	 * Gestione eventi softphone.
 	 */
+	// se softphone POLLIN
+	// 	read dgram from socket softphone
+	// 	se !err
+	// 		set life timeout dgram
+	// 		inorder insert dgram coda out
+	// se softphone POLLOUT
+	// 	dequeue dgram da coda in
+	// 	write dgram socket softphone
+	// 	se !err
+	// 		discard dgram
+	// 	altrimenti
+	// 		push dgram coda in
+	// se softphone POLLERR
+	// 	exit failure
+
+
+	/*
+	 * Gestione eventi interface monitor.
+	 */
+	// se ifmon POLLIN
+	// 	read dgram
+	// 	if !err
+	// 		enqueue dgram ifconf
+	// se ifmon POLLERR
+	// 	exit failure
 
 	return EXIT_FAILURE;
 }
