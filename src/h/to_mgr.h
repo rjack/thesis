@@ -13,6 +13,8 @@
  */
 typedef int timeout_t;
 
+#define     TIMEOUT_ERROR     ((timeout_t)-1)
+
 
 /*******************************************************************************
 			     Function prototypes
@@ -24,7 +26,7 @@ tmout_create (const struct timeval *value);
  * Create a new timeout.
  * Return
  * 	its descriptor,
- * or	-1 in case of error.
+ * or	TIMEOUT_ERROR in case of error.
  */
 
 
