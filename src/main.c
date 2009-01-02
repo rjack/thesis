@@ -119,7 +119,10 @@ main_loop (void)
 	// pm_fd_zero ();
 	//
 	// per ogni interfaccia iface
-	// 	se iface == best_iface
+	// 	iface POLLIN | POLLERR
+	// 	se iface ha un dgram assegnato in uscita
+	// 		iface POLLOUT
+	// pm_poll
 
 
 	/*
