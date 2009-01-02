@@ -76,12 +76,15 @@ tm_mgr_garbage_collect (void);
  */
 
 
-void
+int
 tm_min_left_overall (struct timeval *min_result, const struct timeval *now);
 /*
  * Update all timeouts and fill min_result with the shortest remaining time.
  * NOTE: if some timeouts have expired, min_result value will be zero or
  *       negative.
+ * Returns
+ * 	the number of the timeouts that have expired: if zero, min_result
+ * 	value is unspecified.
  */
 
 #endif /* ULB_TO_MGR_H */

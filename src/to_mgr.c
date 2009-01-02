@@ -177,15 +177,21 @@ tm_garbage_collect (void)
 }
 
 
-void
+int
 tm_min_left_overall (struct timeval *min_result, const struct timeval *now)
 {
 	int i;
+	int nexp;
 	struct timeval left;
+
+	nexp = 0;
+	tv_set (min_result, HUGE_TV_SEC, 0);
 
 	for (i = 0; i < table_used_; i++)
 		if (is_used (table_, i)) {
-			tmout_left (i, now, &left);
+			if (!tmout_left (i, now, &left))
+				nexp++;
 			tv_min (min_result, min_result, &left);
 		}
+	return nexp;
 }
