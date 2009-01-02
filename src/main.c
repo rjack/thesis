@@ -73,6 +73,12 @@ main_loop (void)
 	 */
 	// per ogni interfaccia
 	// 	se interfaccia bad
+	// 		dgram = get_outgoint_dgram
+	// 		se dgram
+	// 			se dgram not probalive
+	//	 			inorder insert dgram coda out
+	//	 		altrimenti
+	//	 			discard dgram
 	// 		rimuovi interfaccia
 	// 		distruggi interfaccia
 
@@ -103,6 +109,7 @@ main_loop (void)
 	// 	se scaduto retry timeout
 	// 		remove from unacked
 	// 		inorder insert dentro a out
+	// 		iface log not acked
 
 
 	/*
@@ -178,12 +185,20 @@ main_loop (void)
 	// 	se iface POLLIN
 	// 		iface read dgram
 	// 		if !err
-	// 			dgram enqueue coda in
+	// 			if dgram is probalive
+	// 				iface log probalive
+	// 			else
+	//	 			dgram enqueue coda in
 	// 	se iface POLLOUT
 	// 		iface deve avere dgram impostato in uscita
+	// 		erro = 0;
 	// 		dgram = iface write
-	// 		if err
+	// 		if errno != 0
 	// 			iface set bad
+	// 			if dgram not probalive
+	// 				inorder insert dgram out
+	// 			else
+	// 				discard dgram
 	// 			continue
 	// 		else if dgram non e' un probalive
 	// 			if iface ACKosa
@@ -197,13 +212,21 @@ main_loop (void)
 	// 		iface handle err
 	// 		se errore fatale
 	// 			iface set bad
+	// 			dgram = get_outgoint_dgram
+	// 			if dgram
+	// 				if dgram not probalive
+	// 					inorder insert dgram coda out
+	// 				else
+	// 					discard dgram
 	// 		altrimenti se ack id
 	// 			remove if ha lo stesso id da coda unacked
 	// 			remove if ha lo stesso id da coda out
-	//			discard tutti i dgram rimossi
+	//			discard il dgram rimosso
+	//			iface log ack
 	//		altrimenti e' un nak
 	//			remove if ha lo stesso id da coda sent
 	//			inorder insert dgram out
+	//			iface log nak
 
 	return EXIT_FAILURE;
 }
