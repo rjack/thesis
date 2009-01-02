@@ -1,0 +1,11 @@
+1. meglio avere per ogni interfacciauna coda privata unacked / sent (a seconda
+   del tipo di firmare) invece di avere due code centralizzate?
+
+   Probabilmente SI
+
+2. Log delle iface: quando mando un dgram non so l'esito finche'
+   a) ricevo un NAK, oppure
+   b) ricevo un ACK, oppure
+   c) *non* ricevo un ACK e scade il retry timeout.
+
+   Finche' non so qualcosa, NON valuto la spedizione (ovvero non loggo nulla).
