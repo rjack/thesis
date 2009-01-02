@@ -1,0 +1,16 @@
+Problemi:
+
+1. i dati SIP e RTP sono criptati e firmati a livello applicazione, quindi ULB
+   li tratta come dati opachi. Pero' i probalive scambiati tra ULB e Proxy
+   sono relativi alla sessione e devono essere firmati anch'essi, perche' il
+   Proxy deve riuscire ad associare ogni probalive che riceve alla sessione a
+   cui questo si riferisce.
+
+   Quindi ULB deve
+   * in qualche modo venire a conoscenza della chiave segreta per poter
+     firmare i probalive
+   * oppure poter richiedere a un servizio esterno la firma dei probalive
+     prima dell'invio al Proxy Server
+
+  Purtroppo firmare i probalive aumenta di un bel po' la loro dimensione, con
+  tutto quel che ne consegue :(
