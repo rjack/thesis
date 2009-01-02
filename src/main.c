@@ -69,6 +69,15 @@ main_loop (void)
 
 
 	/*
+	 * Disattivazione interfacce bad.
+	 */
+	// per ogni interfaccia
+	// 	se interfaccia bad
+	// 		rimuovi interfaccia
+	// 		distruggi interfaccia
+
+
+	/*
 	 * Controllo timeout: lettura timeout minimo tra tutti quelli attivi.
 	 */
 	// gettime (&now);
@@ -168,6 +177,41 @@ main_loop (void)
 	// 		enqueue dgram ifconf
 	// se ifmon POLLERR
 	// 	exit failure
+
+
+	/*
+	 * Gestione eventi interfacce.
+	 */
+	// per ogni interfaccia iface
+	// 	se iface POLLIN
+	// 		iface read dgram
+	// 		if !err
+	// 			dgram enqueue coda in
+	// 	se iface POLLOUT
+	// 		iface deve avere dgram impostato in uscita
+	// 		dgram = iface write
+	// 		if err
+	// 			iface set bad
+	// 			continue
+	// 		else if dgram non e' un probalive
+	// 			if iface ACKosa
+	// 				dgram set retry timeout
+	// 				dgram enqueue coda unacked
+	// 			else iface NAKosa
+	// 				dgram enqueue coda sent
+	// 		else e' un probalive
+	// 			discard dgram
+	// 	se iface POLLERR
+	// 		iface handle err
+	// 		se errore fatale
+	// 			iface set bad
+	// 		altrimenti se ack id
+	// 			remove if ha lo stesso id da coda unacked
+	// 			remove if ha lo stesso id da coda out
+	//			discard tutti i dgram rimossi
+	//		altrimenti e' un nak
+	//			remove if ha lo stesso id da coda sent
+	//			inorder insert dgram out
 
 	return EXIT_FAILURE;
 }
