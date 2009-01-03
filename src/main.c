@@ -113,7 +113,7 @@ main_loop (void)
 	//
 	// per ogni interfaccia iface
 	// 	iface_set_events (iface, !list_is_empty (out))
-	// 		
+	//
 	// pm_poll (poll_timeout);
 
 
