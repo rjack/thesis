@@ -68,7 +68,8 @@ main_loop (void)
 
 
 	/*
-	 * Controllo timeout: lettura timeout minimo tra tutti quelli attivi.
+	 * Aggiornamento timeout:
+	 * lettura timeout minimo tra tutti quelli attivi.
 	 */
 	// gettime (&now);
 	// nexp = tm_min_left_overall (&min, &now);
@@ -94,13 +95,9 @@ main_loop (void)
 
 
 	/*
-	 * Valutazione interfaccia migliore e assegnazione prossimo dgram da
-	 * spedire.
+	 * Valutazione interfaccia migliore.
 	 */
-	// best_iface = iface_get_best_overall ();
-	// se best_iface && out non e' vuota,
-	// 	dg = dequeue out
-	// 	iface_load best_iface dg
+	// iface_compute_best_overall ();
 
 
 	/*
@@ -115,9 +112,8 @@ main_loop (void)
 	// ifmon POLLIN | POLLERR
 	//
 	// per ogni interfaccia iface
-	// 	iface POLLIN | POLLERR
-	// 	se iface ha un dgram assegnato in uscita
-	// 		iface POLLOUT
+	// 	iface_set_events (iface, !list_is_empty (out))
+	// 		
 	// pm_poll (poll_timeout);
 
 
@@ -160,23 +156,22 @@ main_loop (void)
 	// 		if !err && dgram
 	//	 		dgram enqueue coda in
 	// 	se iface POLLOUT
-	// 		iface deve avere dgram impostato in uscita
-	// 		erro = 0;
-	// 		iface write
+	// 		assert !empty out
+	// 		dgram = dequeue out
+	// 		iface_write iface dgram
 	// 		if err
-	// 			dgram = iface set bad
-	// 			if dgram
-	// 				inorder insert dgram coda out
+	// 			destroy iface
+	// 			push out dgram
 	// 			continue
 	// 	se iface POLLERR
 	// 		iface get err
 	// 		se errore fatale
-	// 			dgram = iface set bad
-	// 			if dgram
-	// 				inorder insert dgram coda out
+	// 			iface destroy
+	// 			continue
 	// 		altrimenti se ack id
 	// 			remove if ha lo stesso id da coda out
-	//			discard il dgram rimosso
+	//			if dgram
+	//				discard il dgram rimosso
 	//			iface set ack id
 	//		altrimenti e' un nak
 	//			dgram = iface set nak id

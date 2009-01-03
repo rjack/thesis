@@ -1,5 +1,5 @@
-#ifndef ULB_IFACE_H
-#define ULB_IFACE_H
+#ifndef ULB_IF_MGR_H
+#define ULB_IF_MGR_H
 
 #include "to_mgr.h"
 #include "types.h"
@@ -84,4 +84,4 @@ iface_write (iface_t handle, dgram_t *dgram);
  * or	-1 if error
  */
 
-#endif /* ULB_IFACE_H */
+#endif /* ULB_IF_MGR_H */
