@@ -12,5 +12,5 @@ Problemi:
    * oppure poter richiedere a un servizio esterno la firma dei probalive
      prima dell'invio al Proxy Server
 
-  Purtroppo firmare i probalive aumenta di un bel po' la loro dimensione, con
-  tutto quel che ne consegue :(
+  Purtroppo firmare i probalive aumenta la loro dimensione, ma non vedo
+  alternative.
