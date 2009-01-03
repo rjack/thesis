@@ -34,6 +34,8 @@ struct iface {
 	timeout_t if_probalive_tmout;
 	/* Datagram to be sent. */
 	dgram_t *if_outgoing_dgram;
+	/* Datagram sent. */
+	list_t if_sent;
 };
 
 

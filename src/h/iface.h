@@ -32,36 +32,37 @@ iface_t
 iface_create (const char *name, const char *ip, const char *port);
 
 
+iface_t
+iface_iterator_first (void);
+/*
+ * Return
+ * 	the first interface handle
+ * or	IFACE_ERROR if no interface is available.
+ */
+
+
+iface_t
+iface_iterator_next (iface_t handle);
+/*
+ * Return
+ * 	the next interface of the iteration
+ * or	IFACE_ERROR if no more interfaces.
+ */
+
+
 void
 iface_destroy (iface_t handle);
-
-
-bool
-iface_is_bad (iface_t handle);
 
 
 fd_t
 iface_get_sockfd (iface_t handle);
 
 
-void
-iface_set_bad (iface_t handle);
-
-
-bool
-iface_must_send_probalive (iface_t handle);
-
-
-dgram_t *
-iface_get_outgoing_dgram (iface_t handle);
-
-
-void
-iface_set_outgoing_dgram (iface_t handle, dgram_t *dg);
-
-
-void
-iface_set_outgoing_probalive (iface_t handle);
+int
+iface_handle_timeouts (iface_t handle);
+/*
+ * Internal timeout-related bookeeping.
+ */
 
 
 dgram_t *
@@ -74,13 +75,13 @@ iface_read (iface_t handle);
  */
 
 
-dgram_t *
-iface_write (iface_t handle);
+int
+iface_write (iface_t handle, dgram_t *dgram);
 /*
- * Send the previously setted outgoing datagram over the interface socket.
+ * Send the given datagram over the interface socket.
  * Return
- * 	the sent datagram.
- * In case of error errno is setted appropriately, else errno is zero.
+ * 	 0 if ok
+ * or	-1 if error
  */
 
 #endif /* ULB_IFACE_H */

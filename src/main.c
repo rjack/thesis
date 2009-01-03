@@ -2,11 +2,10 @@
 			       Local variables
 *******************************************************************************/
 
-/* Dgram queues. Ordered by timestamp */
+/* Dgram queues. Ordered by timestamp. */
 static list_t in_;
 static list_t out_;
-static list_t sent_;
-static list_t unacked_;
+static list_t ifconf_;
 
 
 /*******************************************************************************
@@ -28,7 +27,7 @@ get_cmd_line_options (void)
 static void
 init_data_struct (void)
 {
-	/* init code datagram: in out ifconf sent unacked */
+	/* init code datagram: in out ifconf */
 
 	/* init lista di interfacce di rete */
 }
@@ -69,21 +68,6 @@ main_loop (void)
 
 
 	/*
-	 * Disattivazione interfacce bad.
-	 */
-	// per ogni interfaccia
-	// 	se interfaccia bad
-	// 		dgram = get_outgoint_dgram
-	// 		se dgram
-	// 			se dgram not probalive
-	//	 			inorder insert dgram coda out
-	//	 		altrimenti
-	//	 			discard dgram
-	// 		rimuovi interfaccia
-	// 		distruggi interfaccia
-
-
-	/*
 	 * Controllo timeout: lettura timeout minimo tra tutti quelli attivi.
 	 */
 	// gettime (&now);
@@ -95,39 +79,28 @@ main_loop (void)
 
 
 	/*
-	 * Rimozione dgram scaduti.
+	 * Controllo timeout scaduti dgram in uscita.
 	 */
-	// per ogni dgram dentro a out, sent e unacked
+	// per ogni dgram dentro a out
 	// 	se scaduto life timeout
 	// 		remove from list
 	// 		discard
 
 	/*
-	 * Travaso da unacked a out per i dgram che non hanno ricevuto l'ACK.
+	 * Controllo timeout scaduti interfacce.
 	 */
-	// per ogni dgram dentro a unacked
-	// 	se scaduto retry timeout
-	// 		remove from unacked
-	// 		inorder insert dentro a out
-	// 		iface log not acked
+	// per ogni interfaccia iface
+	// 	iface iface_handle_timeouts
 
 
 	/*
 	 * Valutazione interfaccia migliore e assegnazione prossimo dgram da
 	 * spedire.
 	 */
-	// best_iface = choose_best_iface ();
-	// se out non e' vuota,
+	// best_iface = iface_get_best_overall ();
+	// se best_iface && out non e' vuota,
 	// 	dg = dequeue out
-	// 	iface_set_outgoing_dgram best_iface dg
-
-
-	/*
-	 * Impostazione probalive.
-	 */
-	// per ogni interfaccia
-	// 	se scaduto probalive timeout e iface non deve spedire nulla
-	// 		iface_set_outgoing_dgram new probalive
+	// 	iface_load best_iface dg
 
 
 	/*
@@ -184,49 +157,31 @@ main_loop (void)
 	// per ogni interfaccia iface
 	// 	se iface POLLIN
 	// 		iface read dgram
-	// 		if !err
-	// 			if dgram is probalive
-	// 				iface log probalive
-	// 			else
-	//	 			dgram enqueue coda in
+	// 		if !err && dgram
+	//	 		dgram enqueue coda in
 	// 	se iface POLLOUT
 	// 		iface deve avere dgram impostato in uscita
 	// 		erro = 0;
-	// 		dgram = iface write
-	// 		if errno != 0
-	// 			iface set bad
-	// 			if dgram not probalive
-	// 				inorder insert dgram out
-	// 			else
-	// 				discard dgram
-	// 			continue
-	// 		else if dgram non e' un probalive
-	// 			if iface ACKosa
-	// 				dgram set retry timeout
-	// 				dgram enqueue coda unacked
-	// 			else iface NAKosa
-	// 				dgram enqueue coda sent
-	// 		else e' un probalive
-	// 			discard dgram
-	// 	se iface POLLERR
-	// 		iface handle err
-	// 		se errore fatale
-	// 			iface set bad
-	// 			dgram = get_outgoint_dgram
+	// 		iface write
+	// 		if err
+	// 			dgram = iface set bad
 	// 			if dgram
-	// 				if dgram not probalive
-	// 					inorder insert dgram coda out
-	// 				else
-	// 					discard dgram
+	// 				inorder insert dgram coda out
+	// 			continue
+	// 	se iface POLLERR
+	// 		iface get err
+	// 		se errore fatale
+	// 			dgram = iface set bad
+	// 			if dgram
+	// 				inorder insert dgram coda out
 	// 		altrimenti se ack id
-	// 			remove if ha lo stesso id da coda unacked
 	// 			remove if ha lo stesso id da coda out
 	//			discard il dgram rimosso
-	//			iface log ack
+	//			iface set ack id
 	//		altrimenti e' un nak
-	//			remove if ha lo stesso id da coda sent
-	//			inorder insert dgram out
-	//			iface log nak
+	//			dgram = iface set nak id
+	//			if dgram
+	//				inorder insert dgram out
 
 	return EXIT_FAILURE;
 }
