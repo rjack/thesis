@@ -17,9 +17,29 @@ get_cmd_line_options (void)
 {
 	/*
 	 * Tipo conversazione da simulare
-	 * - parla molto ulb
-	 * - parla molto proxy
-	 * - mixed
+	 * --conversation-listen
+	 * --conversation-talk
+	 * --conversation-mixed
+	 */
+
+	/*
+	 * Tipo di movimento da simulare
+	 * --movement-slow
+	 * --movement-fast
+	 * --movement-mixed
+	 */
+
+	/*
+	 * Interfacce.
+	 *
+	 * --iface NAME-{ack|nak}
+	 * es: --iface iwlan0-ack --iface eth1-nak
+	 */
+
+	/*
+	 * Reti.
+	 *
+	 * --net ESSID,WIFI_MIN_ERR,WIRE_ERR,WIRE_DELAY
 	 */
 }
 
