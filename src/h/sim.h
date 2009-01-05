@@ -18,8 +18,12 @@ void
 sim_set_iface (const char *name);
 
 
+int
+sim_get_link_quality (const char *iface_name);
+
+
 void
-sim_set_movement (int movement_code);
+sim_set_link_quality (const char *iface_name, int quality);
 
 
 void
