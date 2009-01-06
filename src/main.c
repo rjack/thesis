@@ -1,3 +1,8 @@
+#include <stdlib.h>
+
+#include "h/list.h"
+#include "h/types.h"
+
 /*******************************************************************************
 			       Local variables
 *******************************************************************************/
@@ -5,7 +10,6 @@
 /* Dgram queues. Ordered by timestamp. */
 static list_t in_;
 static list_t out_;
-static list_t ifconf_;
 
 
 /*******************************************************************************
@@ -47,16 +51,7 @@ get_cmd_line_options (void)
 static void
 init_data_struct (void)
 {
-	/* init code datagram: in out ifconf */
-
-	/* init lista di interfacce di rete */
-}
-
-
-static void
-init_modules (void)
-{
-	/* Per ora nessuno */
+	/* init code datagram: in out */
 }
 
 
@@ -67,29 +62,9 @@ is_done (void)
 }
 
 
-static void
-init_net (void)
-{
-	/* socket per phone */
-	/* socket per interface manager */
-}
-
-
 static int
 main_loop (void)
 {
-	/*
-	 * Esecuzione messaggi interface monitor.
-	 */
-	// while !vuota coda ifconf
-	// 	dgram dequeue ifconf
-	// 	cmd = dgram get payload
-	// 	if cmd == up
-	// 		iface_up cmd.ip cmd.name, etc.
-	// 	else cmd == down
-	// 		iface down cmd.name, etc.
-
-
 	/*
 	 * Aggiornamento timeout:
 	 * lettura timeout minimo tra tutti quelli attivi.
@@ -163,7 +138,17 @@ main_loop (void)
 	// if rev & POLLIN
 	// 	read dgram
 	// 	if !err
-	// 		enqueue dgram ifconf
+	// 		ifmon_parse (name, cmd, ip);
+	// 		switch (cmd) {
+	// 		case IFMON_CMD_UP:
+	// 			iface_up (name, ip);
+	// 			break;
+	// 		case IFMON_CMD_DOWN:
+	// 			iface_down (iface_find (name));
+	// 			break;
+	// 		default:
+	// 			error command not recognized;
+	// 		}
 	// if rev & POLLERR
 	// 	exit failure
 
@@ -206,13 +191,42 @@ main_loop (void)
 int
 main (int argc, const char *argv[])
 {
-	get_cmd_line_options ();
-	init_data_struct ();
-	init_modules ();
-	init_net ();
+	int err;
 
-	while (!is_done ())
-		main_loop ();
+	err = get_cmd_line_options ();
+	if (err)
+		goto fatal_err;
+
+	err = init_data_struct ();
+	if (err)
+		goto fatal_err;
+
+	/* Modules. */
+	err = iface_init ();
+	if (err)
+		goto fatal_err;
+
+	err = ifmon_init ();
+	if (err)
+		goto fatal_err;
+
+	err = sim_init ();
+	if (err)
+		goto fatal_err;
+
+	err = sphone_init ();
+	if (err)
+		goto fatal_err;
+
+	do {
+		err = main_loop ();
+	} while (!err && !is_done ());
+	if (err)
+		goto fatal_err;
 
 	return EXIT_SUCCESS;
+
+fatal_err:
+	// TODO err_print
+	return EXIT_FAILURE;
 }
