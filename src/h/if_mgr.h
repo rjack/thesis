@@ -29,7 +29,15 @@ typedef     char             iface_fw_type_t;
 *******************************************************************************/
 
 iface_t
-iface_create (const char *name, const char *ip, const char *port);
+iface_up (const char *name, const char *ip, const char *port);
+
+
+void
+iface_down (iface_t handle);
+
+
+iface_t
+iface_find (const char *name);
 
 
 iface_t
@@ -48,10 +56,6 @@ iface_iterator_next (iface_t handle);
  * 	the next interface of the iteration
  * or	IFACE_ERROR if no more interfaces.
  */
-
-
-void
-iface_destroy (iface_t handle);
 
 
 fd_t
