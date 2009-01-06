@@ -84,7 +84,10 @@ main_loop (void)
 	// while !vuota coda ifconf
 	// 	dgram dequeue ifconf
 	// 	cmd = dgram get payload
-	// 	ifmon do cmd
+	// 	if cmd == up
+	// 		iface_up cmd.ip cmd.name, etc.
+	// 	else cmd == down
+	// 		iface down cmd.name, etc.
 
 
 	/*
@@ -125,12 +128,8 @@ main_loop (void)
 	 */
 	// pm_fd_zero ();
 	//
-	// softphone POLLIN | POLLERR
-	// se !vuota coda in
-	// 	softphone POLLOUT
-	//
-	// ifmon POLLIN | POLLERR
-	//
+	// softphone_set_events (!list_is_empty (in))
+	// ifmon_set_events ();
 	// per ogni interfaccia iface
 	// 	iface_set_events (iface, !list_is_empty (out))
 	//
@@ -140,30 +139,32 @@ main_loop (void)
 	/*
 	 * Gestione eventi softphone.
 	 */
-	// se softphone POLLIN
-	// 	read dgram from socket softphone
+	// rev = softphone_get_revents()
+	// if rev & POLLIN
+	// 	dgram = softphone_read ()
 	// 	se !err
 	// 		set life timeout dgram
 	// 		inorder insert dgram coda out
-	// se softphone POLLOUT
+	// if rev & POLLOUT
 	// 	dequeue dgram da coda in
 	// 	write dgram socket softphone
 	// 	se !err
 	// 		discard dgram
 	// 	altrimenti
 	// 		push dgram coda in
-	// se softphone POLLERR
+	// if rev & POLLERR
 	// 	exit failure
 
 
 	/*
 	 * Gestione eventi interface monitor.
 	 */
-	// se ifmon POLLIN
+	// rev = ifmon_get_revents ()
+	// if rev & POLLIN
 	// 	read dgram
 	// 	if !err
 	// 		enqueue dgram ifconf
-	// se ifmon POLLERR
+	// if rev & POLLERR
 	// 	exit failure
 
 
