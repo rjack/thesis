@@ -207,7 +207,19 @@ interface_monitor_err:
 	/*
 	 * Gestione eventi interfacce.
 	 */
-	// per ogni interfaccia iface
+	for (iface = iface_iterator_first ();
+	     iface != IFACE_ERROR;
+	     iface = iface_iterator_next ()) {
+		ev = iface_get_revents (iface);
+
+		if (ev & POLLIN) {
+			dgram_t *dgram = iface_read (iface);
+			if (dgram)
+				inorder_insert (in_, dgram);
+			else
+				perror ("Error reading from interface");
+		}
+	}
 	// 	se iface POLLIN
 	// 		iface read dgram
 	// 		if !err && dgram
