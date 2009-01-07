@@ -3,18 +3,18 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "list.h"
-#include "types.h"
+#include "h/dtable_mgr.h"
+#include "h/list.h"
+#include "h/types.h"
 
 
 /****************************************************************************
 				     Tipi
 ****************************************************************************/
 
-struct list_info {
+struct list {
 	struct list_node *li_tail_ptr;
 	f_destroy_t li_node_value_destroy;
-	size_t li_node_value_size;
 	int li_list_len;
 };
 
@@ -24,52 +24,24 @@ struct list_info {
 ****************************************************************************/
 
 /* Array di liste, indicizzato dagli handler di tipo list_t. */
-static struct list_info *db;
-static size_t db_size;
-static size_t db_used;
+static struct list *table_ = NULL;
+static size_t table_len_ = 0;
+static size_t table_used_ = 0;
 
 
 /****************************************************************************
 			       Funzioni locali
 ****************************************************************************/
 
-#ifndef NDEBUG
-static bool
-module_ok (void)
-{
-	bool ok = TRUE;
-
-	if (db_used < 0)
-		ok = FALSE;
-	if (db_size < 0)
-		ok = FALSE;
-
-	if (db == NULL) {
-		if (db_size != 0)
-			ok = FALSE;
-		if (db_used != 0)
-			ok = FALSE;
-	} else {
-		if (db_size == 0)
-			ok = FALSE;
-		if (db_used > db_size)
-			ok = FALSE;
-	}
-
-	return ok;
-}
-#endif /* NDEBUG */
-
 
 static bool
-list_info_is_used (struct list_info *li)
+is_used (struct list *li)
 {
 	assert (li != NULL);
 
 	if (li->li_tail_ptr == NULL
 	    && li->li_list_len == 0
-	    && li->li_node_value_destroy == NULL
-	    && li->li_node_value_size == 0)
+	    && li->li_node_value_destroy == NULL)
 		return FALSE;
 	return TRUE;
 
@@ -77,7 +49,7 @@ list_info_is_used (struct list_info *li)
 
 
 static void
-list_info_set_unused (struct list_info *li)
+set_unused (struct list *li)
 {
 	assert (li != NULL);
 
@@ -88,26 +60,23 @@ list_info_set_unused (struct list_info *li)
 static struct list_node *
 list_node_remove (list_t lst, struct list_node *ptr)
 {
-	struct list_info *linfo;
+	struct list *li;
 
-	assert (module_ok ());
-	assert (list_is_valid (lst));
+	li = &(table_[lst]);
 
-	linfo = &(db[lst]);
-
-	if (linfo->li_list_len == 1)
-		linfo->li_tail_ptr = NULL;
+	if (li->li_list_len == 1)
+		li->li_tail_ptr = NULL;
 	else {
-		/* Aggiorna il tail pointer se rimuove la coda. */
-		if (ptr == linfo->li_tail_ptr)
-			linfo->li_tail_ptr = linfo->li_tail_ptr->n_prev;
+		/* Update tail pointer if removing tail. */
+		if (ptr == li->li_tail_ptr)
+			li->li_tail_ptr = li->li_tail_ptr->n_prev;
 		ptr->n_prev->n_next = ptr->n_next;
 		ptr->n_next->n_prev = ptr->n_prev;
 	}
 	ptr->n_next = NULL;
 	ptr->n_prev = NULL;
 
-	linfo->li_list_len--;
+	li->li_list_len--;
 	return ptr;
 }
 
@@ -141,30 +110,33 @@ list_node_destroy (struct list_node *node)
 static int
 list_node_insert (list_t lst, struct list_node *new_node)
 /*
- * Inserisce il nuovo nodo tra la testa e la coda.
- * Ritorna la nuova lunghezza di lst.
+ * Insert new_node between head and tail.
+ * Return
+ * 	the new list len.
  */
 {
-	assert (module_ok ());
-	assert (list_is_valid (lst));
+	struct list *li;
+
 	assert (new_node != NULL);
+
+	li = &(table_[lst]);
 
 	if (list_is_empty (lst)) {
 		new_node->n_next = new_node;
 		new_node->n_prev = new_node;
-		db[lst].li_tail_ptr = new_node;
+		li->li_tail_ptr = new_node;
 	} else {
 		/* new_node <-> head */
-		db[lst].li_tail_ptr->n_next->n_prev = new_node;
-		new_node->n_next = db[lst].li_tail_ptr->n_next;
+		li->li_tail_ptr->n_next->n_prev = new_node;
+		new_node->n_next = li->li_tail_ptr->n_next;
 
 		/* tail <-> new_node */
-		db[lst].li_tail_ptr->n_next = new_node;
-		new_node->n_prev = db[lst].li_tail_ptr;
+		li->li_tail_ptr->n_next = new_node;
+		new_node->n_prev = li->li_tail_ptr;
 	}
-	db[lst].li_list_len++;
+	li->li_list_len++;
 
-	return db[lst].li_list_len;
+	return li->li_list_len;
 }
 
 
@@ -178,45 +150,40 @@ list_node_push (list_t lst, struct list_node *new_node)
 static int
 list_node_enqueue (list_t lst, struct list_node *new_node)
 {
-	int len;
+	int new_len;
+	struct list *li;
 
-	len = list_node_insert (lst, new_node);
-	db[lst].li_tail_ptr = db[lst].li_tail_ptr->n_next;
+	li = &(table_[lst]);
 
-	return len;
+	new_len = list_node_insert (lst, new_node);
+	li->li_tail_ptr = li->li_tail_ptr->n_next;
+
+	return new_len;
 }
 
 
 /****************************************************************************
-			      Funzioni esportate
+			      Exported functions
 ****************************************************************************/
 
 list_t
-list_create (f_destroy_t node_value_destroy, size_t node_value_size)
-/*
- * Crea una nuova lista e ritorna il suo handler, oppure LIST_ERR se fallisce.
- * node_value_destroy e' la funzione per deallocare il valore degli elementi
- * puntati dai nodi della lista, node_value_size e' la dimensione di ogni
- * elemento.
- */
+list_create (f_destroy_t node_value_destroy)
 {
 	list_t new_handle;
-	struct list_info *new_list_info;
+	struct list *new_list;
 
-	assert (module_ok ());
+	if (node_value_destroy == NULL)
+		return LIST_ERR;
 
-	/* TODO CONTROLLAMI
-	 * new_handle = create (&db, &db_size, &db_used, sizeof(*db),
-	 *                      list_info_is_used);
-	 */
+	new_handle = dtable_add ((void **)&table_, &table_len_, &table_used_,
+	                         sizeof(*table_), (use_checker_t)is_used);
 	if (new_handle == -1)
 		return LIST_ERR;
 
-	new_list_info = &(db[new_handle]);
-	new_list_info->li_tail_ptr = NULL;
-	new_list_info->li_node_value_destroy = node_value_destroy;
-	new_list_info->li_node_value_size = node_value_size;
-	new_list_info->li_list_len = 0;
+	new_list = &(table_[new_handle]);
+	new_list->li_tail_ptr = NULL;
+	new_list->li_node_value_destroy = node_value_destroy;
+	new_list->li_list_len = 0;
 
 	return new_handle;
 }
@@ -224,63 +191,32 @@ list_create (f_destroy_t node_value_destroy, size_t node_value_size)
 
 void
 list_destroy (list_t lst)
-/* 
- * Libera la memoria associata ad ogni oggetto contenuto nella lista indicata
- * e alla lista stessa.
- * XXX non rialloca db, per quello c'e' list_garbage_collect.
- */
 {
 	void *element;
 	void (*my_free)(void *);
 
-	assert (module_ok ());
-	assert (list_is_valid (lst));
-
-	/* Svuotamento lista */
-	my_free = db[lst].li_node_value_destroy;
+	/* Empty list. */
+	my_free = table_[lst].li_node_value_destroy;
 	while ((element = list_dequeue (lst)) != NULL)
 		my_free (element);
 
-	/* TODO dm_destroy */
+	dtable_remove ((void **)&table_, &table_used_, lst,
+	               (unused_setter_t)set_unused);
 }
 
 
 void
 list_garbage_collect (void)
-/*
- * Libera spazio: rialloca db se e' piu' grande del necessario o lo dealloca
- * se vuoto.
- */
 {
-	/* TODO dm_garbage_collect */
-}
-
-
-bool
-list_is_valid (list_t lst)
-/*
- * Paranoia.
- */
-{
-	assert (module_ok ());
-
-	if (lst != LIST_ERR
-	    && (lst >= 0 || lst < db_used))
-		return TRUE;
-	return FALSE;
+	dtable_clear ((void **)&table_, &table_len_, &table_used_,
+	              sizeof(*table_));
 }
 
 
 bool
 list_is_empty (list_t lst)
-/*
- * Ritorna TRUE se la lista e' vuota, FALSE altrimenti.
- */
 {
-	assert (module_ok ());
-	assert (list_is_valid (lst));
-
-	if (db[lst].li_tail_ptr == NULL)
+	if (table_[lst].li_tail_ptr == NULL)
 		return TRUE;
 	return FALSE;
 }
@@ -288,87 +224,56 @@ list_is_empty (list_t lst)
 
 void *
 list_peek (list_t lst)
-/*
- * Ritorna l'elemento puntato dal nodo in testa alla lista, oppure NULL se la
- * lista e' vuota.
- */
 {
-	assert (module_ok ());
-	assert (list_is_valid (lst));
-
 	if (!list_is_empty (lst))
-		return db[lst].li_tail_ptr->n_next->n_ptr;
+		return table_[lst].li_tail_ptr->n_next->n_ptr;
 	return NULL;
 }
 
 
-bool
+int
 list_length (list_t lst)
-/*
- * Ritorna la lunghezza della lista.
- */
 {
-	assert (module_ok ());
-	assert (list_is_valid (lst));
-
-	return db[lst].li_list_len;
+	return table_[lst].li_list_len;
 }
 
 
 void *
 list_iterator_get_first (list_t lst, list_iterator_t *lit)
-/*
- * Ritorna l'elemento in testa a lst e inizializza lit.
- */
 {
-	assert (module_ok ());
-	assert (list_is_valid (lst));
-
 	if (list_is_empty (lst)) {
 		*lit = NULL;
 		return NULL;
 	}
 
-	*lit = db[lst].li_tail_ptr->n_next;
+	*lit = table_[lst].li_tail_ptr->n_next;
 	return (*lit)->n_ptr;
 }
 
 
 void *
 list_iterator_get_last (list_t lst, list_iterator_t *lit)
-/*
- * Ritorna l'elemento in coda a lst e inizializza lit.
- */
 {
-	assert (module_ok ());
-	assert (list_is_valid (lst));
-
 	if (list_is_empty (lst)) {
 		*lit = NULL;
 		return NULL;
 	}
 
-	*lit = db[lst].li_tail_ptr;
+	*lit = table_[lst].li_tail_ptr;
 	return (*lit)->n_ptr;
 }
 
 
 void *
 list_iterator_get_next (list_t lst, list_iterator_t *lit)
-/*
- * Ritorna l'elemento successivo secondo lo stato di lit, oppure NULL se e'
- * stata raggiunta la fine della lista.
- */
 {
 	assert (lit != NULL);
-	assert (module_ok ());
-	assert (list_is_valid (lst));
 
 	if (*lit == NULL)
 		return NULL;
 
 	*lit = (*lit)->n_next;
-	if (*lit == db[lst].li_tail_ptr->n_next) {
+	if (*lit == table_[lst].li_tail_ptr->n_next) {
 		*lit = NULL;
 		return NULL;
 	}
@@ -379,20 +284,14 @@ list_iterator_get_next (list_t lst, list_iterator_t *lit)
 
 void *
 list_iterator_get_prev (list_t lst, list_iterator_t *lit)
-/*
- * Ritorna l'elemento precedente secondo lo stato di lit, oppure NULL se e'
- * stata raggiunta la testa della lista.
- */
 {
 	assert (lit != NULL);
-	assert (module_ok ());
-	assert (list_is_valid (lst));
 
 	if (*lit == NULL)
 		return NULL;
 
 	*lit = (*lit)->n_prev;
-	if (*lit == db[lst].li_tail_ptr) {
+	if (*lit == table_[lst].li_tail_ptr) {
 		*lit = NULL;
 		return NULL;
 	}
@@ -402,19 +301,11 @@ list_iterator_get_prev (list_t lst, list_iterator_t *lit)
 
 
 void *
-list_contains (list_t lst, f_bool_t my_test, void *term, int mode)
-/*
- * Ritorna il primo elemento che soddisfi la funzione my_test, NULL se la lista
- * e' vuota o nessun elemento soddisfa la funzione data.
- * Se la flag LIST_SCAN_BACKWARD e' impostata in mode, comincia a cercare
- * dalla fine della lista.
- */
+list_find (list_t lst, f_bool_t my_test, void *term, int mode)
 {
 	void *element;
 	list_iterator_t lit;
 
-	assert (module_ok ());
-	assert (list_is_valid (lst));
 	assert (my_test != NULL);
 
 	element = (mode & LIST_SCAN_BACKWARD) ?
@@ -458,13 +349,10 @@ list_dequeue (list_t lst)
 {
 	struct list_node *rmvd;
 
-	assert (module_ok ());
-	assert (list_is_valid (lst));
-
 	if (list_is_empty (lst))
 		return NULL;
 
-	rmvd = list_node_remove (lst, db[lst].li_tail_ptr->n_next);
+	rmvd = list_node_remove (lst, table_[lst].li_tail_ptr->n_next);
 	assert (rmvd != NULL);
 
 	return list_node_destroy (rmvd);
@@ -473,25 +361,23 @@ list_dequeue (list_t lst)
 
 void
 list_inorder_insert (list_t lst, void *new_element, f_compare_t my_cmp)
-/*
- * Inserisce in lst un nuovo nodo che punta a new_element, in modo che la
- * lista risultante sia ordinata secondo la funzione my_cmp.
- */
 {
-	assert (module_ok ());
-	assert (list_is_valid (lst));
+	struct list *li;
+
 	assert (my_cmp != NULL);
 
+	li = &(table_[lst]);
+
 	if (list_is_empty (lst)
-	    || my_cmp (new_element, db[lst].li_tail_ptr->n_ptr) > 0)
+	    || my_cmp (li->li_tail_ptr->n_ptr, new_element) < 0)
 		list_enqueue (lst, new_element);
 	else {
 		struct list_node *cur;
 		struct list_node *new_node;
 
-		cur = db[lst].li_tail_ptr->n_next;
+		cur = li->li_tail_ptr->n_next;
 
-		while (my_cmp (new_element, cur->n_ptr) > 0)
+		while (my_cmp (cur->n_ptr, new_element) < 0)
 			cur = cur->n_next;
 
 		new_node = list_node_create (new_element);
@@ -499,42 +385,32 @@ list_inorder_insert (list_t lst, void *new_element, f_compare_t my_cmp)
 		cur->n_prev->n_next = new_node;
 		cur->n_prev = new_node;
 		new_node->n_next = cur;
-		db[lst].li_list_len++;
+		li->li_list_len++;
 	}
 }
 
 
 list_t
 list_remove_if (list_t lst, f_bool_t my_test, void *args)
-/*
- * Ritorna una nuova lista formata da tutti gli elementi rimossi da lst che
- * hanno soddisfatto la funzione my_test.
- */
 {
 	struct list_node *cur;
 	struct list_node *nxt;
 	list_t rmvd;
 
-	assert (module_ok ());
-	assert (list_is_valid (lst));
 	assert (my_test != NULL);
 
-	rmvd = list_create (db[lst].li_node_value_destroy,
-	                    db[lst].li_node_value_size);
+	rmvd = list_create (table_[lst].li_node_value_destroy);
 
 	if (!list_is_empty (lst))
-		cur = db[lst].li_tail_ptr->n_next;
+		cur = table_[lst].li_tail_ptr->n_next;
 	else
 		cur = NULL;
 	while (!list_is_empty (lst) && cur != NULL) {
-		if (cur->n_next == db[lst].li_tail_ptr->n_next)
+		if (cur->n_next == table_[lst].li_tail_ptr->n_next)
 			nxt = NULL;
 		else
 			nxt = cur->n_next;
 		if (my_test (cur->n_ptr, args)) {
-			/* XXX brutto! list_enqueue alloca un nodo,
-			 * list_node_remove ritorna il nodo, quindi dobbiamo
-			 * distruggerlo per poi ricrearlo! */
 			list_node_remove (lst, cur);
 			list_node_enqueue (rmvd, cur);
 		}
@@ -552,8 +428,6 @@ list_fold_left (list_t lst, void * (*fun)(void *, void *),
 	void *element;
 	list_iterator_t lit;
 
-	assert (module_ok ());
-	assert (list_is_valid (lst));
 	assert (fun != NULL);
 
 	accumulator = initial_value;
@@ -569,15 +443,7 @@ list_fold_left (list_t lst, void * (*fun)(void *, void *),
 
 void
 list_cat (list_t lst_0, list_t lst_1)
-/*
- * Travasa il contenuto di lst_1 in coda a lst_0.
- */
 {
-	assert (module_ok ());
-	assert (list_is_valid (lst_0));
-	assert (list_is_valid (lst_1));
-	assert (db[lst_0].li_node_value_size == db[lst_1].li_node_value_size);
-
 	while (!list_is_empty (lst_1))
 		list_enqueue (lst_0, list_dequeue (lst_1));
 }
@@ -585,15 +451,10 @@ list_cat (list_t lst_0, list_t lst_1)
 
 void
 list_foreach_do (list_t lst, void (*fun)(void *, void *), void *args)
-/*
- * Chiama fun su ogni elemento di lst.
- */
 {
 	void *element;
 	list_iterator_t lit;
 
-	assert (module_ok ());
-	assert (list_is_valid (lst));
 	assert (fun != NULL);
 
 	for (element = list_iterator_get_first (lst, &lit);
