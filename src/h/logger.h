@@ -1,6 +1,8 @@
 #ifndef ULB_LOGGER_H
 #define ULB_LOGGER_H
 
+#include <stdio.h>
+
 #include "crono.h"
 
 
@@ -13,18 +15,33 @@
  * string.
  *
  * Example:
- * 	LOG ("Ciao");
- * 	LOG ("come va?");
+ * 	log ("Ciao");
+ * 	log ("come va?");
  * outputs
  * 	12345634:224563 Ciao
  * 	12345634:224565 Come va?
  *
  */
-#define     LOG(fmt, ...)                           \
+#define     log(fmt, ...)                           \
 	{                                           \
 		struct timeval now;                 \
 		gettime (&now);                     \
 		printf ("%ld:%.6ld " fmt "\n",      \
+		        now.tv_sec, now.tv_usec,    \
+		        __VA_ARGS__);               \
+	}
+
+
+/*
+ * Same as log, but outputs on standard error.
+ */
+#define     log_err(fmt, ...)                       \
+	{                                           \
+		struct timeval now;                 \
+		gettime (&now);                     \
+		fflush (stdout);                    \
+		fprintf (stderr,                    \
+			"%ld:%.6ld " fmt "\n",      \
 		        now.tv_sec, now.tv_usec,    \
 		        __VA_ARGS__);               \
 	}
