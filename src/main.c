@@ -1,7 +1,12 @@
 #include <stdlib.h>
 
 #include "h/list.h"
+#include "h/logger.h"
+#include "h/sim.h"
+#include "h/to_mgr.h"
 #include "h/types.h"
+#include "h/util.h"
+
 
 /*******************************************************************************
 			       Local variables
@@ -51,7 +56,8 @@ get_cmd_line_options (void)
 static void
 init_data_struct (void)
 {
-	/* init code datagram: in out */
+	in_ = list_create (dgram_destroy);
+	out_ = list_create (dgram_destroy);
 }
 
 
@@ -65,92 +71,137 @@ is_done (void)
 static int
 main_loop (void)
 {
-	/*
-	 * Aggiornamento timeout:
-	 * lettura timeout minimo tra tutti quelli attivi.
-	 */
-	// gettime (&now);
-	// nexp = tm_min_left_overall (&min, &now);
-	// if (nexp == 0)
-	// 	poll_timeout = -1;
-	// else
-	// 	poll_timeout = (int)(tv2d (&min, FALSE) * 1000);
-
+	int ev;
+	int nready;
+	list_t rmvd;
+	iface_t iface;
+	int poll_timeout;
+	struct timeval min;
 
 	/*
-	 * Controllo timeout scaduti dgram in uscita.
+	 * Update timeouts.
 	 */
-	// per ogni dgram dentro a out
-	// 	se scaduto life timeout
-	// 		remove from list
-	// 		discard
-
-	/*
-	 * Controllo timeout scaduti interfacce.
-	 */
-	// per ogni interfaccia iface
-	// 	iface iface_handle_timeouts
+	if (tm_min_left_overall (&min, &now) == 0)
+		poll_timeout = -1;
+	else
+		poll_timeout = (int)(tv2d (&min, FALSE) * 1000);
 
 
 	/*
-	 * Valutazione interfaccia migliore.
+	 * Let things happen.
 	 */
-	// iface_compute_best_overall ();
+	sim_exec_step ();
+
+
+	/*
+	 * Discard old datagrams.
+	 */
+	rmvd = list_remove_if (out_, (f_bool_t)dgram_must_be_discarded, NULL);
+	list_destroy (rmvd);
+
+
+	/*
+	 * Ifaces timeouts.
+	 */
+	for (iface = iface_iterator_first ();
+	     iface != IFACE_ERROR;
+	     iface = iface_iterator_next ())
+		iface_handle_timeouts (iface);
+
+
+	/*
+	 * Choose best interface.
+	 */
+	iface_compute_best_overall ();
 
 
 	/*
 	 * Poll.
 	 */
-	// pm_fd_zero ();
-	//
-	// softphone_set_events (!list_is_empty (in))
-	// ifmon_set_events ();
-	// per ogni interfaccia iface
-	// 	iface_set_events (iface, !list_is_empty (out))
-	//
-	// pm_poll (poll_timeout);
+	pm_fd_zero ();
+
+	softphone_set_events (!list_is_empty (in_))
+	ifmon_set_events ();
+	for (iface = iface_iterator_first ();
+	     iface != IFACE_ERROR;
+	     iface = iface_iterator_next ())
+		iface_set_events (iface, !list_is_empty (out_))
+
+	nready = pm_poll (poll_timeout);
+	if (nready == -1) {
+		perror ("pm_poll error");
+		return -1;
+	}
+
+	if (nready == 0)
+		return 0;
 
 
 	/*
-	 * Gestione eventi softphone.
+	 * Softphone events.
 	 */
-	// rev = softphone_get_revents()
-	// if rev & POLLIN
-	// 	dgram = softphone_read ()
-	// 	se !err
-	// 		set life timeout dgram
-	// 		inorder insert dgram coda out
-	// if rev & POLLOUT
-	// 	dequeue dgram da coda in
-	// 	write dgram socket softphone
-	// 	se !err
-	// 		discard dgram
-	// 	altrimenti
-	// 		push dgram coda in
-	// if rev & POLLERR
-	// 	exit failure
+	ev = sphone_get_revents();
+
+	if (ev & POLLIN) {
+		dgram_t *dgram = sphone_read ();
+		if (!dgram)
+			goto softphone_err;
+		dgram_set_life_timeout (dgram);
+		inorder_insert (out_, dgram);
+	}
+
+	if (ev & POLLOUT) {
+		dgram_t *dgram = list_dequeue (in_);
+		err = sphone_write (dgram);
+		if (err)
+			goto softphone_err;
+		dgram_destroy (dgram);
+	}
+
+	if (ev & POLLERR) {
+softphone_err:
+		perror ("Softphone communication error");
+		return -1;
+	}
 
 
 	/*
-	 * Gestione eventi interface monitor.
+	 * Interface monitor events.
 	 */
-	// rev = ifmon_get_revents ()
-	// if rev & POLLIN
-	// 	read dgram
-	// 	if !err
-	// 		ifmon_parse (name, cmd, ip);
-	// 		switch (cmd) {
-	// 		case IFMON_CMD_UP:
-	// 			iface_up (name, ip);
-	// 			break;
-	// 		case IFMON_CMD_DOWN:
-	// 			iface_down (iface_find (name));
-	// 			break;
-	// 		default:
-	// 			error command not recognized;
-	// 		}
-	// if rev & POLLERR
-	// 	exit failure
+	ev = ifmon_get_revents ();
+	assert (!(ev & POLLOUT));
+
+	if (ev & POLLIN) {
+		char *name, *cmd, *ip;
+		dgram_t *dgram = ifmon_read ();
+		if (!dgram)
+			goto interface_monitor_err;
+		ifmon_parse (dgram_payload (dgram),
+		             dgram_payload_len (dgram),
+		             &name, &cmd, &ip);
+		switch (cmd) {
+		case IFMON_CMD_UP:
+			iface_up (name, ip);
+			break;
+		case IFMON_CMD_DOWN:
+			iface = iface_find (name);
+			if (iface != IFACE_ERROR)
+				iface_down (iface);
+			break;
+		default:
+			log_err ("%s is not a valid ifmon command!", cmd);
+		}
+		dgram_destroy (dgram);
+		free (name);
+		free (cmd);
+		free (ip);
+	}
+
+	if (ev & POLLERR) {
+interface_monitor_err:
+		perror ("Interface monitor communication error");
+		return -1;
+	}
 
 
 	/*
@@ -166,13 +217,13 @@ main_loop (void)
 	// 		dgram = dequeue out
 	// 		iface_write iface dgram
 	// 		if err
-	// 			destroy iface
+	// 			iface_down
 	// 			push out dgram
 	// 			continue
 	// 	se iface POLLERR
 	// 		iface get err
 	// 		se errore fatale
-	// 			iface destroy
+	// 			iface_down
 	// 			continue
 	// 		altrimenti se ack id
 	// 			remove if ha lo stesso id da coda out
@@ -184,7 +235,7 @@ main_loop (void)
 	//			if dgram
 	//				inorder insert dgram out
 
-	return EXIT_FAILURE;
+	return 0;
 }
 
 
@@ -218,6 +269,9 @@ main (int argc, const char *argv[])
 	if (err)
 		goto fatal_err;
 
+	/*
+	 * Main loop.
+	 */
 	do {
 		err = main_loop ();
 	} while (!err && !is_done ());
@@ -227,6 +281,5 @@ main (int argc, const char *argv[])
 	return EXIT_SUCCESS;
 
 fatal_err:
-	// TODO err_print
 	return EXIT_FAILURE;
 }
