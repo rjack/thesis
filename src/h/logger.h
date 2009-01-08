@@ -34,6 +34,8 @@
 
 /*
  * Same as log, but outputs on standard error.
+ * fflush on stdout is needed because stdout may be buffered, while stderr
+ * is unbuffered.
  */
 #define     log_err(fmt, ...)                                \
 	{                                                    \
@@ -41,9 +43,9 @@
 		gettime (&now);                              \
 		fflush (stdout);                             \
 		fprintf (stderr,                             \
-			"%ld:%.6ld " fmt " on %s:%d\n",      \
-		        now.tv_sec, now.tv_usec,             \
-		        __VA_ARGS__, __FILE__, __LINE__);    \
+			 "%ld:%.6ld " fmt " on %s:%d\n",     \
+		         now.tv_sec, now.tv_usec,            \
+		         __VA_ARGS__, __FILE__, __LINE__);   \
 	}
 
 
