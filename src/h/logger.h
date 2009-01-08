@@ -22,28 +22,28 @@
  * 	12345634:224565 Come va?
  *
  */
-#define     log(fmt, ...)                           \
-	{                                           \
-		struct timeval now;                 \
-		gettime (&now);                     \
-		printf ("%ld:%.6ld " fmt "\n",      \
-		        now.tv_sec, now.tv_usec,    \
-		        __VA_ARGS__);               \
+#define     log(fmt, ...)                                    \
+	{                                                    \
+		struct timeval now;                          \
+		gettime (&now);                              \
+		printf ("%ld:%.6ld " fmt "\n",               \
+		        now.tv_sec, now.tv_usec,             \
+		        __VA_ARGS__);                        \
 	}
 
 
 /*
  * Same as log, but outputs on standard error.
  */
-#define     log_err(fmt, ...)                       \
-	{                                           \
-		struct timeval now;                 \
-		gettime (&now);                     \
-		fflush (stdout);                    \
-		fprintf (stderr,                    \
-			"%ld:%.6ld " fmt "\n",      \
-		        now.tv_sec, now.tv_usec,    \
-		        __VA_ARGS__);               \
+#define     log_err(fmt, ...)                                \
+	{                                                    \
+		struct timeval now;                          \
+		gettime (&now);                              \
+		fflush (stdout);                             \
+		fprintf (stderr,                             \
+			"%ld:%.6ld " fmt " on %s:%d\n",      \
+		        now.tv_sec, now.tv_usec,             \
+		        __VA_ARGS__, __FILE__, __LINE__);    \
 	}
 
 
