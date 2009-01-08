@@ -152,7 +152,7 @@ main_loop (void)
 
 	if (ev & POLLOUT) {
 		dgram_t *dgram = list_dequeue (in_);
-		err = sphone_write (dgram);
+		int err = sphone_write (dgram);
 		if (err)
 			goto softphone_err;
 		dgram_destroy (dgram);
@@ -216,36 +216,47 @@ interface_monitor_err:
 			dgram_t *dgram = iface_read (iface);
 			if (dgram)
 				inorder_insert (in_, dgram);
-			else
+			else {
 				perror ("Error reading from interface");
+				iface_down (iface);
+			}
+		}
+
+		if (ev & POLLOUT) {
+			dgram_t *dgram = list_dequeue (out_);
+			int err = iface_write (iface, dgram);
+			if (err) {
+				perror ("Error writing on interface");
+				iface_down (iface);
+				inorder_insert (out_, dgram);
+				continue;
+			}
+		}
+
+		if (ev & POLLERR) {
+			int id;
+			int notice = iface_get_ip_notice (iface, &id);
+
+			switch (notice) {
+			case IFACE_NOTICE_ACK :
+				dgram = iface_get_acked (iface, id);
+				if (dgram)
+					dgram_destroy (dgram);
+				break;
+			case IFACE_NOTICE_NAK :
+				dgram = iface_get_nacked (iface, id);
+				if (dgram)
+					inorder_insert (out_, dgram);
+				break;
+			case IFACE_NOTICE_ERROR :
+				iface_down (iface);
+				break;
+			default :
+				log_err ("%s", "Unknown notice!");
+				return -1;
+			}
 		}
 	}
-	// 	se iface POLLIN
-	// 		iface read dgram
-	// 		if !err && dgram
-	//	 		dgram enqueue coda in
-	// 	se iface POLLOUT
-	// 		assert !empty out
-	// 		dgram = dequeue out
-	// 		iface_write iface dgram
-	// 		if err
-	// 			iface_down
-	// 			push out dgram
-	// 			continue
-	// 	se iface POLLERR
-	// 		iface get err
-	// 		se errore fatale
-	// 			iface_down
-	// 			continue
-	// 		altrimenti se ack id
-	// 			remove if ha lo stesso id da coda out
-	//			if dgram
-	//				discard il dgram rimosso
-	//			iface set ack id
-	//		altrimenti e' un nak
-	//			dgram = iface set nak id
-	//			if dgram
-	//				inorder insert dgram out
 
 	return 0;
 }
