@@ -20,7 +20,12 @@ static size_t nfds_ = 0;
 
 static int
 search_fd (int fd)
-/* Ricerca fd nell'array e ritorna l'indice, oppure -1 se non lo trova. */
+/*
+ * Search fds_ for fd.
+ * Return
+ * 	fd index,
+ * or	-1 if fd not found.
+ */
 {
 	int i;
 
@@ -34,7 +39,9 @@ search_fd (int fd)
 
 static int
 add_fd (int fd)
-/* Aggiunge fd all'array e ritorna il suo indice. */
+/*
+ * Add fd to fds_, returning its index.
+ */
 {
 	fds_[nfds_].fd = fd;
 	fds_[nfds_].events = 0;
@@ -46,12 +53,11 @@ add_fd (int fd)
 
 
 /****************************************************************************
-			      Funzioni esportate
+			      Exported functions
 ****************************************************************************/
 
 void
 pm_fd_zero (void)
-/* Svuota l'array dei file descriptor. */
 {
 	int i;
 
@@ -65,8 +71,7 @@ pm_fd_zero (void)
 
 
 void
-pm_fd_set (int fd, int ev)
-/* Aggiunge fd all'array con gli eventi specificati. */
+pm_fd_set (fd_t fd, int ev)
 {
 	int i;
 
@@ -76,8 +81,7 @@ pm_fd_set (int fd, int ev)
 
 
 int
-pm_fd_get_events (int fd)
-/* Ritorna gli eventi precedentemente impostati a fd. */
+pm_fd_get_revents (fd_t fd)
 {
 	int i;
 
@@ -88,7 +92,6 @@ pm_fd_get_events (int fd)
 
 int
 pm_fd_get_revents (int fd)
-/* Ritorna gli eventi impostati da poll a fd. */
 {
 	int i;
 
@@ -99,7 +102,6 @@ pm_fd_get_revents (int fd)
 
 int
 pm_poll (int tmout)
-/* Esegue poll con il timeout specificato. */
 {
 	int nready;
 

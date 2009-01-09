@@ -1,8 +1,12 @@
 #include <stdlib.h>
 
+#include "h/dgram.h"
+#include "h/if_mgr.h"
 #include "h/list.h"
 #include "h/logger.h"
+#include "h/poll_mgr.h"
 #include "h/sim.h"
+#include "h/sphone.h"
 #include "h/to_mgr.h"
 #include "h/types.h"
 #include "h/util.h"
@@ -56,8 +60,8 @@ get_cmd_line_options (void)
 static void
 init_data_struct (void)
 {
-	in_ = list_create (dgram_destroy);
-	out_ = list_create (dgram_destroy);
+	in_ = list_create ((f_destroy_t)dgram_destroy);
+	out_ = list_create ((f_destroy_t)dgram_destroy);
 }
 
 
@@ -105,7 +109,7 @@ main_loop (void)
 	 */
 	for (iface = iface_iterator_first ();
 	     iface != IFACE_ERROR;
-	     iface = iface_iterator_next ())
+	     iface = iface_iterator_next (iface))
 		iface_handle_timeouts (iface);
 
 
@@ -120,11 +124,11 @@ main_loop (void)
 	 */
 	pm_fd_zero ();
 
-	softphone_set_events (!list_is_empty (in_))
+	sphone_set_events (!list_is_empty (in_));
 	ifmon_set_events ();
 	for (iface = iface_iterator_first ();
 	     iface != IFACE_ERROR;
-	     iface = iface_iterator_next ())
+	     iface = iface_iterator_next (iface))
 		iface_set_events (iface, !list_is_empty (out_))
 
 	nready = pm_poll (poll_timeout);
@@ -209,7 +213,7 @@ interface_monitor_err:
 	 */
 	for (iface = iface_iterator_first ();
 	     iface != IFACE_ERROR;
-	     iface = iface_iterator_next ()) {
+	     iface = iface_iterator_next (iface)) {
 		ev = iface_get_revents (iface);
 
 		if (ev & POLLIN) {

@@ -36,6 +36,10 @@ void
 iface_down (iface_t handle);
 
 
+void
+iface_compute_best_overall (void);
+
+
 iface_t
 iface_find (const char *name);
 
