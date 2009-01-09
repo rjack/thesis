@@ -2,7 +2,7 @@ CC=gcc
 LD=gcc
 #CPPOPT=-Wall -DNDEBUG -ansi -pedantic
 #CFLAGS=-O3 -fomit-frame-pointer -march=i686 -pipe
-CPPOPT=-Wall -ansi -pedantic
+CPPOPT=-Wall
 CFLAGS=-g -pipe
 LDFLAGS=-lc
 MAKEDEPEND=gcc -MM $(CPPFLAGS) -o $*.d $<
