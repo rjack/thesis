@@ -118,31 +118,31 @@ tmout_set (timeout_t handle, const struct timeval *max)
 
 
 void
-tmout_start (timeout_t handle, const struct timeval *now)
+tmout_start (timeout_t handle)
 {
 	struct timeout *tmout;
+	struct timeval;
+
+	gettime (&now);
 
 	assert (is_valid_handle (handle));
-	assert (now != NULL);
 
 	tmout = &(table_[handle]);
-	crono_start (&(tmout->to_crono), now);
+	crono_start (&(tmout->to_crono), &now);
 }
 
 
 bool
-tmout_left (timeout_t handle, const struct timeval *now,
-            struct timeval *result)
+tmout_left (timeout_t handle, struct timeval *result)
 {
 	struct timeval elapsed;
 	struct timeval left;
 	struct timeout *tmout;
 
 	assert (is_valid_handle (handle));
-	assert (now != NULL);
 
 	tmout = &(table_[handle]);
-	crono_measure (&(tmout->to_crono), now, &elapsed);
+	crono_measure (&(tmout->to_crono), &now, &elapsed);
 	tv_diff (&left, &(tmout->to_maxval), &elapsed);
 	if (result)
 		memcpy (result, &left, sizeof(*result));
@@ -178,18 +178,21 @@ tm_garbage_collect (void)
 
 
 int
-tm_min_left_overall (struct timeval *min_result, const struct timeval *now)
+tm_min_left_overall (struct timeval *min_result)
 {
 	int i;
 	int nexp;
 	struct timeval left;
+	struct timeval now;
+
+	gettime (&now);
 
 	nexp = 0;
 	tv_set (min_result, HUGE_TV_SEC, 0);
 
 	for (i = 0; i < table_used_; i++)
 		if (is_used (table_, i)) {
-			if (!tmout_left (i, now, &left))
+			if (!tmout_left (i, &now, &left))
 				nexp++;
 			tv_min (min_result, min_result, &left);
 		}

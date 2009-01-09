@@ -21,14 +21,16 @@
  */
 
 void
-crono_measure (crono_t *cr, const struct timeval *now,
-               struct timeval *result)
+crono_measure (crono_t *cr, struct timeval *result)
 {
-	assert (result != NULL);
-	assert (cr != NULL);
-	assert (now != NULL);
+	struct timeval now;
 
-	tv_diff (&(cr->cr_elapsed), now, &(cr->cr_start));
+	assert (cr != NULL);
+	assert (result != NULL);
+
+	gettime (&now);
+
+	tv_diff (&(cr->cr_elapsed), &now, &(cr->cr_start));
 
 	crono_read (cr, result);
 }
@@ -44,13 +46,17 @@ crono_read (crono_t *cr, struct timeval *result)
 
 
 void
-crono_start (crono_t *cr, const struct timeval *now)
+crono_start (crono_t *cr)
 {
+	struct timeval now;
+
 	assert (cr != NULL);
+
+	gettime (&now);
 
 	cr->cr_elapsed.tv_sec = 0;
 	cr->cr_elapsed.tv_usec = 0;
-	memcpy (&cr->cr_start, now, sizeof(struct timeval));
+	memcpy (&cr->cr_start, &now, sizeof(struct timeval));
 }
 
 

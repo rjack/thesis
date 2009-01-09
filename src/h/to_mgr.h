@@ -45,18 +45,17 @@ tmout_set (timeout_t handle, const struct timeval *max);
 
 
 void
-tmout_start (timeout_t handle, const struct timeval *now);
+tmout_start (timeout_t handle);
 /*
- * Start ticking the given timeout, using now as reference.
+ * Start ticking the given timeout.
  */
 
 
 bool
-tmout_left (timeout_t handle, const struct timeval *now,
-            struct timeval *result);
+tmout_left (timeout_t handle struct timeval *result);
 /*
  * If result is not NULL, fill it with the time left before the given timeout
- * expires, using now as reference.
+ * expires.
  * NOTE: result value for expired timeouts can be zero or negative.
  * Returns
  * 	TRUE if timeout is not expired yet
@@ -79,7 +78,7 @@ tm_mgr_garbage_collect (void);
 
 
 int
-tm_min_left_overall (struct timeval *min_result, const struct timeval *now);
+tm_min_left_overall (struct timeval *min_result);
 /*
  * Update all timeouts and fill min_result with the shortest remaining time.
  * NOTE: if some timeouts have expired, min_result value will be zero or

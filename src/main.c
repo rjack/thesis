@@ -81,7 +81,7 @@ main_loop (void)
 	/*
 	 * Update timeouts.
 	 */
-	if (tm_min_left_overall (&min, &now) == 0)
+	if (tm_min_left_overall (&min) == 0)
 		poll_timeout = -1;
 	else
 		poll_timeout = (int)(tv2d (&min, FALSE) * 1000);

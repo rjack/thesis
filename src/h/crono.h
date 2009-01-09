@@ -13,9 +13,9 @@ typedef struct {
 	struct timeval cr_start;
 } crono_t;
 
-void crono_measure(crono_t *cr, const struct timeval *now, struct timeval *result);
+void crono_measure(crono_t *cr, struct timeval *result);
 void crono_read(crono_t *cr, struct timeval *result);
-void crono_start(crono_t *cr, const struct timeval *now);
+void crono_start(crono_t *cr);
 void crono_print(const crono_t *cr);
 int tv_cmp(const struct timeval *tv_1, const struct timeval *tv_2);
 void tv_min(struct timeval *result, const struct timeval *tv_1, const struct timeval *tv_2);
