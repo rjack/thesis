@@ -5,6 +5,9 @@ LD=gcc
 CPPOPT=-Wall -ansi -pedantic
 CFLAGS=-g -pipe
 LDFLAGS=-lc
+MAKEDEPEND=gcc -MM $(CPPFLAGS) -o $*.d $<
 
 EXE=ulb
-OBJ=main.o crono.o dtable_mgr.o poll_mgr.o to_mgr.o util.o
+SRC=crono.c dtable_mgr.c if_mgr.c list.c main.c poll_mgr.c socketpair_test.c to_mgr.c util.c
+OBJ=$(SRC:.c=.o)
+DEP=$(SRC:.c=.P)
