@@ -3,7 +3,6 @@
 #include <sys/types.h>
 
 #include "h/dtable_mgr.h"
-#include "h/types.h"
 
 
 /*******************************************************************************
