@@ -52,7 +52,7 @@ tmout_start (timeout_t handle);
 
 
 bool
-tmout_left (timeout_t handle struct timeval *result);
+tmout_left (timeout_t handle, struct timeval *result);
 /*
  * If result is not NULL, fill it with the time left before the given timeout
  * expires.
