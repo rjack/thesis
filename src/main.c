@@ -1,7 +1,9 @@
+#include <assert.h>
 #include <stdlib.h>
 
 #include "h/dgram.h"
 #include "h/if_mgr.h"
+#include "h/ifmon.h"
 #include "h/list.h"
 #include "h/logger.h"
 #include "h/poll_mgr.h"
@@ -25,7 +27,7 @@ static list_t out_;
 			       Local functions
 *******************************************************************************/
 
-static void
+static int
 get_cmd_line_options (void)
 {
 	/*
@@ -54,14 +56,26 @@ get_cmd_line_options (void)
 	 *
 	 * --net ESSID,WIFI_MIN_ERR,WIRE_ERR,WIRE_DELAY
 	 */
+	return 0;
 }
 
 
-static void
+static int
 init_data_struct (void)
 {
 	in_ = list_create ((f_destroy_t)dgram_destroy);
 	out_ = list_create ((f_destroy_t)dgram_destroy);
+
+	if (in_ != LIST_ERR && out_ != LIST_ERR)
+		return 0;
+	return -1;
+}
+
+
+static void
+inorder_insert (list_t data, dgram_t *dg)
+{
+	/* TODO */
 }
 
 
@@ -129,7 +143,7 @@ main_loop (void)
 	for (iface = iface_iterator_first ();
 	     iface != IFACE_ERROR;
 	     iface = iface_iterator_next (iface))
-		iface_set_events (iface, !list_is_empty (out_))
+		iface_set_events (iface, !list_is_empty (out_));
 
 	nready = pm_poll (poll_timeout);
 	if (nready == -1) {
@@ -176,16 +190,17 @@ softphone_err:
 	assert (!(ev & POLLOUT));
 
 	if (ev & POLLIN) {
-		char *name, *cmd, *ip;
+		int cmd;
+		char *name, *ip;
 		dgram_t *dgram = ifmon_read ();
 		if (!dgram)
 			goto interface_monitor_err;
-		ifmon_parse (dgram_payload (dgram),
-		             dgram_payload_len (dgram),
-		             &name, &cmd, &ip);
+		cmd = ifmon_parse (dgram_payload (dgram),
+		                   dgram_payload_len (dgram),
+		                   &name, &ip);
 		switch (cmd) {
 		case IFMON_CMD_UP:
-			iface_up (name, ip);
+			iface_up (name, ip, IFACE_LOCAL_PORT);
 			break;
 		case IFMON_CMD_DOWN:
 			iface = iface_find (name);
@@ -197,7 +212,6 @@ softphone_err:
 		}
 		dgram_destroy (dgram);
 		free (name);
-		free (cmd);
 		free (ip);
 	}
 
@@ -242,6 +256,7 @@ interface_monitor_err:
 			int notice = iface_get_ip_notice (iface, &id);
 
 			switch (notice) {
+				dgram_t *dgram;
 			case IFACE_NOTICE_ACK :
 				dgram = iface_get_acked (iface, id);
 				if (dgram)
@@ -280,7 +295,7 @@ main (int argc, const char *argv[])
 		goto fatal_err;
 
 	/* Modules. */
-	err = iface_init ();
+	err = im_init ();
 	if (err)
 		goto fatal_err;
 
@@ -288,7 +303,7 @@ main (int argc, const char *argv[])
 	if (err)
 		goto fatal_err;
 
-	err = sim_init ();
+	err = sim_init (-1);
 	if (err)
 		goto fatal_err;
 

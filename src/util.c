@@ -129,6 +129,7 @@ ifname_parse_error:
 	return FALSE;
 }
 
+#ifdef NON_COMPILARE
 
 fd_t
 socket_bound_conn (const char *loc_ip, const char *loc_port,
@@ -237,6 +238,8 @@ getaddrinfo_conn_err:
 getaddrinfo_bind_err:
 	return -1;
 }
+
+#endif /* NON_COMPILARE */
 
 
 void *

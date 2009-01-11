@@ -1,6 +1,7 @@
 #ifndef ULB_IF_MGR_H
 #define ULB_IF_MGR_H
 
+#include "dgram.h"
 #include "to_mgr.h"
 #include "types.h"
 
@@ -10,10 +11,30 @@
 *******************************************************************************/
 
 /*
+ * Probe sequence number.
+ */
+typedef int probe_seqnum_t;
+
+
+/*
  * Interface descriptor.
  */
 typedef     int             iface_t;
 #define     IFACE_ERROR     ((iface_t)-1)
+
+
+/*
+ * TED notices.
+ */
+#define     IFACE_NOTICE_ACK       0
+#define     IFACE_NOTICE_NAK       1
+#define     IFACE_NOTICE_ERROR     2
+
+
+/*
+ * Local port.
+ */
+#define     IFACE_LOCAL_PORT     "5555"
 
 
 /*
@@ -27,6 +48,11 @@ typedef     char             iface_fw_type_t;
 /*******************************************************************************
 			     Function prototypes
 *******************************************************************************/
+
+
+int
+im_init (void);
+
 
 iface_t
 iface_up (const char *name, const char *ip, const char *port);
@@ -71,6 +97,26 @@ iface_handle_timeouts (iface_t handle);
 /*
  * Internal timeout-related bookeeping.
  */
+
+
+void
+iface_set_events (iface_t iface, bool something_to_send);
+
+
+int
+iface_get_revents (iface_t iface);
+
+
+int
+iface_get_ip_notice (iface_t iface, int *id);
+
+
+dgram_t *
+iface_get_acked (iface_t iface, dgram_id_t dgram_id);
+
+
+dgram_t *
+iface_get_nacked (iface_t iface, dgram_id_t dgram_id);
 
 
 dgram_t *

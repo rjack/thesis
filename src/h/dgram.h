@@ -42,7 +42,11 @@ typedef struct {
 *******************************************************************************/
 
 char *
-dgram_payload (dgram_t *dg, size_t *payload_len_result);
+dgram_payload (dgram_t *dg);
+
+
+size_t
+dgram_payload_len (dgram_t *dg);
 
 
 bool

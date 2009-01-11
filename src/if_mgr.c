@@ -1,3 +1,7 @@
+#include "h/list.h"
+#include "h/if_mgr.h"
+
+
 /*******************************************************************************
 				 Local types
 *******************************************************************************/
@@ -36,7 +40,7 @@ struct full_path {
 	/* When expires, send probalive. */
 	timeout_t fs_probe_tmout;
 	/* List of log entries. */
-	list fp_log;
+	list_t fp_log;
 };
 
 

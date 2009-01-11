@@ -6,8 +6,9 @@
 			     Function prototypes
 *******************************************************************************/
 
-void
+int
 sim_init (fd_t sockfd);
+/* XXX perche' il sockfd? */
 
 
 void

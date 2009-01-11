@@ -5,6 +5,9 @@
 #include <sys/time.h>
 
 
+#define     HUGE_TV_SEC     10000000
+
+
 /*
  * Cronometro.
  */
@@ -25,5 +28,6 @@ void tv_diff(struct timeval *result, const struct timeval *min, const struct tim
 int tv_is_normalized(const struct timeval *tv);
 void tv_normalize(struct timeval *tv);
 void tv_print(const struct timeval *tv);
+void tv_set(struct timeval *tv, time_t secs, suseconds_t usecs);
 
 #endif /* ULB_PROTO_CRONO_H */

@@ -2,6 +2,8 @@
 #include <poll.h>
 #include <sys/types.h>
 
+#include "h/types.h"
+
 
 /****************************************************************************
 			       Variabili locali
@@ -81,7 +83,7 @@ pm_fd_set (fd_t fd, int ev)
 
 
 int
-pm_fd_get_revents (fd_t fd)
+pm_fd_get_eevents (fd_t fd)
 {
 	int i;
 
@@ -91,7 +93,7 @@ pm_fd_get_revents (fd_t fd)
 
 
 int
-pm_fd_get_revents (int fd)
+pm_fd_get_revents (fd_t fd)
 {
 	int i;
 

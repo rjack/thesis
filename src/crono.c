@@ -204,3 +204,13 @@ tv_print (const struct timeval *tv)
 {
 	printf ("%ldsec %ldusec", tv->tv_sec, tv->tv_usec);
 }
+
+
+void
+tv_set (struct timeval *tv, time_t secs, suseconds_t usecs)
+{
+	assert (tv != NULL);
+
+	tv->tv_sec = secs;
+	tv->tv_usec = usecs;
+}

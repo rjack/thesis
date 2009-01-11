@@ -121,14 +121,14 @@ void
 tmout_start (timeout_t handle)
 {
 	struct timeout *tmout;
-	struct timeval;
+	struct timeval now;
 
 	gettime (&now);
 
 	assert (is_valid_handle (handle));
 
 	tmout = &(table_[handle]);
-	crono_start (&(tmout->to_crono), &now);
+	crono_start (&(tmout->to_crono));
 }
 
 
@@ -142,7 +142,7 @@ tmout_left (timeout_t handle, struct timeval *result)
 	assert (is_valid_handle (handle));
 
 	tmout = &(table_[handle]);
-	crono_measure (&(tmout->to_crono), &now, &elapsed);
+	crono_measure (&(tmout->to_crono), &elapsed);
 	tv_diff (&left, &(tmout->to_maxval), &elapsed);
 	if (result)
 		memcpy (result, &left, sizeof(*result));
@@ -192,7 +192,7 @@ tm_min_left_overall (struct timeval *min_result)
 
 	for (i = 0; i < table_used_; i++)
 		if (is_used (table_, i)) {
-			if (!tmout_left (i, &now, &left))
+			if (!tmout_left (i, &left))
 				nexp++;
 			tv_min (min_result, min_result, &left);
 		}
