@@ -303,7 +303,7 @@ main (int argc, const char *argv[])
 	if (err)
 		goto fatal_err;
 
-	err = sim_init (-1);
+	err = sim_init ();
 	if (err)
 		goto fatal_err;
 

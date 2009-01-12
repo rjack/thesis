@@ -25,8 +25,6 @@ struct first_step_log_entry {
  */
 
 struct first_step {
-	/* ACK or NAK firmware. */
-	iface_fw_type_t fs_fw_type;
 	/* Datagrams sent. */
 	list_t fs_sent;
 	/* List of log entries. */

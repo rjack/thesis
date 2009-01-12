@@ -37,14 +37,6 @@ typedef     int             iface_t;
 #define     IFACE_LOCAL_PORT     "5555"
 
 
-/*
- * Firmware type.
- */
-typedef     char             iface_fw_type_t;
-#define     FIRMWARE_ACK     ((iface_fw_type_t)'a')
-#define     FIRMWARE_NAK     ((iface_fw_type_t)'n')
-
-
 /*******************************************************************************
 			     Function prototypes
 *******************************************************************************/
@@ -112,11 +104,7 @@ iface_get_ip_notice (iface_t iface, int *id);
 
 
 dgram_t *
-iface_get_acked (iface_t iface, dgram_id_t dgram_id);
-
-
-dgram_t *
-iface_get_nacked (iface_t iface, dgram_id_t dgram_id);
+iface_get_dgram (iface_t iface, dgram_id_t dgram_id);
 
 
 dgram_t *
