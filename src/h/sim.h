@@ -20,10 +20,13 @@ typedef     char             fw_type_t;
 
 int
 sim_init (void);
+/*
+ * Init the simulator module.
+ */
 
 
 void
-sim_net_create (const char *essid, int wifi_err, int wire_err, int wire_rtt);
+sim_path_create (const char *essid, int wifi_err, int wire_err, int wire_rtt);
 /*
  * Create a new net path.
  * wifi_err: inherent AP error percent (e.g. interference)
@@ -58,10 +61,19 @@ sim_set_link_quality (const char *iface_name, const char *essid, int quality);
 
 void
 sim_get_wire_err (const char *essid);
+/*
+ * Return
+ * 	the wire error parameter.
+ */
 
 
 void
 sim_set_wire_err (const char *essid, int err);
+/*
+ * Set the wire error parameter associated to the net with the given essid.
+ *
+ * Value between 0 and 100
+ */
 
 
 void
