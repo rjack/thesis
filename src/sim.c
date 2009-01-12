@@ -10,6 +10,7 @@ int
 sim_init (void)
 {
 	/* TODO */
+	return -1;
 }
 
 
@@ -31,6 +32,7 @@ int
 sim_get_link_quality (const char *iface_name, const char *essid)
 {
 	/* TODO */
+	return -1;
 }
 
 
@@ -60,6 +62,3 @@ sim_exec_step (void)
 {
 	/* TODO */
 }
-
-
-#endif /* ULB_SIM_H */

@@ -8,6 +8,6 @@ LDFLAGS=-lc
 MAKEDEPEND=gcc -MM $(CPPFLAGS) -o $*.d $<
 
 EXE=ulb
-SRC=crono.c dtable_mgr.c if_mgr.c list.c main.c poll_mgr.c to_mgr.c util.c
+SRC=crono.c dtable_mgr.c if_mgr.c ifmon.c list.c main.c poll_mgr.c sim.c to_mgr.c util.c
 OBJ=$(SRC:.c=.o)
 DEP=$(SRC:.c=.P)
