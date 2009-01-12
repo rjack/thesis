@@ -208,7 +208,7 @@ softphone_err:
 				iface_down (iface);
 			break;
 		default:
-			log_err ("%s is not a valid ifmon command!", cmd);
+			log_err ("%d is not a valid ifmon command!", cmd);
 		}
 		dgram_destroy (dgram);
 		free (name);

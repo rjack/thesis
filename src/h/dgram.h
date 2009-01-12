@@ -15,8 +15,8 @@
  */
 
 typedef     char                    dgram_type_t;
-typedef     uint32_t                dgram_id_t;
-typedef     uint32_t                dgram_probalive_seq_t;
+typedef     unsigned int            dgram_id_t;
+typedef     unsigned int            dgram_probalive_seq_t;
 
 #define     DGRAM_TYPE_DATA         ((dgram_type_t)'d')
 #define     DGRAM_TYPE_PROBALIVE    ((dgram_type_t)'p')
