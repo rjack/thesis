@@ -3,8 +3,9 @@
 #include <unistd.h>
 
 #include "h/dtable_mgr.h"
-#include "h/list.h"
 #include "h/if_mgr.h"
+#include "h/list.h"
+#include "h/poll_mgr.h"
 
 
 /*******************************************************************************
@@ -231,15 +232,16 @@ iface_handle_timeouts (iface_t handle)
 void
 iface_set_events (iface_t iface, bool something_to_send)
 {
-	/* TODO */
+	/* TODO controllami: keepalive, rispedizioni? */
+	pm_fd_set (table_[iface].if_sfd,
+		   POLLIN | POLLERR | (something_to_send ? POLLOUT : 0));
 }
 
 
 int
 iface_get_revents (iface_t iface)
 {
-	/* TODO */
-	return -1;
+	return pm_fd_get_revents (table_[iface].if_sfd);
 }
 
 

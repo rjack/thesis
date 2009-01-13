@@ -83,7 +83,7 @@ pm_fd_set (fd_t fd, int ev)
 
 
 int
-pm_fd_get_eevents (fd_t fd)
+pm_fd_get_events (fd_t fd)
 {
 	int i;
 
