@@ -221,6 +221,25 @@ iface_get_sockfd (iface_t handle)
 }
 
 
+dgram_t *
+iface_get_acked (iface_t handle, dgram_id_t id)
+{
+	list_t rmvd;
+	dgram_t *acked;
+	struct iface *iface;
+
+	iface = &(table_[handle]);
+
+	acked = dgram_list_remove (iface->if_fstep.fs_sent, id);
+}
+
+
+dgram_t *
+iface_get_nacked (iface_t iface, dgram_id_t id)
+{
+}
+
+
 int
 iface_handle_timeouts (iface_t handle)
 {

@@ -84,6 +84,14 @@ fd_t
 iface_get_sockfd (iface_t handle);
 
 
+dgram_t *
+iface_get_acked (iface_t iface, dgram_id_t id);
+
+
+dgram_t *
+iface_get_nacked (iface_t iface, dgram_id_t id);
+
+
 int
 iface_handle_timeouts (iface_t handle);
 /*
@@ -100,7 +108,7 @@ iface_get_revents (iface_t iface);
 
 
 int
-iface_get_ip_notice (iface_t iface, int *id);
+iface_get_ip_notice (iface_t iface, dgram_id_t *id);
 
 
 dgram_t *
