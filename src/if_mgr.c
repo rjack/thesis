@@ -1,4 +1,6 @@
 #include <assert.h>
+#include <string.h>
+#include <unistd.h>
 
 #include "h/dtable_mgr.h"
 #include "h/list.h"
@@ -69,7 +71,7 @@ struct iface {
 
 static struct iface *table_;
 static size_t table_len_;
-static size_t iface table_used_;
+static size_t table_used_;
 
 
 /*******************************************************************************
@@ -77,7 +79,7 @@ static size_t iface table_used_;
 *******************************************************************************/
 
 static bool
-is_used (struct iface *table, int index)
+is_used (struct iface *table, int i)
 {
 	if (table[i].if_sfd == -1)
 		return TRUE;
@@ -86,11 +88,11 @@ is_used (struct iface *table, int index)
 
 
 static void
-set_unused (struct iface *table, int index)
+set_unused (struct iface *table, int i)
 {
 	struct iface *iface;
 
-	iface = &(table[index]);
+	iface = &(table[i]);
 
 	close (iface->if_sfd);
 	iface->if_sfd = -1;
@@ -101,9 +103,17 @@ set_unused (struct iface *table, int index)
 	list_destroy (iface->if_fstep.fs_sent);
 	list_destroy (iface->if_fstep.fs_log);
 
-	/* XXX che si fa con il fp_probe_seq? Si resetta? */
+	iface->if_fpath.fp_probe_seq = 0;
 	tmout_destroy (iface->if_fpath.fp_probe_tmout);
 	list_destroy (iface->if_fpath.fp_log);
+}
+
+
+static bool
+is_valid_handle (iface_t handle)
+{
+	return dtable_is_valid_handle ((void **)&table_, table_used_, handle,
+	                               (use_checker_t)is_used);
 }
 
 
@@ -117,6 +127,8 @@ im_init (void)
 	table_ = NULL;
 	table_used_ = 0;
 	table_len_ = 0;
+
+	return 0;
 }
 
 
@@ -130,11 +142,13 @@ iface_up (const char *name, const char *ip, const char *port)
 	assert (port != NULL);
 
 	handle = dtable_add ((void **)&table_, &table_len_, &table_used_,
-	                     sizeof(*table_), is_used);
+	                     sizeof(*table_), (use_checker_t)is_used);
 	if (handle == -1)
 		return IFACE_ERROR;
 
 	/* TODO */
+	assert (FALSE);
+	return IFACE_ERROR;
 }
 
 
@@ -144,7 +158,7 @@ iface_down (iface_t handle)
 {
 	assert (is_valid_handle (handle));
 
-	dtable_remove ((void **), &table_used_, handle,
+	dtable_remove ((void **)&table_, &table_used_, handle,
 	               (unused_setter_t)set_unused);
 }
 
@@ -159,28 +173,50 @@ iface_compute_best_overall (void)
 iface_t
 iface_find (const char *name)
 {
-	/* TODO */
+	iface_t iface;
+
+	for (iface = iface_iterator_first ();
+	     iface != IFACE_ERROR
+	     && strncmp (table_[iface].if_name, name, IFACE_NAME_LEN) != 0;
+	     iface = iface_iterator_next (iface));
+
+	return iface;
 }
 
 
 iface_t
 iface_iterator_first (void)
 {
-	/* TODO */
+	int i;
+
+	for (i = 0; i < table_used_ && !is_used (table_, i); i++);
+	if (i == table_used_)
+		return IFACE_ERROR;
+	return i;
 }
 
 
 iface_t
 iface_iterator_next (iface_t handle)
 {
-	/* TODO */
+	assert (handle != IFACE_ERROR);
+
+	do {
+		handle++;
+	} while (handle < table_used_ && !is_used (table_, handle));
+
+	if (handle == table_used_)
+		return IFACE_ERROR;
+	return handle;
 }
 
 
 fd_t
 iface_get_sockfd (iface_t handle)
 {
-	/* TODO */
+	assert (is_valid_handle (handle));
+
+	return table_[handle].if_sfd;
 }
 
 
@@ -188,6 +224,7 @@ int
 iface_handle_timeouts (iface_t handle)
 {
 	/* TODO */
+	return -1;
 }
 
 
@@ -202,6 +239,7 @@ int
 iface_get_revents (iface_t iface)
 {
 	/* TODO */
+	return -1;
 }
 
 
@@ -209,6 +247,7 @@ int
 iface_get_ip_notice (iface_t iface, int *id)
 {
 	/* TODO */
+	return -1;
 }
 
 
@@ -216,6 +255,7 @@ dgram_t *
 iface_get_dgram (iface_t iface, dgram_id_t dgram_id)
 {
 	/* TODO */
+	return NULL;
 }
 
 
@@ -223,6 +263,7 @@ dgram_t *
 iface_read (iface_t handle)
 {
 	/* TODO */
+	return NULL;
 }
 
 
@@ -230,4 +271,5 @@ int
 iface_write (iface_t handle, dgram_t *dgram)
 {
 	/* TODO */
+	return -1;
 }
