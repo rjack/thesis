@@ -1,5 +1,7 @@
 #include <assert.h>
+#include <errno.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "h/dgram.h"
 #include "h/if_mgr.h"
@@ -147,7 +149,7 @@ main_loop (void)
 
 	nready = pm_poll (poll_timeout);
 	if (nready == -1) {
-		perror ("pm_poll error");
+		log_err ("pm_poll error: %s", strerror (errno));
 		return -1;
 	}
 
@@ -178,7 +180,8 @@ main_loop (void)
 
 	if (ev & POLLERR) {
 softphone_err:
-		perror ("Softphone communication error");
+		log_err ("Softphone communication error: %s",
+		         strerror (errno));
 		return -1;
 	}
 
@@ -217,7 +220,8 @@ softphone_err:
 
 	if (ev & POLLERR) {
 interface_monitor_err:
-		perror ("Interface monitor communication error");
+		log_err ("Interface monitor communication error: %s",
+		         strerror (errno));
 		return -1;
 	}
 
@@ -235,7 +239,8 @@ interface_monitor_err:
 			if (dgram)
 				inorder_insert (in_, dgram);
 			else {
-				perror ("Error reading from interface");
+				log_err ("Error reading from interface: %s",
+				         strerror (errno));
 				iface_down (iface);
 			}
 		}
@@ -244,7 +249,8 @@ interface_monitor_err:
 			dgram_t *dgram = list_dequeue (out_);
 			int err = iface_write (iface, dgram);
 			if (err) {
-				perror ("Error writing on interface");
+				log_err ("Error writing on interface: %s",
+				         strerror (errno));
 				iface_down (iface);
 				inorder_insert (out_, dgram);
 				continue;
@@ -252,7 +258,7 @@ interface_monitor_err:
 		}
 
 		if (ev & POLLERR) {
-			int id;
+			dgram_id_t id;
 			int notice = iface_get_ip_notice (iface, &id);
 
 			switch (notice) {
@@ -271,7 +277,7 @@ interface_monitor_err:
 				iface_down (iface);
 				break;
 			default :
-				log_err ("%s", "Unknown notice!");
+				log_err ("Unknown notice: %d", notice);
 				return -1;
 			}
 		}
