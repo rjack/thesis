@@ -239,7 +239,7 @@ list_length (list_t lst)
 
 
 void *
-list_iterator_get_first (list_t lst, list_iterator_t *lit)
+list_iterator_first (list_t lst, list_iterator_t *lit)
 {
 	if (list_is_empty (lst)) {
 		*lit = NULL;
@@ -252,7 +252,7 @@ list_iterator_get_first (list_t lst, list_iterator_t *lit)
 
 
 void *
-list_iterator_get_last (list_t lst, list_iterator_t *lit)
+list_iterator_last (list_t lst, list_iterator_t *lit)
 {
 	if (list_is_empty (lst)) {
 		*lit = NULL;
@@ -265,7 +265,7 @@ list_iterator_get_last (list_t lst, list_iterator_t *lit)
 
 
 void *
-list_iterator_get_next (list_t lst, list_iterator_t *lit)
+list_iterator_next (list_t lst, list_iterator_t *lit)
 {
 	assert (lit != NULL);
 
@@ -283,7 +283,7 @@ list_iterator_get_next (list_t lst, list_iterator_t *lit)
 
 
 void *
-list_iterator_get_prev (list_t lst, list_iterator_t *lit)
+list_iterator_prev (list_t lst, list_iterator_t *lit)
 {
 	assert (lit != NULL);
 
@@ -309,13 +309,13 @@ list_find (list_t lst, f_bool_t my_test, void *term, int mode)
 	assert (my_test != NULL);
 
 	element = (mode & LIST_SCAN_BACKWARD) ?
-	          list_iterator_get_last (lst, &lit) :
-		  list_iterator_get_first (lst, &lit);
+	          list_iterator_last (lst, &lit) :
+		  list_iterator_first (lst, &lit);
 
 	while (element != NULL && !my_test (element, term))
 		element = (mode & LIST_SCAN_BACKWARD) ?
-		           list_iterator_get_prev (lst, &lit) :
-		           list_iterator_get_next (lst, &lit);
+		           list_iterator_prev (lst, &lit) :
+		           list_iterator_next (lst, &lit);
 	return element;
 }
 
@@ -399,16 +399,16 @@ list_remove_if (list_t lst, f_bool_t my_test, void *args)
 
 	rmvd = list_create (table_[lst].li_node_value_destroyer);
 
-	value = list_iterator_get_first (lst, &lit);
+	value = list_iterator_first (lst, &lit);
 	while (value != NULL)
 		if (my_test (value, args)) {
 			/* list_iterator_t == node pointer. */
 			struct list_node *selected = lit;
-			value = list_iterator_get_next (lst, &lit);
+			value = list_iterator_next (lst, &lit);
 			list_node_remove (lst, selected);
 			list_node_enqueue (rmvd, selected);
 		} else
-			value = list_iterator_get_next (lst, &lit);
+			value = list_iterator_next (lst, &lit);
 	return rmvd;
 }
 
@@ -419,9 +419,9 @@ list_remove_one (list_t lst, f_bool_t my_test, void *args)
 	void *value;
 	list_iterator_t lit;
 
-	for (value = list_iterator_get_first (lst, &lit);
+	for (value = list_iterator_first (lst, &lit);
 	     value != NULL && !my_test (value, args);
-	     value = list_iterator_get_next (lst, &lit));
+	     value = list_iterator_next (lst, &lit));
 
 	if (value != NULL)
 		return (list_node_destroy (list_node_remove (lst, lit)));
@@ -441,9 +441,9 @@ list_fold_left (list_t lst, void * (*fun)(void *, void *),
 
 	accumulator = initial_value;
 
-	for (element = list_iterator_get_first (lst, &lit);
+	for (element = list_iterator_first (lst, &lit);
 	     element != NULL;
-	     element = list_iterator_get_next (lst, &lit))
+	     element = list_iterator_next (lst, &lit))
 		accumulator = fun (accumulator, element);
 
 	return accumulator;
@@ -466,8 +466,8 @@ list_foreach_do (list_t lst, void (*fun)(void *, void *), void *args)
 
 	assert (fun != NULL);
 
-	for (element = list_iterator_get_first (lst, &lit);
+	for (element = list_iterator_first (lst, &lit);
 	     element != NULL;
-	     element = list_iterator_get_next (lst, &lit))
+	     element = list_iterator_next (lst, &lit))
 		fun (element, args);
 }
