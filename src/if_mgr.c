@@ -21,6 +21,7 @@ struct full_path_log_entry {
 
 struct first_step_log_entry {
 	dgram_id_t fsl_dgram_id;
+	dgram_type_t fsl_dgram_type;
 	struct timeval fsl_timestamp;
 	bool fsl_success;
 };
@@ -33,7 +34,7 @@ struct first_step_log_entry {
 struct first_step {
 	/* Datagrams sent. */
 	list_t fs_sent;
-	/* List of log entries. */
+	/* List of log entries, ordered by fsl_timestamp. */
 	list_t fs_log;
 };
 
@@ -43,7 +44,7 @@ struct full_path {
 	probe_seqnum_t fp_probe_seq;
 	/* When expires, send probalive. */
 	timeout_t fp_probe_tmout;
-	/* List of log entries. */
+	/* List of log entries, ordered by fpl_probe_sent_at. */
 	list_t fp_log;
 };
 
@@ -60,6 +61,8 @@ struct iface {
 	/* Local IP address and local port (socket will bind to this pair). */
 	char if_loc_ip[IFACE_LOC_IP_LEN];
 	char if_loc_port[IFACE_LOC_PORT_LEN];
+	/* Interface quality. */
+	int if_quality;
 	/* Auxiliary stuff. */
 	struct first_step if_fstep;
 	struct full_path if_fpath;
@@ -106,6 +109,7 @@ set_unused (struct iface *table, int i)
 	list_destroy (iface->if_fstep.fs_log);
 
 	iface->if_fpath.fp_probe_seq = 0;
+	iface->if_quality = -1;
 	tmout_destroy (iface->if_fpath.fp_probe_tmout);
 	list_destroy (iface->if_fpath.fp_log);
 }
@@ -116,6 +120,29 @@ is_valid_handle (iface_t handle)
 {
 	return dtable_is_valid_handle ((void **)&table_, table_used_, handle,
 	                               (use_checker_t)is_used);
+}
+
+
+int
+fsl_cmp (struct full_path_log_entry *fsle_1, struct full_path_log_entry *fsle_2)
+{
+	return tv_cmp (&(fsle_1->fsl_timestamp), &(fsle_2->fsl_timestamp));
+}
+
+
+static void
+fsl_add_success (list_t log, dgram_id_t id, dgram_type_t type, bool success)
+{
+	struct full_path_log_entry *fsle;
+
+	fsle = my_alloc (sizeof(*fsle));
+
+	gettime (&fsle->fsl_timestamp);
+	fsle->fsl_dgram_id = id;
+	fsle->fsl_dgram_type = type;
+	fsle->fsl_success = success;
+
+	list_inorder_insert (log, fsle, (f_compare_t)fsl_cmp);
 }
 
 
@@ -159,7 +186,14 @@ iface_up (const char *name, const char *ip, const char *port)
 void
 iface_down (iface_t handle)
 {
+	struct iface *iface;
+
 	assert (is_valid_handle (handle));
+
+	iface = &(table_[handle]);
+
+	log ("iface_down %s %s:%s", iface->if_name, iface->if_loc_ip,
+	     iface->if_loc_port);
 
 	dtable_remove ((void **)&table_, &table_used_, handle,
 	               (unused_setter_t)set_unused);
