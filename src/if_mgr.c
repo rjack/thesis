@@ -73,6 +73,7 @@ struct iface {
 static struct iface *table_;
 static size_t table_len_;
 static size_t table_used_;
+iface_t best_;
 
 
 /*******************************************************************************
@@ -128,6 +129,7 @@ im_init (void)
 	table_ = NULL;
 	table_used_ = 0;
 	table_len_ = 0;
+	best_ = IFACE_ERROR;
 
 	return 0;
 }
