@@ -128,10 +128,8 @@ main_loop (void)
 	     iface = iface_iterator_next (iface)) {
 		list_t rmvd;
 		dgram_t *dgram;
-		/* Discard old. */
-		iface_dgrams_discard (dgram_life_expired);
-		/* Send again if retry timeout is expired. */
-		rmvd = iface_dgrams_remove (dgram_retry_expired);
+		iface_dgrams_discard_expired (iface);
+		rmvd = iface_get_unacked (iface);
 		while (dgram = list_dequeue (rmvd))
 			inorder_insert (out_, dgram);
 		list_destroy (rmvd);
