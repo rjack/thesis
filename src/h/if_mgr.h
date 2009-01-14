@@ -105,6 +105,13 @@ iface_set_events (iface_t iface, bool something_to_send);
 
 int
 iface_get_revents (iface_t iface);
+/*
+ * Return a bitmask of events occurred while polling.
+ * POLLIN: there is data to read
+ * POLLOUT: regular data can be sent
+ * POLLERR: there is something in the MSG_ERRQUEUE
+ * POLLMSG: interface must send something with iface_write_extra.
+ */
 
 
 int

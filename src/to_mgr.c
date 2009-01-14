@@ -121,9 +121,6 @@ void
 tmout_start (timeout_t handle)
 {
 	struct timeout *tmout;
-	struct timeval now;
-
-	gettime (&now);
 
 	assert (is_valid_handle (handle));
 
@@ -183,9 +180,6 @@ tm_min_left_overall (struct timeval *min_result)
 	int i;
 	int nexp;
 	struct timeval left;
-	struct timeval now;
-
-	gettime (&now);
 
 	nexp = 0;
 	tv_set (min_result, HUGE_TV_SEC, 0);

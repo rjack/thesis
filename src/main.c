@@ -99,7 +99,7 @@ main_loop (void)
 	struct timeval min;
 
 	/*
-	 * Update timeouts.
+	 * Get min timeout for poll.
 	 */
 	if (tm_min_left_overall (&min) == 0)
 		poll_timeout = -1;
@@ -116,7 +116,7 @@ main_loop (void)
 	/*
 	 * Discard old datagrams.
 	 */
-	rmvd = list_remove_if (out_, (f_bool_t)dgram_must_be_discarded, NULL);
+	rmvd = list_remove_if (out_, (f_bool_t)dgram_life_expired, NULL);
 	list_destroy (rmvd);
 
 
@@ -125,8 +125,17 @@ main_loop (void)
 	 */
 	for (iface = iface_iterator_first ();
 	     iface != IFACE_ERROR;
-	     iface = iface_iterator_next (iface))
-		iface_handle_timeouts (iface);
+	     iface = iface_iterator_next (iface)) {
+		list_t rmvd;
+		dgram_t *dgram;
+		/* Discard old. */
+		iface_dgrams_discard (dgram_life_expired);
+		/* Send again if retry timeout is expired. */
+		rmvd = iface_dgrams_remove (dgram_retry_expired);
+		while (dgram = list_dequeue (rmvd))
+			inorder_insert (out_, dgram);
+		list_destroy (rmvd);
+	}
 
 
 	/*
@@ -253,6 +262,16 @@ interface_monitor_err:
 				         strerror (errno));
 				iface_down (iface);
 				inorder_insert (out_, dgram);
+				continue;
+			}
+		}
+
+		if (ev & POLLMSG) {
+			int err = iface_write_extra ();
+			if (err) {
+				log_err ("Error writing on interface: %s",
+				         strerror (errno));
+				iface_down (iface);
 				continue;
 			}
 		}

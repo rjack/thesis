@@ -174,14 +174,14 @@ iface_compute_best_overall (void)
 iface_t
 iface_find (const char *name)
 {
-	iface_t iface;
+	iface_t handle;
 
-	for (iface = iface_iterator_first ();
-	     iface != IFACE_ERROR
-	     && strncmp (table_[iface].if_name, name, IFACE_NAME_LEN) != 0;
-	     iface = iface_iterator_next (iface));
+	for (handle = iface_iterator_first ();
+	     handle != IFACE_ERROR
+	     && strncmp (table_[handle].if_name, name, IFACE_NAME_LEN) != 0;
+	     handle = iface_iterator_next (handle));
 
-	return iface;
+	return handle;
 }
 
 
@@ -235,7 +235,7 @@ iface_get_acked (iface_t handle, dgram_id_t id)
 
 
 dgram_t *
-iface_get_nacked (iface_t iface, dgram_id_t id)
+iface_get_nacked (iface_t handle, dgram_id_t id)
 {
 }
 
@@ -249,23 +249,41 @@ iface_handle_timeouts (iface_t handle)
 
 
 void
-iface_set_events (iface_t iface, bool something_to_send)
+iface_set_events (iface_t handle, bool something_to_send)
 {
-	/* TODO controllami: keepalive, rispedizioni? */
-	pm_fd_set (table_[iface].if_sfd,
+	struct iface *iface;
+
+	iface = &(table_[handle]);
+
+	/* Probalive timeout expired. */
+	if (!tmout_left (iface->if_fpath.fp_probe_tmout, NULL))
+		something_to_send = TRUE;
+
+	pm_fd_set (table_[handle].if_sfd,
 		   POLLIN | POLLERR | (something_to_send ? POLLOUT : 0));
 }
 
 
 int
-iface_get_revents (iface_t iface)
+iface_get_revents (iface_t handle)
 {
-	return pm_fd_get_revents (table_[iface].if_sfd);
+	int ev;
+	struct iface *iface;
+
+	iface = &(table_[handle]);
+
+	ev = pm_fd_get_revents (iface->if_sfd);
+
+	/* Probalive timeout expired. */
+	if (!tmout_left (iface->if_fpath.fp_probe_tmout, NULL))
+		ev |= POLLMSG;
+
+	return ev;
 }
 
 
 int
-iface_get_ip_notice (iface_t iface, int *id)
+iface_get_ip_notice (iface_t handle, int *id)
 {
 	/* TODO */
 	return -1;
@@ -273,7 +291,7 @@ iface_get_ip_notice (iface_t iface, int *id)
 
 
 dgram_t *
-iface_get_dgram (iface_t iface, dgram_id_t dgram_id)
+iface_get_dgram (iface_t handle, dgram_id_t dgram_id)
 {
 	/* TODO */
 	return NULL;
@@ -290,6 +308,14 @@ iface_read (iface_t handle)
 
 int
 iface_write (iface_t handle, dgram_t *dgram)
+{
+	/* TODO */
+	return -1;
+}
+
+
+int
+iface_write_extra (iface_t handle)
 {
 	/* TODO */
 	return -1;

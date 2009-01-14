@@ -50,11 +50,11 @@ dgram_payload_len (dgram_t *dg);
 
 
 bool
-dgram_must_be_discarded (dgram_t *dg);
+dgram_life_expired (dgram_t *dg);
 
 
 bool
-dgram_must_be_resent (dgram_t *dg);
+dgram_retry_expired (dgram_t *dg);
 
 
 bool
