@@ -1,16 +1,59 @@
+Salve prof,
+
+alla fine mi trovo a sviluppare un piccolo simulatore che dovrebbe usare i
+socketpair AF_UNIX SOCK_DGRAM per simulare le comunicazioni.
+
+Il simulatore simulera' tutto lo scenario: phone, ulb, ted, im, gli ap e il
+proxy, in modo semplificato.
+
+Ogni evento verra' loggato su stdout con timestamp, in modo da poter avere una
+specie di trace da analizzare.
+
+Per valutare la qualita' delle varie interfacce nel first step (iface - AP)
+mi baso sulla storia dell'interfaccia. Tengo la storia breve e pesata (evento
+recente conta piu' di evento meno recente).
+
+La qualita' nel full path la misurerei a colpi di ping iniziati da ULB.
+
+In pratica misuro la percentuale di packet loss, esattamente come quando
+pinghiamo a riga di comando. L'unica differenza e' che il calcolo viene pesato
+rispetto al tempo: un packet loss 10ms fa conta piu' di un pacchetto ricevuto
+100ms fa.
+
+ULB misura la latenza in base all'RTT del ping e ne tiene conto nella scelta
+dell'interfaccia per l'invio dei dati.
+
+Ogni ping contiene il "voto" assegnato dall'ULB all'intefaccia usata per
+spedire il ping stesso.
+Il Proxy manda i dati all'indirizzo da cui riceve dati.
+Se non riceve dati li manda all'indirizzo con packet loss minore e voto
+maggiore.
+
+
 Problemi:
 
 1. i dati SIP e RTP sono criptati e firmati a livello applicazione, quindi ULB
-   li tratta come dati opachi. Pero' i probalive scambiati tra ULB e Proxy
-   sono relativi alla sessione e devono essere firmati anch'essi, perche' il
-   Proxy deve riuscire ad associare ogni probalive che riceve alla sessione a
-   cui questo si riferisce.
+   li tratta come dati opachi. Pero' i ping scambiati tra ULB e Proxy sono
+   relativi alla sessione e devono essere firmati anch'essi, perche' il Proxy
+   deve riuscire ad associare ogni ping che riceve alla sessione a cui questo
+   si riferisce.
 
    Quindi ULB deve
    * in qualche modo venire a conoscenza della chiave segreta per poter
-     firmare i probalive
-   * oppure poter richiedere a un servizio esterno la firma dei probalive
+     firmare i ping
+   * oppure poter richiedere a un servizio esterno la firma dei ping
      prima dell'invio al Proxy Server
 
-  Purtroppo firmare i probalive aumenta la loro dimensione, ma non vedo
-  alternative.
+  Purtroppo firmare i ping aumenta la loro dimensione.
+
+  Per semplicita' nella simulazione fingo che il problema non sussista.
+
+
+Alla fine della fiera vorrei essere in grado di eseguire il simulatore senza
+algoritmo QoS attivo, poi eseguirlo con l'algoritmo QoS attivo e vedere dal
+confronto dei due trace che l'algoritmo in effetti migliora la situazione.
+
+Speriamo.
+
+Saluti,
+Giacomo Ritucci
