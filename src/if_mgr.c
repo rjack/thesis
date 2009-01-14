@@ -230,13 +230,28 @@ iface_get_acked (iface_t handle, dgram_id_t id)
 
 	iface = &(table_[handle]);
 
-	acked = dgram_list_remove (iface->if_fstep.fs_sent, id);
+	/* TODO segnare sul log */
+
+	acked = list_remove_one (iface->if_fstep.fs_sent,
+	                         (f_bool_t)dgram_eq_id, id);
+	return acked;
 }
 
 
 dgram_t *
 iface_get_nacked (iface_t handle, dgram_id_t id)
 {
+	list_t rmvd;
+	dgram_t *nacked;
+	struct iface *iface;
+
+	iface = &(table_[handle]);
+
+	/* TODO segnare sul log */
+
+	nacked = list_remove_one (iface->if_fstep.fs_sent,
+	                          (f_bool_t)dgram_eq_id, id);
+	return nacked;
 }
 
 
