@@ -193,6 +193,17 @@ list_remove_if (list_t lst, f_bool_t my_test, void *args);
  */
 
 
+void *
+list_remove_one (list_t lst, f_bool_t my_test, void *args);
+/*
+ * Remove the first element of lst that satisfies `my_test (element, args)'.
+ *
+ * Return
+ * 	the value that satisfied my_test
+ * or	NULL fi list is empty or no such element found.
+ */
+
+
 void
 *list_fold_left (list_t lst, void *(*fun)(void *, void *),
                  void *initial_value);

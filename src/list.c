@@ -14,7 +14,7 @@
 
 struct list {
 	struct list_node *li_tail_ptr;
-	f_destroy_t li_node_value_destroy;
+	f_destroy_t li_node_value_destroyer;
 	int li_list_len;
 };
 
@@ -41,7 +41,7 @@ is_used (struct list *li)
 
 	if (li->li_tail_ptr == NULL
 	    && li->li_list_len == 0
-	    && li->li_node_value_destroy == NULL)
+	    && li->li_node_value_destroyer == NULL)
 		return FALSE;
 	return TRUE;
 
@@ -167,12 +167,12 @@ list_node_enqueue (list_t lst, struct list_node *new_node)
 ****************************************************************************/
 
 list_t
-list_create (f_destroy_t node_value_destroy)
+list_create (f_destroy_t node_value_destroyer)
 {
 	list_t new_handle;
 	struct list *new_list;
 
-	if (node_value_destroy == NULL)
+	if (node_value_destroyer == NULL)
 		return LIST_ERR;
 
 	new_handle = dtable_add ((void **)&table_, &table_len_, &table_used_,
@@ -182,7 +182,7 @@ list_create (f_destroy_t node_value_destroy)
 
 	new_list = &(table_[new_handle]);
 	new_list->li_tail_ptr = NULL;
-	new_list->li_node_value_destroy = node_value_destroy;
+	new_list->li_node_value_destroyer = node_value_destroyer;
 	new_list->li_list_len = 0;
 
 	return new_handle;
@@ -196,7 +196,7 @@ list_destroy (list_t lst)
 	void (*my_free)(void *);
 
 	/* Empty list. */
-	my_free = table_[lst].li_node_value_destroy;
+	my_free = table_[lst].li_node_value_destroyer;
 	while ((element = list_dequeue (lst)) != NULL)
 		my_free (element);
 
@@ -393,30 +393,39 @@ list_inorder_insert (list_t lst, void *new_element, f_compare_t my_cmp)
 list_t
 list_remove_if (list_t lst, f_bool_t my_test, void *args)
 {
-	struct list_node *cur;
-	struct list_node *nxt;
+	void *value;
 	list_t rmvd;
+	list_iterator_t lit;
 
-	assert (my_test != NULL);
+	rmvd = list_create (table_[lst].li_node_value_destroyer);
 
-	rmvd = list_create (table_[lst].li_node_value_destroy);
-
-	if (!list_is_empty (lst))
-		cur = table_[lst].li_tail_ptr->n_next;
-	else
-		cur = NULL;
-	while (!list_is_empty (lst) && cur != NULL) {
-		if (cur->n_next == table_[lst].li_tail_ptr->n_next)
-			nxt = NULL;
-		else
-			nxt = cur->n_next;
-		if (my_test (cur->n_ptr, args)) {
-			list_node_remove (lst, cur);
-			list_node_enqueue (rmvd, cur);
-		}
-		cur = nxt;
-	}
+	value = list_iterator_get_first (lst, &lit);
+	while (value != NULL)
+		if (my_test (value, args)) {
+			/* list_iterator_t == node pointer. */
+			struct list_node *selected = lit;
+			value = list_iterator_get_next (lst, &lit);
+			list_node_remove (lst, selected);
+			list_node_enqueue (rmvd, selected);
+		} else
+			value = list_iterator_get_next (lst, &lit);
 	return rmvd;
+}
+
+
+void *
+list_remove_one (list_t lst, f_bool_t my_test, void *args)
+{
+	void *value;
+	list_iterator_t lit;
+
+	for (value = list_iterator_get_first (lst, &lit);
+	     value != NULL && !my_test (value, args);
+	     value = list_iterator_get_next (lst, &lit));
+
+	if (value != NULL)
+		return (list_node_destroy (list_node_remove (lst, lit)));
+	return NULL;
 }
 
 
