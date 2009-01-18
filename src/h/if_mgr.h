@@ -23,6 +23,18 @@ typedef     int             iface_t;
 #define     IFACE_ERROR     ((iface_t)-1)
 
 
+/****************************************************************************
+				  Constants
+****************************************************************************/
+
+/*
+ * POLLMSG is defined in <poll.h> but unused, and exposed if __USE_GNU is
+ * defined, so we can reuse it safely for our purposes (see
+ * iface_get_revents).
+ */
+#define     POLLMSG     0x400
+
+
 /*
  * TED notices.
  */

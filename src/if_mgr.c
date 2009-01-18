@@ -2,10 +2,14 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "h/crono.h"
+#include "h/dgram.h"
 #include "h/dtable_mgr.h"
 #include "h/if_mgr.h"
 #include "h/list.h"
+#include "h/logger.h"
 #include "h/poll_mgr.h"
+#include "h/util.h"
 
 
 /*******************************************************************************
@@ -123,8 +127,8 @@ is_valid_handle (iface_t handle)
 }
 
 
-int
-fsl_cmp (struct full_path_log_entry *fsle_1, struct full_path_log_entry *fsle_2)
+static int
+fsl_cmp (struct first_step_log_entry *fsle_1, struct first_step_log_entry *fsle_2)
 {
 	return tv_cmp (&(fsle_1->fsl_timestamp), &(fsle_2->fsl_timestamp));
 }
@@ -133,7 +137,7 @@ fsl_cmp (struct full_path_log_entry *fsle_1, struct full_path_log_entry *fsle_2)
 static void
 fsl_add_success (list_t log, dgram_id_t id, dgram_type_t type, bool success)
 {
-	struct full_path_log_entry *fsle;
+	struct first_step_log_entry *fsle;
 
 	fsle = my_alloc (sizeof(*fsle));
 
@@ -143,6 +147,36 @@ fsl_add_success (list_t log, dgram_id_t id, dgram_type_t type, bool success)
 	fsle->fsl_success = success;
 
 	list_inorder_insert (log, fsle, (f_compare_t)fsl_cmp);
+}
+
+
+static vote_t
+compute_vote_full_path (list_t full_path_log)
+{
+	/* TODO */
+	return -1;
+}
+
+
+static vote_t
+compute_vote_first_step (list_t first_step_log)
+{
+	/* TODO */
+	return -1;
+}
+
+
+static vote_t
+compute_vote_total (struct iface *iface)
+{
+	vote_t full_path_vote;
+	vote_t first_step_vote;
+
+	full_path_vote = compute_vote_full_path (iface->if_fpath.fp_log);
+	first_step_vote = compute_vote_first_step (iface->if_fstep.fs_log);
+
+	/* TODO return formula_magica (full_path_vote, first_step_vote) */
+	return -1;
 }
 
 
@@ -203,7 +237,21 @@ iface_down (iface_t handle)
 void
 iface_compute_best_overall (void)
 {
-	/* TODO */
+	iface_t iface;
+	iface_t new_best;
+	vote_t max;
+	vote_t vote;
+
+	for (iface = iface_iterator_first ();
+	     iface != IFACE_ERROR;
+	     iface = iface_iterator_next (iface)) {
+		vote = compute_vote_total (&(table_[iface]));
+		if (vote > max) {
+			max = vote;
+			new_best = iface;
+		}
+	}
+	best_ = new_best;
 }
 
 
@@ -260,7 +308,6 @@ iface_get_sockfd (iface_t handle)
 dgram_t *
 iface_get_acked (iface_t handle, dgram_id_t id)
 {
-	list_t rmvd;
 	dgram_t *acked;
 	struct iface *iface;
 
@@ -269,7 +316,7 @@ iface_get_acked (iface_t handle, dgram_id_t id)
 	/* TODO segnare sul log */
 
 	acked = list_remove_one (iface->if_fstep.fs_sent,
-	                         (f_bool_t)dgram_eq_id, id);
+	                         (f_bool_t)dgram_eq_id, &id);
 	return acked;
 }
 
@@ -277,7 +324,6 @@ iface_get_acked (iface_t handle, dgram_id_t id)
 dgram_t *
 iface_get_nacked (iface_t handle, dgram_id_t id)
 {
-	list_t rmvd;
 	dgram_t *nacked;
 	struct iface *iface;
 
@@ -286,7 +332,7 @@ iface_get_nacked (iface_t handle, dgram_id_t id)
 	/* TODO segnare sul log */
 
 	nacked = list_remove_one (iface->if_fstep.fs_sent,
-	                          (f_bool_t)dgram_eq_id, id);
+	                          (f_bool_t)dgram_eq_id, &id);
 	return nacked;
 }
 
@@ -334,7 +380,7 @@ iface_get_revents (iface_t handle)
 
 
 int
-iface_get_ip_notice (iface_t handle, int *id)
+iface_get_ip_notice (iface_t handle, dgram_id_t *id)
 {
 	/* TODO */
 	return -1;
