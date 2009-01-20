@@ -27,7 +27,7 @@ struct first_step_log_entry {
 	dgram_id_t fsl_dgram_id;
 	dgram_type_t fsl_dgram_type;
 	struct timeval fsl_timestamp;
-	bool fsl_success;
+	int fsl_outcome;
 };
 
 
