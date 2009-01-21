@@ -69,6 +69,10 @@ struct iface {
 	/* List of log entries, ordered by fpl_probe_sent_at. */
 	list_t if_full_path_log;
 
+	/* Firmware infos. */
+	bool if_firmware_ack;
+	bool if_firmware_nak;
+
 	/* Probe sequence number. */
 	probe_seqnum_t if_probe_seq;
 	/* When expires, send probalive. */
