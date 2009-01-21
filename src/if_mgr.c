@@ -11,6 +11,16 @@
 #include "h/poll_mgr.h"
 #include "h/util.h"
 
+/*
+ * TODO
+ * per ogni interfaccia bisogna capire il tipo di firmware
+ *
+ * quando riceve la risposta di un probe
+ * 	controlla l'id a cui si riferisce
+ * 	se il probe relativo non e' stato ackato
+ * 		il firmware notifica SOLO I NAK
+ */
+
 
 /*******************************************************************************
 				 Local types
@@ -35,24 +45,6 @@ struct first_step_log_entry {
  * Interface.
  */
 
-struct first_step {
-	/* Datagrams sent. */
-	list_t fs_sent;
-	/* List of log entries, ordered by fsl_timestamp. */
-	list_t fs_log;
-};
-
-
-struct full_path {
-	/* Probe sequence number. */
-	probe_seqnum_t fp_probe_seq;
-	/* When expires, send probalive. */
-	timeout_t fp_probe_tmout;
-	/* List of log entries, ordered by fpl_probe_sent_at. */
-	list_t fp_log;
-};
-
-
 #define     IFACE_NAME_LEN         10
 #define     IFACE_LOC_IP_LEN       16
 #define     IFACE_LOC_PORT_LEN      6
@@ -60,16 +52,29 @@ struct full_path {
 struct iface {
 	/* Socket file descriptor. */
 	fd_t if_sfd;
+
 	/* Name (e.g. eth0). */
 	char if_name[IFACE_NAME_LEN];
 	/* Local IP address and local port (socket will bind to this pair). */
 	char if_loc_ip[IFACE_LOC_IP_LEN];
 	char if_loc_port[IFACE_LOC_PORT_LEN];
+
 	/* Interface quality. */
-	int if_quality;
-	/* Auxiliary stuff. */
-	struct first_step if_fstep;
-	struct full_path if_fpath;
+	vote_t if_vote;
+
+	/* List of sent datagrams. */
+	list_t if_sent;
+	/* List of log entries, ordered by fsl_timestamp. */
+	list_t if_first_step_log;
+	/* List of log entries, ordered by fpl_probe_sent_at. */
+	list_t if_full_path_log;
+
+	/* Probe sequence number. */
+	probe_seqnum_t if_probe_seq;
+	/* When expires, send probalive. */
+	timeout_t if_probe_tmout;
+
+	/* TODO stats. */
 };
 
 
@@ -109,13 +114,14 @@ set_unused (struct iface *table, int i)
 	memset (iface->if_loc_ip, '\0', IFACE_LOC_IP_LEN);
 	memset (iface->if_loc_port, '\0', IFACE_LOC_PORT_LEN);
 
-	list_destroy (iface->if_fstep.fs_sent);
-	list_destroy (iface->if_fstep.fs_log);
+	if_vote = VOTE_UNKNOWN;
 
-	iface->if_fpath.fp_probe_seq = 0;
-	iface->if_quality = -1;
-	tmout_destroy (iface->if_fpath.fp_probe_tmout);
-	list_destroy (iface->if_fpath.fp_log);
+	list_destroy (iface->if_sent);
+	list_destroy (iface->if_first_step_log);
+	list_destroy (iface->if_full_path_log);
+
+	iface->if_probe_seq = 0;
+	tmout_destroy (iface->if_probe_tmout);
 }
 
 
@@ -172,8 +178,8 @@ compute_vote_total (struct iface *iface)
 	vote_t full_path_vote;
 	vote_t first_step_vote;
 
-	full_path_vote = compute_vote_full_path (iface->if_fpath.fp_log);
-	first_step_vote = compute_vote_first_step (iface->if_fstep.fs_log);
+	full_path_vote = compute_vote_full_path (iface->if_full_path_log);
+	first_step_vote = compute_vote_first_step (iface->if_first_step_log);
 
 	/* TODO return formula_magica (full_path_vote, first_step_vote) */
 	return -1;
@@ -237,18 +243,19 @@ iface_down (iface_t handle)
 void
 iface_compute_best_overall (void)
 {
-	iface_t iface;
+	iface_t cur;
 	iface_t new_best;
 	vote_t max;
-	vote_t vote;
+	struct iface *cur_ptr;
 
-	for (iface = iface_iterator_first ();
-	     iface != IFACE_ERROR;
-	     iface = iface_iterator_next (iface)) {
-		vote = compute_vote_total (&(table_[iface]));
-		if (vote > max) {
-			max = vote;
-			new_best = iface;
+	for (cur = iface_iterator_first ();
+	     cur != IFACE_ERROR;
+	     cur = iface_iterator_next (cur)) {
+		cur_ptr = &(table_[cur]);
+		cur->if_vote = compute_vote_total (cur_ptr);
+		if (cur->if_vote > max) {
+			max = cur->if_vote;
+			new_best = cur;
 		}
 	}
 	best_ = new_best;
@@ -315,8 +322,7 @@ iface_get_acked (iface_t handle, dgram_id_t id)
 
 	/* TODO segnare sul log */
 
-	acked = list_remove_one (iface->if_fstep.fs_sent,
-	                         (f_bool_t)dgram_eq_id, &id);
+	acked = list_remove_one (iface->if_sent, (f_bool_t)dgram_eq_id, &id);
 	return acked;
 }
 
@@ -331,8 +337,7 @@ iface_get_nacked (iface_t handle, dgram_id_t id)
 
 	/* TODO segnare sul log */
 
-	nacked = list_remove_one (iface->if_fstep.fs_sent,
-	                          (f_bool_t)dgram_eq_id, &id);
+	nacked = list_remove_one (iface->if_sent, (f_bool_t)dgram_eq_id, &id);
 	return nacked;
 }
 
@@ -352,8 +357,9 @@ iface_set_events (iface_t handle, bool something_to_send)
 
 	iface = &(table_[handle]);
 
-	/* Probalive timeout expired. */
-	if (!tmout_left (iface->if_fpath.fp_probe_tmout, NULL))
+	/* Probalive timeout expired or initial probe burst. */
+	if (!tmout_left (iface->if_probe_tmout, NULL)
+	    || iface->if_probe_seq < PROBE_BURST_MAX)
 		something_to_send = TRUE;
 
 	pm_fd_set (table_[handle].if_sfd,
@@ -371,8 +377,9 @@ iface_get_revents (iface_t handle)
 
 	ev = pm_fd_get_revents (iface->if_sfd);
 
-	/* Probalive timeout expired. */
-	if (!tmout_left (iface->if_fpath.fp_probe_tmout, NULL))
+	/* Probalive timeout expired or must perform initial probe burst. */
+	if (!tmout_left (iface->if_probe_tmout, NULL)
+	    || iface->if_probe_seq < PROBE_BURST_MAX)
 		ev |= POLLMSG;
 
 	return ev;
