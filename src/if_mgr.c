@@ -118,7 +118,7 @@ set_unused (struct iface *table, int i)
 	memset (iface->if_loc_ip, '\0', IFACE_LOC_IP_LEN);
 	memset (iface->if_loc_port, '\0', IFACE_LOC_PORT_LEN);
 
-	if_vote = VOTE_UNKNOWN;
+	iface->if_vote = VOTE_UNKNOWN;
 
 	list_destroy (iface->if_sent);
 	list_destroy (iface->if_first_step_log);

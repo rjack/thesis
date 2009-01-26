@@ -49,6 +49,12 @@ typedef     int             iface_t;
 #define     IFACE_LOCAL_PORT     "5555"
 
 
+/*
+ * Iface quality is unknown.
+ */
+#define     VOTE_UNKNOWN         ((vote_t)-1)
+
+
 /*******************************************************************************
 			     Function prototypes
 *******************************************************************************/
