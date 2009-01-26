@@ -13,7 +13,7 @@ int
 dtable_add (void **table, size_t *table_len, size_t *table_used, size_t
             elem_size, use_checker_t is_used)
 {
-	int new_handle;
+	unsigned int new_handle;
 
 	assert (*table_used <= *table_len);
 	assert (elem_size > 0);
@@ -43,10 +43,9 @@ dtable_add (void **table, size_t *table_len, size_t *table_used, size_t
 
 
 void
-dtable_remove (void **table, size_t *table_used, int handle,
+dtable_remove (void **table, size_t *table_used, unsigned int handle,
                unused_setter_t set_unused)
 {
-	assert (handle >= 0);
 	assert (handle <= *table_used);
 
 	set_unused (*table, handle);
@@ -79,11 +78,10 @@ dtable_clear (void **table, size_t *table_len, size_t *table_used,
 
 
 bool
-dtable_is_valid_handle (void **table, size_t table_used, int handle,
+dtable_is_valid_handle (void **table, size_t table_used, unsigned int handle,
                         use_checker_t is_used)
 {
-	if (handle >= 0
-	    && handle <= table_used
+	if (handle <= table_used
 	    && is_used (*table, handle))
 		return TRUE;
 	return FALSE;

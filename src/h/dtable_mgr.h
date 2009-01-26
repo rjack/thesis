@@ -30,7 +30,7 @@ dtable_add (void **array, size_t *array_len, size_t *array_used,
 
 
 void
-dtable_remove (void **array, size_t *array_used, int handle,
+dtable_remove (void **array, size_t *array_used, unsigned int handle,
                unused_setter_t set_unused);
 /*
  * Remove the element specified by the given handle from the table array.
@@ -46,7 +46,7 @@ dtable_clear (void **array, size_t *array_len, size_t *array_used,
 
 
 bool
-dtable_is_valid_handle (void **table, size_t table_used, int handle,
+dtable_is_valid_handle (void **table, size_t table_used, unsigned int handle,
                         use_checker_t is_used);
 /*
  * Return
