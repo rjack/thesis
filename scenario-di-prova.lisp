@@ -1,23 +1,38 @@
-(wifi-events
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; EVENTS
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-  (event :after (msec 0)
-    (link :access-point 0 :iface 0 :error-rate 50 :delay (msec 3))
-    (link :access-point 0 :iface 1 :error-rate 30 :delay (msec 5))
-    (link :access-point 1 :iface 0 :error-rate 20 :delay (msec 2))
-    (link :access-point 1 :iface 1 :error-rate 10 :delay (msec 2))))
+(events
+
+  ;; path events
+
+  (event :after (msecs 0)
+	 (link :access-point 0 :iface 0 :error-rate 50 :delay (msecs 3))
+	 (link :access-point 0 :iface 1 :error-rate 30 :delay (msecs 5))
+	 (link :access-point 1 :iface 0 :error-rate 20 :delay (msecs 2))
+	 (link :access-point 1 :iface 1 :error-rate 10 :delay (msecs 2)))
+ 
+
+  ;; wire events
+
+  (event :after (msecs 0)
+	 ((internet-path 0) :error-rate 40 :delay (msecs 120))
+	 ((internet-path 1) :error-rate 10 :delay (msecs 70)))
+ 
+
+  ;; talk events
+
+  (event :after (msecs 0)
+	 (talk-local (secs 3)))
+
+  (event :after (+ (secs 3) (msecs 120))
+	 (talk-remote (secs 5))))
 
 
-(wire-events
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; PATHS
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-  (event :after (msec 0)
-    ((internet-path 0) :error-rate 40 :delay (msec 120))
-    ((internet-path 1) :error-rate 10 :delay (msec 70))))
+(paths
 
-
-(talk-events
-
-  (event :after (msec 0)
-    (talk-local (sec 3)))
-  
-  (event :after (+ (sec 3) (msec 120))
-    (talk-remote (sec 5))))
+  (access-point
