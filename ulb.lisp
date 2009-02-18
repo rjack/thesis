@@ -173,4 +173,14 @@
      :accessor paths)))
 
 
-;(defmethod initialize-instance :after ((sim simulator) &key script)
+;; TODO TEST ME!
+(defmethod run ((sim simulator))
+  (loop while (events sim)
+	for current-event = (pop (events sim)
+	do (let ((new-events (execute current-event)))
+	     (when (new-events)
+	       (add sim new-events))))))
+
+
+(defmethod add ((sim simulator) (evs list))
+  ;; Add the evs even list to the events of sim, in order of execution time
