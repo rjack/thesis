@@ -34,6 +34,52 @@
 ;;; WIFI-INTERFACE
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(defclass first-hop-outcome ()
+  ((dgram-id
+     :initarg :dgram-id
+     :initform (error ":dgram-id missing")
+     :reader dgram-id
+     :documentation "Datagram ID, as returned by sendmsg_getID()")
+
+   (dgram-type
+     :initarg :dgram-type
+     :initform (error ":dgram-type missing")
+     :reader dgram-type
+     :documentation "Datagram type, 'DATA' or 'PROBE'")
+
+   (timestamp
+     :initarg :timestamp
+     :initform (error ":timestamp missing")
+     :reader timestamp
+     :documentation "Outcome timestamp, i.e. when this outcome was logged")
+
+   (value
+     :initarg :value
+     :initform (error ":value missing")
+     :reader value
+     :documentation "'ACK' if the datagram was acked, 'NAK' otherwise")))
+
+
+(defclass full-path-outcome ()
+  ((probe-seqnum
+     :initarg :probe-seqnum
+     :initform (error ":probe-seqnum missing")
+     :reader probe-seqnum
+     :documentation "Probe incremental seqnum, *NOT* the sendmsg_getID id")
+
+   (probe-sent-at
+     :initarg :probe-sent-at
+     :initform (error ":probe-sent-at missing")
+     :reader probe-sent-at
+     :documentation "When the probe was sent")
+
+   (probe-recv-at
+     :initarg :probe-recv-at
+     :initform (error ":probe-recv-at missing")
+     :reader probe-recv-at
+     :documentation "When the response was received")))
+
+
 (defclass wifi-interface ()
   ((id
      :initarg :id
