@@ -90,13 +90,12 @@
      :initarg :firmware-capabilities
      :initform (error ":firmware-capabilities missing")
      :reader firmware-capabilities
-     :documentation "List containing the string ACK, NAK or both")
+     :documentation "List containing the symbols ACK, NAK or both")
 
-   (associated-access-point
+   (essid
      :initform nil
-     :accessor associated-access-point
-     :documentation "Reference to the associated ap, NIL if interface is
-                     down")
+     :accessor essid
+     :documentation "ESSID of the associated access point, nil if down")
 
    (first-hop-log
      :initform nil
@@ -108,36 +107,29 @@
      :accessor full-path-log
      :documentation "List of full-path-outcome instances")))
 
+;; TODO: initialize-instance wifi-interface per controllare che
+;; - firmware-capabilities contanga solo ACK e NAK
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; ARC
+;;; NET-LINK
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(defclass net-link ()
+  ((to
+     :initarg :to
+     :initform (error ":to missing")
+     :reader to
+     :documentation "Id of the endpoint of this net-link (e.g. wifi-interface
+                     id or access-point essid")
 
-(defclass arc ()
-  ((delay
-     :initarg :delay
-     :initform (error ":delay missing")
-     :accessor delay)
+   (delay
+     :accessor delay
+     :documentation "Delay of this link, e.g. rtt / 2")
 
    (error-rate
-     :initarg :error-rate
-     :initform (error ":error-rate missing")
-     :accessor error-rate)
-
-   (vertexes
-     :initarg :vertexes
-     :initform (error ":vertexes missing")
-     :accessor vertexes)))
-
-
-(defmethod initialize-instance :after ((arc arc) &key)
-  (let ((vertnum (length (vertexes arc)))
-	(error-rate (error-rate arc)))
-    (assert (= 2 vertnum) nil
-	    "arcs must have 2 vertexes, not ~D" vertnum)
-    (assert (percentp error-rate) nil
-	    "error-rate must be between 0 and 100, ~D given" error-rate)))
+     :accessor error-rate
+     :documentation "Integer between 0 and 100")))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -165,6 +157,23 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; SIMULATOR
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+(defclass access-point ()
+  ((essid
+     :initarg :essid
+     :initform (error ":id missing")
+     :reader essid
+     :documentation "Access point unique essid")
+
+   (wifi-links
+     :reader wifi-links
+     :documentation "List of net-link instances, one for wifi-interface")
+
+   (wired-link
+     :reader wired-link
+     :documentation "net-link for the wired link to proxy server.")))
+
 
 (defclass event ()
   ((exec-at
@@ -194,12 +203,17 @@
 
 
 (defclass simulator ()
-  ((paths
+  ((access-points
      :initform nil
-     :accessor paths)
+     :accessor access-points)
+
    (events
      :initform nil
      :accessor events)))
+
+
+(defmethod initialize-instance :after ((sim simulator) &key config-file-path)
+  (with-open-file (in config-file-path)))
 
 
 (defmethod add ((sim simulator) (evs list))
