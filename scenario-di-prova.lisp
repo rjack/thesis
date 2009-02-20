@@ -20,13 +20,13 @@
   ;; path events
 
   (event :after (msecs 0)
-	 (wifi-link :access-point "almawifi" :iface "eth0"
+	 (wifi-link :access-point "almawifi" :wifi-interface "eth0"
 		    :error-rate 50 :delay (msecs 3))
-	 (wifi-link :access-point "almawifi" :iface "eth1"
+	 (wifi-link :access-point "almawifi" :wifi-interface "eth1"
 		    :error-rate 30 :delay (msecs 5))
-	 (wifi-link :access-point "csnet" :iface "eth0"
+	 (wifi-link :access-point "csnet" :wifi-interface "eth0"
 		    :error-rate 20 :delay (msecs 2))
-	 (wifi-link :access-point "csnet" :iface "eth1"
+	 (wifi-link :access-point "csnet" :wifi-interface "eth1"
 		    :error-rate 10 :delay (msecs 2)))
 
   ;; wire events
