@@ -90,7 +90,7 @@
      :initarg :firmware-capabilities
      :initform (error ":firmware-capabilities missing")
      :reader firmware-capabilities
-     :documentation "List containing the symbols ACK, NAK or both")
+     :documentation "String: ACK, NAK or FULL")
 
    (essid
      :initform nil
@@ -107,8 +107,13 @@
      :accessor full-path-log
      :documentation "List of full-path-outcome instances")))
 
-;; TODO: initialize-instance wifi-interface per controllare che
-;; - firmware-capabilities contanga solo ACK e NAK
+
+(defmethod initialize-instance :after ((wlan wifi-interface) &key)
+  (with-accessors ((fwcap firmware-capabilities)) wlan
+    (assert (or (string= fwcap "ACK")
+		(string= fwcap "NAK")
+		(string= fwcap "FULL"))
+	    nil "bad firmware-capabilities specified: ~a" fwcap)))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -213,7 +218,22 @@
 
 
 (defmethod initialize-instance :after ((sim simulator) &key config-file-path)
-  (with-open-file (in config-file-path)))
+  (with-open-file (in config-file-path)
+    (loop for form = (read in nil)
+	  while form
+	  do (parse sim form))))
+
+
+(defmethod parse ((sim simulator) (form list))
+  "Recursively parse form and initialize sim"
+  (let ((name (first form)))
+    (cond
+      ((eql name 'scenario) (dolist (subform (rest form))
+			      (parse sim subform)))
+      ((eql name 'access-point) (push (eval (cons 'new form))
+				      (access-points sim)))
+      ;; TODO DA FINIRE
+      (t (error "~a not recognized" name)))))
 
 
 (defmethod add ((sim simulator) (evs list))

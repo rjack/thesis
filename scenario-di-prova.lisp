@@ -7,8 +7,8 @@
   (access-point :essid "almawifi")
   (access-point :essid "csnet")
 
-  (wifi-interface :id "eth0" :firmware-capabilities (NAK))
-  (wifi-interface :id "eth1" :firmware-capabilities (ACK)))
+  (wifi-interface :id "eth0" :firmware-capabilities "ACK")
+  (wifi-interface :id "eth1" :firmware-capabilities "NAK"))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
