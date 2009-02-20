@@ -6,6 +6,21 @@
   (and (>= n 0) (<= n 100)))
 
 
+#| TODO FINISH ME!
+(defun parse-event (form)
+  "Parse form and return an event instance"
+  (assert (eql (first form) 'event) nil
+	  "Not an event form: ~a" (first form))
+  |#
+
+
+(defun parse-events (form)
+  "Parse form and return a list of event instances"
+  (assert (eql (first form) 'events) nil
+	  "Not an events form: ~a" (first form))
+  (map 'list (rest form) #'parse-event))
+
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; MACROS
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -138,18 +153,6 @@
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; ULB
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defclass ulb ()
-  ((wifi-interfaces
-     :initarg :wifi-interfaces
-     :initform (error ":wifi-interfaces missing")
-     :accessor wifi-interfaces
-     :documentation "list of wifi-interface instances")))
-
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; SOFTPHONE
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -210,7 +213,13 @@
 (defclass simulator ()
   ((access-points
      :initform nil
-     :accessor access-points)
+     :accessor access-points
+     :documentation "List of access-point instances")
+
+   (wifi-interfaces
+     :initform nil
+     :accessor wifi-interfaces
+     :documentation "List of wifi-interface instances")
 
    (events
      :initform nil
@@ -230,8 +239,17 @@
     (cond
       ((eql name 'scenario) (dolist (subform (rest form))
 			      (parse sim subform)))
-      ((eql name 'access-point) (push (eval (cons 'new form))
-				      (access-points sim)))
+
+      ((eql name 'events) (add sim (parse-events form)))
+
+      ((eql name 'access-point)
+       (push (eval (cons 'new form))
+	     (access-points sim)))
+
+      ((eql name 'wifi-interface)
+       (push (eval (cons 'new form))
+	     (wifi-interfaces sim)))
+
       ;; TODO DA FINIRE
       (t (error "~a not recognized" name)))))
 
