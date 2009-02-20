@@ -6,12 +6,14 @@
   (and (>= n 0) (<= n 100)))
 
 
-#| TODO FINISH ME!
+#|
 (defun parse-event (form)
   "Parse form and return an event instance"
   (assert (eql (first form) 'event) nil
 	  "Not an event form: ~a" (first form))
-  |#
+  (let ((subform (rest form)))
+    (new event :exec-at (getf form :after) :action :action-arguments)
+    |#
 
 
 (defun parse-events (form)
