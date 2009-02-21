@@ -20,35 +20,30 @@
 
 (add *sim*
      (list
-       (new event
-	    :exec-at (msecs 0)
-	    :action #'set-link-status
-	    :action-arguments (list :essid "almawifi" :to "eth0"
-				    :error-rate 50 :delay (msecs 70)))
+       (set-link-status-event
+	 :exec-at (msecs 0)
+	 :action-arguments (list :essid "almawifi" :to "eth0"
+				 :error-rate 50 :delay (msecs 70)))
 
-       (new event
-	    :exec-at (msecs 0)
-	    :action #'set-link-status
-	    :action-arguments (list :essid "almawifi" :to "eth1"
-				    :error-rate 10 :delay (msecs 50)))
+       (set-link-status-event
+	 :exec-at (msecs 0)
+	 :action-arguments (list :essid "almawifi" :to "eth1"
+				 :error-rate 10 :delay (msecs 50)))
 
-       (new event :exec-at (msecs 0)
-	    :action #'set-link-status
-	    :action-arguments (list :essid "csnet" :to "eth0"
-				    :error-rate 30 :delay (msecs 30)))
+       (set-link-status-event
+	 :exec-at (msecs 0)
+	 :action-arguments (list :essid "csnet" :to "eth0"
+				 :error-rate 30 :delay (msecs 30)))
 
-       (new event
-	    :exec-at (msecs 0)
-	    :action #'set-link-status
-	    :action-arguments (list :essid "csnet" :to "eth1"
-				    :error-rate 70 :delay (msecs 100)))
+       (set-link-status-event
+	 :exec-at (msecs 0)
+	 :action-arguments (list :essid "csnet" :to "eth1"
+				 :error-rate 70 :delay (msecs 100)))
 
-       (new event
-	    :exec-at (secs 2)
-	    :action #'talk-local
-	    :action-arguments (list :duration (secs 2)))
+       (talk-local-event
+	 :exec-at (secs 2)
+	 :action-arguments (list :duration (secs 2)))
 
-       (new event
-	    :exec-at (secs 3)
-	    :action #'talk-local
-	    :action-arguments (list :duration (secs 5)))))
+       (talk-remote-event
+	 :exec-at (secs 3)
+	 :action-arguments (list :duration (secs 5)))))

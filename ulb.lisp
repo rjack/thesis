@@ -14,6 +14,19 @@
   `(make-instance ',name ,@body))
 
 
+(defmacro set-link-status-event (&rest body)
+  `(new event :action #'set-link-status :needs-sim-ref t ,@body))
+
+
+(defmacro talk-local-event (&rest body)
+  `(new event :action #'talk-local
+	:needs-sim-ref t :needs-itself-ref t ,@body))
+
+
+(defmacro talk-remote-event (&rest body)
+  `(new event :action #'talk-remote
+	:needs-sim-ref t :needs-itself-ref t ,@body))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; TIME
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -174,6 +187,18 @@
      :reader exec-at
      :documentation "Time at which this event must be executed (absolute)")
 
+   (needs-sim-ref
+     :initarg :needs-sim-ref
+     :initform nil
+     :reader needs-sim-ref
+     :documentation "True if action needs the reference to the simulator instance")
+
+   (needs-itself-ref
+     :initarg :needs-itself-ref
+     :initform nil
+     :reader needs-itself-ref
+     :documentation "True if action needs the reference to this event")
+
    (action
      :initarg :action
      :initform (error ":action missing")
@@ -188,10 +213,6 @@
      :initform (error ":action-arguments missing")
      :reader action-arguments
      :documentation "List of arguments to be passed to action")))
-
-
-(defmethod fire ((ev event))
-  (apply (action ev) ev (action-arguments ev)))
 
 
 (defclass simulator ()
@@ -240,6 +261,24 @@
 	      (new net-link :to "proxy"))))
 
 
+(defmethod fire ((sim simulator) (ev event))
+  ;; FIXME dio che schifo
+  (cond
+    ((and (needs-sim-ref ev)
+	  (needs-itself-ref ev))
+     (apply (action ev) sim ev (action-arguments ev)))
+
+    ((and (needs-sim-ref ev)
+	  (not (needs-itself-ref ev)))
+     (apply (action ev) sim (action-arguments ev)))
+
+    ((and (not (needs-sim-ref ev))
+	  (needs-itself-ref ev))
+     (apply (action ev) ev (action-arguments ev)))
+
+    (t (apply (action ev) (action-arguments ev)))))
+
+
 (defmethod set-link-status ((sim simulator) &key essid to error-rate delay)
   (let* ((ap (gethash essid (access-points sim)))
 	 (link (gethash to (net-links ap))))
@@ -247,10 +286,19 @@
     (setf (delay link) delay)))
 
 
+(defmethod talk-local ((sim simulator) (ev event) &key duration)
+  (format *query-io*
+	  "~&talk-local, at ~a, duration ~a~%"
+	  (exec-at ev) duration))
+
+
+(defmethod talk-remote ((sim simulator) (ev event) &key duration)
+  (format *query-io*
+	  "~&talk-remote, at ~a, duration ~a~%"
+	  (exec-at ev) duration))
+
 (defmethod run ((sim simulator))
   "Execute all of the events in the simulator."
   (loop for current-event = (when (events sim) (pop (events sim)))
 	while current-event
-	do (let ((new-events (fire current-event)))
-	     (when new-events
-	       (add sim new-events)))))
+	do (fire sim current-event)))
