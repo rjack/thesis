@@ -6,23 +6,6 @@
   (and (>= n 0) (<= n 100)))
 
 
-#|
-(defun parse-event (form)
-  "Parse form and return an event instance"
-  (assert (eql (first form) 'event) nil
-	  "Not an event form: ~a" (first form))
-  (let ((subform (rest form)))
-    (new event :exec-at (getf form :after) :action :action-arguments)
-    |#
-
-
-(defun parse-events (form)
-  "Parse form and return a list of event instances"
-  (assert (eql (first form) 'events) nil
-	  "Not an events form: ~a" (first form))
-  (map 'list (rest form) #'parse-event))
-
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; MACROS
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -101,6 +84,7 @@
   ((id
      :initarg :id
      :initform (error ":id missing")
+     :reader id
      :documentation "Unique id (e.g. the iface name: eth0, wlan1, etc.)")
 
    (firmware-capabilities
@@ -176,13 +160,11 @@
      :reader essid
      :documentation "Access point unique essid")
 
-   (wifi-links
-     :reader wifi-links
-     :documentation "List of net-link instances, one for wifi-interface")
-
-   (wired-link
-     :reader wired-link
-     :documentation "net-link for the wired link to proxy server.")))
+   (net-links
+     :initform (make-hash-table :test #'equal)
+     :reader net-links
+     :documentation "Hash table of net-link instances, with to as key, one for
+                     wifi-interface and only one for proxy")))
 
 
 (defclass event ()
@@ -214,54 +196,55 @@
 
 (defclass simulator ()
   ((access-points
-     :initform nil
+     :initform (make-hash-table :test #'equal)
      :accessor access-points
-     :documentation "List of access-point instances")
+     :documentation "Hash table of access-point instances, with essids as keys")
 
    (wifi-interfaces
-     :initform nil
+     :initform (make-hash-table :test #'equal)
      :accessor wifi-interfaces
-     :documentation "List of wifi-interface instances")
+     :documentation "Hash table of wifi-interface instances, with ids as keys")
 
    (events
      :initform nil
-     :accessor events)))
-
-
-(defmethod initialize-instance :after ((sim simulator) &key config-file-path)
-  (with-open-file (in config-file-path)
-    (loop for form = (read in nil)
-	  while form
-	  do (parse sim form))))
-
-
-(defmethod parse ((sim simulator) (form list))
-  "Recursively parse form and initialize sim"
-  (let ((name (first form)))
-    (cond
-      ((eql name 'scenario) (dolist (subform (rest form))
-			      (parse sim subform)))
-
-      ((eql name 'events) (add sim (parse-events form)))
-
-      ((eql name 'access-point)
-       (push (eval (cons 'new form))
-	     (access-points sim)))
-
-      ((eql name 'wifi-interface)
-       (push (eval (cons 'new form))
-	     (wifi-interfaces sim)))
-
-      ;; TODO DA FINIRE
-      (t (error "~a not recognized" name)))))
+     :accessor events
+     :documentation "List of events, ordered by execution time")))
 
 
 (defmethod add ((sim simulator) (evs list))
   "Add the evs event list to the events of sim, in order of execution time"
   (assert (not (null evs)) nil
-	  "evs must not be nill")
+	  "evs must not be nil")
   (setf (events sim) (nconc evs (events sim)))
   (sort	(events sim) #'< :key #'exec-at))
+
+
+(defmethod add ((sim simulator) (ap access-point))
+  "Add ap to the access points of the simulator"
+  (assert (not (null ap)) nil "ap must not be nil")
+  (setf (gethash (essid ap) (access-points sim)) ap))
+
+
+(defmethod add ((sim simulator) (wi wifi-interface))
+  "Add wi to the wifi-interfaces of the simulator"
+  (assert (not (null wi)) nil "wi must not be nil")
+  (setf (gethash (id wi) (wifi-interfaces sim)) wi))
+
+
+(defmethod generate-net-links ((sim simulator))
+  (loop for ap being the hash-values in (access-points sim)
+	do (loop for wi being the hash-values in (wifi-interfaces sim)
+		 do (setf (gethash (id wi) (net-links ap))
+			  (new net-link :to (id wi))))
+	(setf (gethash "proxy" (net-links ap))
+	      (new net-link :to "proxy"))))
+
+
+(defmethod set-link-status ((sim simulator) &key essid to error-rate delay)
+  (let* ((ap (gethash essid (access-points sim)))
+	 (link (gethash to (net-links ap))))
+    (setf (error-rate link) error-rate)
+    (setf (delay link) delay)))
 
 
 (defmethod run ((sim simulator))
