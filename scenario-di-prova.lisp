@@ -1,46 +1,54 @@
+(defparameter *sim* (new simulator))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; ELEMENTS
+;;; SCENARIO
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(scenario
+(add *sim* (new access-point :essid "almawifi"))
+(add *sim* (new access-point :essid "csnet"))
 
-  (access-point :essid "almawifi")
-  (access-point :essid "csnet")
+(add *sim* (new wifi-interface :id "eth0" :firmware-capabilities "ACK"))
+(add *sim* (new wifi-interface :id "eth1" :firmware-capabilities "NAK"))
 
-  (wifi-interface :id "eth0" :firmware-capabilities "ACK")
-  (wifi-interface :id "eth1" :firmware-capabilities "NAK"))
+(generate-net-links *sim*)
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; EVENTS
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(events
 
-  ;; path events
+(add *sim*
+     (list
+       (new event
+	    :exec-at (msecs 0)
+	    :action #'set-link-status
+	    :action-arguments (list :essid "almawifi" :to "eth0"
+				    :error-rate 50 :delay (msecs 70)))
 
-  (event :after (msecs 0)
-	 (wifi-link :access-point "almawifi" :wifi-interface "eth0"
-		    :error-rate 50 :delay (msecs 3))
-	 (wifi-link :access-point "almawifi" :wifi-interface "eth1"
-		    :error-rate 30 :delay (msecs 5))
-	 (wifi-link :access-point "csnet" :wifi-interface "eth0"
-		    :error-rate 20 :delay (msecs 2))
-	 (wifi-link :access-point "csnet" :wifi-interface "eth1"
-		    :error-rate 10 :delay (msecs 2)))
+       (new event
+	    :exec-at (msecs 0)
+	    :action #'set-link-status
+	    :action-arguments (list :essid "almawifi" :to "eth1"
+				    :error-rate 10 :delay (msecs 50)))
 
-  ;; wire events
+       (new event :exec-at (msecs 0)
+	    :action #'set-link-status
+	    :action-arguments (list :essid "csnet" :to "eth0"
+				    :error-rate 30 :delay (msecs 30)))
 
-  (event :after (msecs 0)
-	 (wired-link :access-point "almawifi"
-		     :error-rate 20 :delay (msecs 120))
-	 (wired-link :access-point "csnet"
-		     :error-rate 30 :delay (msecs 20)))
+       (new event
+	    :exec-at (msecs 0)
+	    :action #'set-link-status
+	    :action-arguments (list :essid "csnet" :to "eth1"
+				    :error-rate 70 :delay (msecs 100)))
 
-  ;; talk events
+       (new event
+	    :exec-at (secs 2)
+	    :action #'talk-local
+	    :action-arguments (list :duration (secs 2)))
 
-  (event :after (msecs 0)
-	 (talk-local (secs 3)))
-
-  (event :after (+ (secs 3) (msecs 120))
-	 (talk-remote (secs 5))))
+       (new event
+	    :exec-at (secs 3)
+	    :action #'talk-local
+	    :action-arguments (list :duration (secs 5)))))
