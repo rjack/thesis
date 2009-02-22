@@ -287,15 +287,11 @@
 
 
 (defmethod talk-local ((sim simulator) (ev event) &key duration)
-  (format *query-io*
-	  "~&talk-local, at ~a, duration ~a~%"
-	  (exec-at ev) duration))
+  (format t "~&talk-local, at ~a, duration ~a~%" (exec-at ev) duration))
 
 
 (defmethod talk-remote ((sim simulator) (ev event) &key duration)
-  (format *query-io*
-	  "~&talk-remote, at ~a, duration ~a~%"
-	  (exec-at ev) duration))
+  (format t "~&talk-remote, at ~a, duration ~a~%" (exec-at ev) duration))
 
 (defmethod run ((sim simulator))
   "Execute all of the events in the simulator."
