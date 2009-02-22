@@ -20,6 +20,11 @@
 
 (add *sim*
      (list
+
+       (set-link-status-event
+	 :exec-at (msecs 0)
+	 :action-arguments (list :essid "almawifi" :to "proxy"
+				 :error-rate 10 :delay (msecs 23)))
        (set-link-status-event
 	 :exec-at (msecs 0)
 	 :action-arguments (list :essid "almawifi" :to "eth0"
@@ -29,6 +34,12 @@
 	 :exec-at (msecs 0)
 	 :action-arguments (list :essid "almawifi" :to "eth1"
 				 :error-rate 10 :delay (msecs 50)))
+
+
+       (set-link-status-event
+	 :exec-at (msecs 0)
+	 :action-arguments (list :essid "csnet" :to "proxy"
+				 :error-rate 0 :delay (msecs 12)))
 
        (set-link-status-event
 	 :exec-at (msecs 0)
