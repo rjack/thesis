@@ -1,4 +1,21 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; PARAMETERS
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defparameter *codec-kbs* 16)
+
+(defparameter *sip-payload-min-size* 300)
+
+(defparameter *sip-payload-max-size* 700)
+
+(defparameter *socket-read-buffer-size* 112640
+  "From /proc/sys/net/core/rmem_default")
+
+(defparameter *socket-write-buffer-size* 112640
+  "From /proc/sys/net/core/wmem_default")
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; UTILS
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -27,8 +44,11 @@
   `(new event :action #'talk-remote
 	:needs-sim-ref t :needs-itself-ref t ,@body))
 
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; TIME
+;;; UNITS OF MEASURE
+;;; Time: everything is in milliseconds.
+;;; Bandwidth: everything is in bytes per millisecond.
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun msecs (ms)
@@ -41,6 +61,23 @@
 
 (defun mins (m)
   (* m (secs 60)))
+
+
+(defun bits-per-second (bps)
+  (/ (/ bps 8) 1000))
+
+
+(defun kilobits-per-second (kbps)
+  (* kbps (bits-per-second (expt 10 3))))
+
+
+(defun megabits-per-second (mbps)
+  (* mbps (kilobits-per-second (expt 10 3))))
+
+
+(defun transmission-time (nbytes bandwidth)
+  (/ nbytes bandwidth))
+
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -145,6 +182,10 @@
    (delay
      :accessor delay
      :documentation "Delay of this link, e.g. rtt / 2")
+
+   (bandwidth
+     :accessor bandwidth
+     :documentation "Bandwidth of this link, in bytes per second")
 
    (error-rate
      :accessor error-rate
@@ -279,11 +320,16 @@
     (t (apply (action ev) (action-arguments ev)))))
 
 
-(defmethod set-link-status ((sim simulator) &key essid to error-rate delay)
+(defmethod set-link-status ((sim simulator) &key essid to
+			    (error-rate nil) (delay nil) (bandwidth nil))
   (let* ((ap (gethash essid (access-points sim)))
 	 (link (gethash to (net-links ap))))
-    (setf (error-rate link) error-rate)
-    (setf (delay link) delay)))
+    (if error-rate
+      (setf (error-rate link) error-rate))
+    (if delay
+      (setf (delay link) delay))
+    (if bandwidth
+      (setf (bandwidth link) bandwidth))))
 
 
 (defmethod talk-local ((sim simulator) (ev event) &key duration)

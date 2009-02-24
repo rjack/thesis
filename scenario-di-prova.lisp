@@ -24,32 +24,38 @@
        (set-link-status-event
 	 :exec-at (msecs 0)
 	 :action-arguments (list :essid "almawifi" :to "proxy"
-				 :error-rate 10 :delay (msecs 23)))
+				 :error-rate 10 :delay (msecs 23)
+				 :bandwidth (megabits-per-second 27)))
        (set-link-status-event
 	 :exec-at (msecs 0)
 	 :action-arguments (list :essid "almawifi" :to "eth0"
-				 :error-rate 50 :delay (msecs 70)))
+				 :error-rate 50 :delay (msecs 70)
+				 :bandwidth (megabits-per-second 27)))
 
        (set-link-status-event
 	 :exec-at (msecs 0)
 	 :action-arguments (list :essid "almawifi" :to "eth1"
-				 :error-rate 10 :delay (msecs 50)))
+				 :error-rate 10 :delay (msecs 50)
+				 :bandwidth (megabits-per-second 27)))
 
 
        (set-link-status-event
 	 :exec-at (msecs 0)
 	 :action-arguments (list :essid "csnet" :to "proxy"
-				 :error-rate 0 :delay (msecs 12)))
+				 :error-rate 0 :delay (msecs 12)
+				 :bandwidth (megabits-per-second 27)))
 
        (set-link-status-event
 	 :exec-at (msecs 0)
 	 :action-arguments (list :essid "csnet" :to "eth0"
-				 :error-rate 30 :delay (msecs 30)))
+				 :error-rate 30 :delay (msecs 30)
+				 :bandwidth (megabits-per-second 27)))
 
        (set-link-status-event
 	 :exec-at (msecs 0)
 	 :action-arguments (list :essid "csnet" :to "eth1"
-				 :error-rate 70 :delay (msecs 100)))
+				 :error-rate 70 :delay (msecs 100)
+				 :bandwidth (megabits-per-second 27)))
 
        (talk-local-event
 	 :exec-at (secs 2)
