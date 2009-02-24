@@ -79,7 +79,6 @@
   (/ nbytes bandwidth))
 
 
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; WIFI-INTERFACE
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -143,9 +142,9 @@
      :reader firmware-capabilities
      :documentation "String: ACK, NAK or FULL")
 
-   (essid
+   (associated
      :initform nil
-     :accessor essid
+     :accessor associated
      :documentation "ESSID of the associated access point, nil if down")
 
    (first-hop-log
@@ -321,15 +320,35 @@
 
 
 (defmethod set-link-status ((sim simulator) &key essid to
-			    (error-rate nil) (delay nil) (bandwidth nil))
+			    (error-rate nil error-rate-provided-p)
+			    (delay nil delay-provided-p)
+			    (bandwidth nil bandwidth-provided-p))
+  "Simula un cambiamento di delay, error-rate o bandwidth nel link da essid a
+   to. Come conseguenza, una interfaccia wireless non attiva puo' essere
+   attivata, una attiva puo' essere disattivata"
   (let* ((ap (gethash essid (access-points sim)))
+	 (wi (gethash to (wifi-interfaces sim)))
 	 (link (gethash to (net-links ap))))
-    (if error-rate
+
+    ; Impostazione parametri specificati.
+    (if error-rate-provided-p
       (setf (error-rate link) error-rate))
-    (if delay
+    (if delay-provided-p
       (setf (delay link) delay))
-    (if bandwidth
-      (setf (bandwidth link) bandwidth))))
+    (if bandwidth-provided-p
+      (setf (bandwidth link) bandwidth))
+
+    ; Se link wifi attiva o disattiva (altrimenti e' link wired con proxy,
+    ; quindi nulla).
+    (when wi
+      (if (and (associated wi)
+	       (wpa-would-deactivate wi))
+	(iface-down sim wi))
+      (if (and (not (associated wi))
+	       (wpa-would-activate wi))
+	(iface-up sim wi essid)))))
+
+
 
 
 (defmethod talk-local ((sim simulator) (ev event) &key duration)
