@@ -80,6 +80,18 @@
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; PACKETS
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defclass packet ()
+  ((size
+     :initarg :size
+     :initform (error ":size missing")
+     :accessor size
+     :documentation "Packet size, in bytes.")))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; WIFI-INTERFACE
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -342,13 +354,11 @@
     ; quindi nulla).
     (when wi
       (if (and (associated wi)
-	       (wpa-would-deactivate wi))
+	       (wpa-supplicant-would-deactivate wi))
 	(iface-down sim wi))
       (if (and (not (associated wi))
-	       (wpa-would-activate wi))
+	       (wpa-supplicant-would-activate wi))
 	(iface-up sim wi essid)))))
-
-
 
 
 (defmethod talk-local ((sim simulator) (ev event) &key duration)
