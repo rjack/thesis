@@ -14,6 +14,10 @@
 (defparameter *socket-write-buffer-size* 112640
   "From /proc/sys/net/core/wmem_default")
 
+(defparameter *wpa-supplicant-error-rate-activation-threshold* 20
+  "Se error-rate di un link wifi e' sotto questa soglia, l'interfaccia puo'
+  venire attivata.")
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; UTILS
@@ -203,6 +207,12 @@
      :documentation "Integer between 0 and 100")))
 
 
+(defmethod wpa-supplicant-would-activate ((nl net-link))
+  (and (bandwidth nl)
+       (< (error-rate nl)
+	  *wpa-supplicant-error-rate-activation-threshold*)))
+
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; SOFTPHONE
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -354,10 +364,10 @@
     ; quindi nulla).
     (when wi
       (if (and (associated wi)
-	       (wpa-supplicant-would-deactivate wi))
+	       (not (wpa-supplicant-would-activate link)))
 	(iface-down sim wi))
       (if (and (not (associated wi))
-	       (wpa-supplicant-would-activate wi))
+	       (wpa-supplicant-would-activate link))
 	(iface-up sim wi essid)))))
 
 
@@ -367,6 +377,15 @@
 
 (defmethod talk-remote ((sim simulator) (ev event) &key duration)
   (format t "~&talk-remote, at ~a, duration ~a~%" (exec-at ev) duration))
+
+
+(defmethod iface-down ((sim simulator) (wi wifi-interface))
+  (error "TODO"))
+
+
+(defmethod iface-up ((sim simulator) (wi wifi-interface) (essid string))
+  (error "TODO"))
+
 
 (defmethod run ((sim simulator))
   "Execute all of the events in the simulator."
