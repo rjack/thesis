@@ -447,8 +447,23 @@
 	(iface-up sim wi essid)))))
 
 
+(defmethod flush-socket-send-buffer ((sim simulator) (wi wifi-interface))
+  (let* ((ap (gethash (associated wi) (access-points sim)))
+	 (link (gethash (id wi) (net-links ap))))
+    (if (deliver-success link)
+      (error "TODO calcola quando arriva all'access point e aggiungi evento"))))
+
+
 (defmethod send ((sim simulator) (wi wifi-interface) (pkt packet))
-  (error "TODO send"))
+  "Accoda pkt nel socket-send-buffer di wi. Se il buffer era vuoto, scatena
+  l'evento flush."
+  (with-accessors ((buf socket-send-buffer)) wi
+    (if buf
+      (nconc buf pkt)
+      (progn
+	(setf buf (list pkt))
+	(flush-socket-send-buffer sim wi)))))
+
 
 
 (defmethod talk-local ((sim simulator) (ev event) &key duration)
