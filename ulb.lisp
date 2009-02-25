@@ -256,17 +256,6 @@
      questa interfaccia. L'evento deve venire procrastinato ogni volta che
      l'interfaccia spedisce un datagram dati.")
 
-; TODO spostare nel kernel
-;   (socket-send-buffer
-;     :initform nil
-;     :accessor socket-send-buffer
-;     :documentation "A list of packets, representing the socket send buffer.")
-;
-;   (associated
-;     :initform nil
-;     :accessor associated
-;     :documentation "ESSID of the associated access point, nil if down")
-
    (ping-seqnum
      :initform 0
      :accessor ping-seqnum
@@ -330,6 +319,45 @@
   (and (bandwidth nl)
        (< (error-rate nl)
 	  *wpa-supplicant-error-rate-activation-threshold*)))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Kernel
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defclass kernel-wifi-interface ()
+  ((id
+     :initarg :id
+     :initform (error ":id mancante")
+     :reader id
+     :documentation "Id univoco, es. nome eth0, eth1, etc.")
+
+   (firmware-capabilities
+     :initarg :firmware-capabilities
+     :initform (error ":firmware-capabilities mancante")
+     :reader firmware-capabilities
+     :documentation "Stringa: ACK, NAK oppure FULL. Rappresenta le effettive
+     capacita' del firmware della sheda wireless.")
+
+   (socket-send-buffer
+     :initform nil
+     :accessor socket-send-buffer
+     :documentation "Lista di wifi-frame spediti dall'ulb su questa
+     interfaccia.")
+
+   (associated
+     :initform nil
+     :accessor associated
+     :documentation "ESSID dell'access point associato, nil se l'interfaccia
+     e' inattiva.")))
+
+
+(defclass kernel ()
+   (wifi-interfaces
+     :initform (make-hash-table :test #'equal)
+     :reader socket-send-buffers
+     :documentation "Una hash table di riferimenti a instanze di
+     kernel-wifi-interface, indicizzati sui rispettivi id."))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -530,7 +558,7 @@
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; INITIALIZATION
+;;; Inizializzazione
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (setf *sim* (new simulator))
