@@ -1,11 +1,9 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; PARAMETERS
+;;; Variabili globali.
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defparameter *ted* nil)
-
+(defparameter *kernel* nil)
 (defparameter *ulb* nil)
-
 (defparameter *sim* nil)
 
 (defparameter *codec-kbs* 16)
@@ -22,7 +20,7 @@
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; UTILS
+;;; Utilita'
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun percentp (n)
@@ -30,12 +28,15 @@
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; MACROS
+;;; Macro
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defmacro new (name &rest body)
+  "Per scrivere (new class) invece di (make-instance 'class)"
   `(make-instance ',name ,@body))
 
+
+;; Usate nello script di configurazione
 
 (defmacro set-link-status-event (&rest body)
   `(new event :action #'set-link-status :needs-sim-ref t ,@body))
@@ -52,9 +53,9 @@
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; UNITS OF MEASURE
-;;; Time: everything is in milliseconds.
-;;; Bandwidth: everything is in bytes per millisecond.
+;;; Unita' di misura
+;;; temporali: tutte in millisecondi.
+;;; di banda: tutte in bytes per millisecondi.
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun msecs (ms)
@@ -86,8 +87,11 @@
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; PACKETS
+;;; Pacchetti
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;;; Queste classi rappresentano pacchetti veri, ovvero pacchetti che
+;;; transitano sulla rete.
 
 (defclass packet ()
   ((payload
@@ -137,14 +141,37 @@
      :initform (error ":score mancante")
      :reader score
      :documentation "Voto che ULB ha assegnato all'interfaccia che sta
-		     spedendo questo ping, da comunicare al Proxy Server.")
+     spedendo questo ping, da comunicare al Proxy Server.")
 
    (sequence-number
      :initarg :sequence-number
      :initform (error ":sequence-number mancante")
      :reader sequence-number
      :documentation "Numero di sequenza del ping. Nella realta' e' contenuto
-                     nel payload del pacchetto UDP.")))
+     nel payload del pacchetto UDP.")))
+
+
+;;; Queste classi sono la rappresentazione software dei pacchetti da parte dei
+;;; programmi.
+
+(defclass ulb-struct-datagram ()
+  ((id
+     :documentation "Assegnato da sendmsg_getID.")
+
+   (end-of-life-event
+     :documentation "Riferimento all'evento che rimuove questo pacchetto
+     dall'ULB")
+
+   (send-again-event
+     :documentation "Riferimento all'evento che pone questo pacchetto
+     nuovamente nella coda di spedizione dall'ULB")
+
+   (data
+     :documentation "Riferimento al pacchetto vero e proprio: un udp-packet o
+     un ping-packet.")))
+
+
+;; Metodi sui pacchetti
 
 (defmethod size ((pkt packet))
   (+ (overhead-size pkt)
@@ -155,7 +182,7 @@
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; WIFI-INTERFACE
+;;; ULB
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defclass first-hop-outcome ()
@@ -204,34 +231,47 @@
      :documentation "When the response was received")))
 
 
-(defclass wifi-interface ()
+(defclass ulb-wifi-interface ()
   ((id
      :initarg :id
-     :initform (error ":id missing")
+     :initform (error ":id mancante")
      :reader id
-     :documentation "Unique id (e.g. the iface name: eth0, wlan1, etc.)")
+     :documentation "id univoco, es. eth0, wlan1, etc.")
 
-   (firmware-capabilities
-     :initarg :firmware-capabilities
-     :initform (error ":firmware-capabilities missing")
-     :reader firmware-capabilities
-     :documentation "String: ACK, NAK or FULL")
+   (firmware-detected-capabilities
+     :initarg :firmware-detected-capabilities
+     :initform (error ":firmware-detected-capabilities mancante")
+     :accessor firmware-detected-capabilities
+     :documentation "string che puo' valere ACK, NAK or FULL. Indica cio' che
+     l'ULB ha dedotto del firmware della scheda, osservando il comportamento
+     del TED.")
 
-   (socket-send-buffer
-     :initform nil
-     :accessor socket-send-buffer
-     :documentation "A list of packets, representing the socket send buffer.")
+   (sent-datagrams
+     :documentation "Gli ulb-struct-datagram spediti da un'interfaccia vengono
+     accodati qui in attesa di un ACK o di un end-of-life-event che li scarti,
+     oppure di un NAK o di un send-again-event che li ritrasmetta.")
 
-   (associated
-     :initform nil
-     :accessor associated
-     :documentation "ESSID of the associated access point, nil if down")
+   (send-ping-event
+     :documentation "Riferimento all'evento che spedira' il prossimo ping su
+     questa interfaccia. L'evento deve venire procrastinato ogni volta che
+     l'interfaccia spedisce un datagram dati.")
+
+; TODO spostare nel kernel
+;   (socket-send-buffer
+;     :initform nil
+;     :accessor socket-send-buffer
+;     :documentation "A list of packets, representing the socket send buffer.")
+;
+;   (associated
+;     :initform nil
+;     :accessor associated
+;     :documentation "ESSID of the associated access point, nil if down")
 
    (ping-seqnum
      :initform 0
      :accessor ping-seqnum
      :documentation "Numero di sequenza del prossimo ping da spedire su questa
-                     interfaccia.")
+     interfaccia.")
 
    (score
      :initform 0
@@ -241,27 +281,24 @@
    (first-hop-log
      :initform nil
      :accessor first-hop-log
-     :documentation "List of first-hop-outcome instances")
+     :documentation "Lista di first-hop-outcome.")
 
    (full-path-log
      :initform nil
      :accessor full-path-log
-     :documentation "List of full-path-outcome instances")))
+     :documentation "Lista di full-path-outcome.")))
 
 
-(defmethod initialize-instance :after ((wi wifi-interface) &key)
-  (with-accessors ((fwcap firmware-capabilities)) wi
-    (assert (or (string= fwcap "ACK")
-		(string= fwcap "NAK")
-		(string= fwcap "FULL"))
-	    nil "bad firmware-capabilities specified: ~a" fwcap)))
+(defclass udp-load-balancer ()
+   (wifi-interfaces
+     :initform (make-hash-table :test #'equal)
+     :accessor wifi-interfaces
+     :documentation "Hash table di riferimenti a istanze di
+     ulb-wifi-interface, con gli id delle interfacce come chiavi.")
 
-
-(defmethod make-ping ((wi wifi-interface))
-  (new ping-packet
-       :payload (new data-packet :payload 8)     ;; voto e seqnum: due int.
-       :score (score wi)
-       :sequence-number (incf (ping-seqnum wi))))
+   (outgoing-datagrams
+     :documentation "Coda di ulb-struct-datagram rtp (no ping!) da spedire
+     sull'interfaccia con voto migliore."))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -274,7 +311,7 @@
      :initform (error ":to missing")
      :reader to
      :documentation "Id of the endpoint of this net-link (e.g. wifi-interface
-                     id or access-point essid")
+     id or access-point essid")
 
    (delay
      :accessor delay
@@ -321,7 +358,7 @@
      :initform (make-hash-table :test #'equal)
      :reader net-links
      :documentation "Hash table of net-link instances, with to as key, one for
-                     wifi-interface and only one for proxy")))
+     wifi-interface and only one for proxy")))
 
 
 (defclass event ()
@@ -348,9 +385,9 @@
      :initform (error ":action missing")
      :reader action
      :documentation "Function that must be called to execute this event: must
-		     return nil or a list of events generated by this event.
-		     When called, will receive this event as the first
-		     argument and then action-arguments.")
+     return nil or a list of events generated by this event. When called,
+     will receive this event as the first argument and then
+     action-arguments.")
 
    (action-arguments
      :initarg :action-arguments
@@ -364,11 +401,6 @@
      :initform (make-hash-table :test #'equal)
      :accessor access-points
      :documentation "Hash table of access-point instances, with essids as keys")
-
-   (wifi-interfaces
-     :initform (make-hash-table :test #'equal)
-     :accessor wifi-interfaces
-     :documentation "Hash table of wifi-interface instances, with ids as keys")
 
    (events
      :initform nil
@@ -502,5 +534,5 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (setf *sim* (new simulator))
-(setf *ted* (new transmission-error-detector))
+(setf *kernel* (new kernel))
 (setf *ulb* (new udp-load-balancer))
