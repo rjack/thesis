@@ -1,16 +1,14 @@
-(defparameter *sim* (new simulator))
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; SCENARIO
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(add *sim* (new access-point :essid "almawifi"))
-(add *sim* (new access-point :essid "csnet"))
+(add-access-point :essid "almawifi")
+(add-access-point :essid "csnet")
 
-(add *sim* (new wifi-interface :id "eth0" :firmware-capabilities "ACK"))
-(add *sim* (new wifi-interface :id "eth1" :firmware-capabilities "NAK"))
+(add-wifi-interface :id "eth0" :firmware-capabilities "ACK")
+(add-wifi-interface :id "eth1" :firmware-capabilities "NAK")
 
-(generate-net-links *sim*)
+(generate-net-links)
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -18,7 +16,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
-(add *sim*
+(add-events
      (list
 
        (set-link-status-event

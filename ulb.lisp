@@ -2,6 +2,12 @@
 ;;; PARAMETERS
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(defparameter *ted* nil)
+
+(defparameter *ulb* nil)
+
+(defparameter *sim* nil)
+
 (defparameter *codec-kbs* 16)
 
 (defparameter *ping-burst-length* 5)
@@ -489,3 +495,12 @@
   (loop for current-event = (when (events sim) (pop (events sim)))
 	while current-event
 	do (fire sim current-event)))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; INITIALIZATION
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(setf *sim* (new simulator))
+(setf *ted* (new transmission-error-detector))
+(setf *ulb* (new udp-load-balancer))
