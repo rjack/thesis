@@ -4,8 +4,10 @@
 
 (defparameter *codec-kbs* 16)
 
-(defparameter *sip-payload-min-size* 300)
+(defparameter *ping-burst-length* 5)
 
+;; OK, e i pacchetti rtp?
+(defparameter *sip-payload-min-size* 300)
 (defparameter *sip-payload-max-size* 700)
 
 (defparameter *socket-read-buffer-size* 112640
@@ -88,11 +90,68 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defclass packet ()
-  ((size
-     :initarg :size
-     :initform (error ":size missing")
-     :accessor size
-     :documentation "Packet size, in bytes.")))
+  ((payload
+     :initarg :payload
+     :initform (error ":payload mancante")
+     :accessor payload
+     :documentation "Istanza di una sottoclasse di packet.")
+
+   (overhead-size
+     :initform (error "overhead-size non specificata dalla sottoclasse")
+     :reader overhead-size
+     :documentation "Dimensione dell'overhead del pacchetto, in byte.")))
+
+
+(defclass data-packet (packet)
+  ((payload
+     :initform 0
+     :documentation "Dimensione del data-packet, in byte.")
+
+   (overhead-size
+     :initform 0)))
+
+
+(defclass rtp-packet (packet)
+  ((overhead-size
+     :initform 12)))
+
+
+(defclass udp-packet (packet)
+  ((overhead-size
+     :initform 8)))
+
+
+(defclass ipv4-packet (packet)
+  ((overhead-size
+     :initform 20)))
+
+
+(defclass wifi-frame (packet)
+  ((overhead-size
+     :initform 34)))
+
+
+(defclass ping-packet (udp-packet)
+  ((score
+     :initarg :score
+     :initform (error ":score mancante")
+     :reader score
+     :documentation "Voto che ULB ha assegnato all'interfaccia che sta
+		     spedendo questo ping, da comunicare al Proxy Server.")
+
+   (sequence-number
+     :initarg :sequence-number
+     :initform (error ":sequence-number mancante")
+     :reader sequence-number
+     :documentation "Numero di sequenza del ping. Nella realta' e' contenuto
+                     nel payload del pacchetto UDP.")))
+
+(defmethod size ((pkt packet))
+  (+ (overhead-size pkt)
+     (size (payload pkt))))
+
+(defmethod size ((data data-packet))
+  (payload data))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -158,10 +217,26 @@
      :reader firmware-capabilities
      :documentation "String: ACK, NAK or FULL")
 
+   (socket-send-buffer
+     :initform nil
+     :accessor socket-send-buffer
+     :documentation "A list of packets, representing the socket send buffer.")
+
    (associated
      :initform nil
      :accessor associated
      :documentation "ESSID of the associated access point, nil if down")
+
+   (ping-seqnum
+     :initform 0
+     :accessor ping-seqnum
+     :documentation "Numero di sequenza del prossimo ping da spedire su questa
+                     interfaccia.")
+
+   (score
+     :initform 0
+     :accessor score
+     :documentation "Voto dell'interfaccia")
 
    (first-hop-log
      :initform nil
@@ -174,12 +249,19 @@
      :documentation "List of full-path-outcome instances")))
 
 
-(defmethod initialize-instance :after ((wlan wifi-interface) &key)
-  (with-accessors ((fwcap firmware-capabilities)) wlan
+(defmethod initialize-instance :after ((wi wifi-interface) &key)
+  (with-accessors ((fwcap firmware-capabilities)) wi
     (assert (or (string= fwcap "ACK")
 		(string= fwcap "NAK")
 		(string= fwcap "FULL"))
 	    nil "bad firmware-capabilities specified: ~a" fwcap)))
+
+
+(defmethod make-ping ((wi wifi-interface))
+  (new ping-packet
+       :payload (new data-packet :payload 8)     ;; voto e seqnum: due int.
+       :score (score wi)
+       :sequence-number (incf (ping-seqnum wi))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -371,6 +453,10 @@
 	(iface-up sim wi essid)))))
 
 
+(defmethod send ((sim simulator) (wi wifi-interface) (pkt packet))
+  (error "TODO send"))
+
+
 (defmethod talk-local ((sim simulator) (ev event) &key duration)
   (format t "~&talk-local, at ~a, duration ~a~%" (exec-at ev) duration))
 
@@ -380,11 +466,13 @@
 
 
 (defmethod iface-down ((sim simulator) (wi wifi-interface))
-  (error "TODO"))
+  (error "TODO iface-down"))
 
 
 (defmethod iface-up ((sim simulator) (wi wifi-interface) (essid string))
-  (error "TODO"))
+  (setf (associated wi) essid)
+  (loop repeat *ping-burst-length*
+	do (send sim wi (make-ping wi))))
 
 
 (defmethod run ((sim simulator))
