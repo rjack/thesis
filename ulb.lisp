@@ -6,15 +6,9 @@
 
 (defparameter *ping-burst-length* 5)
 
-;; OK, e i pacchetti rtp?
-(defparameter *sip-payload-min-size* 300)
-(defparameter *sip-payload-max-size* 700)
-
-(defparameter *socket-read-buffer-size* 112640
-  "From /proc/sys/net/core/rmem_default")
-
-(defparameter *socket-write-buffer-size* 112640
-  "From /proc/sys/net/core/wmem_default")
+;; TODO controllare
+(defparameter *rtp-payload-min-size* 300)
+(defparameter *rtp-payload-max-size* 700)
 
 (defparameter *wpa-supplicant-error-rate-activation-threshold* 20
   "Se error-rate di un link wifi e' sotto questa soglia, l'interfaccia puo'
