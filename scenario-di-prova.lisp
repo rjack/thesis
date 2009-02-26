@@ -5,18 +5,17 @@
 (add *sim* (new access-point :essid "almawifi"))
 (add *sim* (new access-point :essid "csnet"))
 
-(add *kernel* (new kernel-wifi-interface
-		   :id "eth0" :firmware-capabilities "ACK"))
-(add *kernel* (new kernel-wifi-interface
-		   :id "eth1" :firmware-capabilities "NAK"))
+(add (kernel *sim*) (new kernel-wifi-interface
+			 :id "eth0" :firmware-capabilities "ACK"))
+(add (kernel *sim*) (new kernel-wifi-interface
+			 :id "eth1" :firmware-capabilities "NAK"))
 
-(generate-scenario)
+(generate-scenario *sim*)
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; EVENTS
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
 
 (add *sim*
      (list

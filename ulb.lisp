@@ -279,7 +279,7 @@
 
 
 (defclass udp-load-balancer ()
-   (active-wifi-interfaces
+  ((active-wifi-interfaces
      :initform (make-hash-table :test #'equal)
      :accessor active-wifi-interfaces
      :documentation "Hash table di riferimenti a istanze di
@@ -287,7 +287,7 @@
 
    (outgoing-datagrams
      :documentation "Coda di ulb-struct-datagram rtp (no ping!) da spedire
-     sull'interfaccia con voto migliore."))
+     sull'interfaccia con voto migliore.")))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -353,11 +353,15 @@
 
 
 (defclass kernel ()
-   (wifi-interfaces
+  ((wifi-interfaces
      :initform (make-hash-table :test #'equal)
      :reader socket-send-buffers
      :documentation "Una hash table di riferimenti a instanze di
-     kernel-wifi-interface, indicizzati sui rispettivi id."))
+     kernel-wifi-interface, indicizzati sui rispettivi id.")))
+
+
+(defmethod add ((k kernel) (kwi kernel-wifi-interface))
+  (setf (gethash (id kwi) (wifi-interfaces k)) kwi))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -366,8 +370,11 @@
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; PROXY
+;;; Proxy-server
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defclass proxy-server ()
+  ())
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -425,15 +432,31 @@
 
 
 (defclass simulator ()
-  ((access-points
+  ((kernel
+     :initform (new kernel)
+     :reader kernel
+     :documentation "Rappresenta cio' che accade nel kernel del sistema che
+     esegue ULB.")
+
+   (ulb
+     :initform (new udp-load-balancer)
+     :reader ulb
+     :documentation "Rappresenta l'ulb.")
+
+   (proxy-server
+     :initform (new proxy-server)
+     :reader proxy-server
+     :documentation "Rappresenta il proxy server.")
+
+   (access-points
      :initform (make-hash-table :test #'equal)
-     :accessor access-points
-     :documentation "Hash table of access-point instances, with essids as keys")
+     :reader access-points
+     :documentation "Hash table di access-points, le chiavi sono gli essid.")
 
    (events
      :initform nil
      :accessor events
-     :documentation "List of events, ordered by execution time")))
+     :documentation "Lista di eventi, ordinati per ordine di esecuzione.")))
 
 
 (defmethod add ((sim simulator) (evs list))
@@ -448,12 +471,6 @@
   "Add ap to the access points of the simulator"
   (assert (not (null ap)) nil "ap must not be nil")
   (setf (gethash (essid ap) (access-points sim)) ap))
-
-
-(defmethod add ((sim simulator) (wi wifi-interface))
-  "Add wi to the wifi-interfaces of the simulator"
-  (assert (not (null wi)) nil "wi must not be nil")
-  (setf (gethash (id wi) (wifi-interfaces sim)) wi))
 
 
 (defmethod fire ((sim simulator) (ev event))
@@ -493,8 +510,8 @@
     (if bandwidth-provided-p
       (setf (bandwidth link) bandwidth))
 
-    ; Se link wifi attiva o disattiva (altrimenti e' link wired con proxy,
-    ; quindi nulla).
+    ; Se link wifi, wpa-supplicant potrebbe attivare o disattivare l'interfaccia.
+    ; Altrimenti altrimenti e' link wired con proxy, e non c'e' altro da fare.
     (when wi
       (if (and (associated wi)
 	       (not (wpa-supplicant-would-activate link)))
@@ -504,17 +521,17 @@
 	(iface-up sim wi essid)))))
 
 
-(defmethod flush-socket-send-buffer ((sim simulator) (wi wifi-interface))
+(defmethod flush-socket-send-buffer ((sim simulator) (wi kernel-wifi-interface))
   (let* ((ap (gethash (associated wi) (access-points sim)))
 	 (link (gethash (id wi) (net-links ap))))
     (if (deliver-success link)
       (error "TODO calcola quando arriva all'access point e aggiungi evento"))))
 
 
-(defmethod send ((sim simulator) (wi wifi-interface) (pkt packet))
-  "Accoda pkt nel socket-send-buffer di wi. Se il buffer era vuoto, scatena
-  l'evento flush."
-  (with-accessors ((buf socket-send-buffer)) wi
+(defmethod send ((sim simulator) (kwi kernel-wifi-interface) (pkt packet))
+  "Accoda pkt nel socket-send-buffer di kwi.
+  Se il buffer era vuoto, scatena l'evento flush."
+  (with-accessors ((buf socket-send-buffer)) kwi
     (if buf
       (nconc buf pkt)
       (progn
@@ -531,14 +548,14 @@
   (format t "~&talk-remote, at ~a, duration ~a~%" (exec-at ev) duration))
 
 
-(defmethod iface-down ((sim simulator) (wi wifi-interface))
+(defmethod iface-down ((sim simulator) (uwi ulb-wifi-interface))
   (error "TODO iface-down"))
 
 
-(defmethod iface-up ((sim simulator) (wi wifi-interface) (essid string))
-  (setf (associated wi) essid)
+(defmethod iface-up ((sim simulator) (uwi ulb-wifi-interface) (essid string))
+  (setf (associated uwi) essid)
   (loop repeat *ping-burst-length*
-	do (send sim wi (make-ping wi))))
+	do (send sim uwi (make-ping uwi))))
 
 
 (defmethod run ((sim simulator))
@@ -548,8 +565,15 @@
 	do (fire sim current-event)))
 
 
-(defun generate-scenario ()
+(defmethod generate-scenario ((sim simulator))
   "Genera lo scenario a partire dalle impostazioni dello script."
+  (loop for ap being the hash-values in (access-points sim)
+	do (loop for kwi being the hash-values in (wifi-interfaces (kernel sim))
+		 do (setf (gethash (id kwi) (net-links ap))
+			  (new net-link :to (id kwi))))
+	(setf (gethash "proxy" (net-links ap))
+	      (new net-link :to "proxy"))))
+
   ;; TODO
   ;; alla chiamata ci sono:
   ;; - le kernel-wifi-interface nel kernel
@@ -561,12 +585,9 @@
   ;;
   ;; NOTA: i net-link sono vuoti, sono gli eventi a impostarne i valori.
   ;; NOTA: ulb sta a secco, sono gli eventi ad attivare le sue interfacce.
-  )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Inizializzazione
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (setf *sim* (new simulator))
-(setf *kernel* (new kernel))
-(setf *ulb* (new udp-load-balancer))
