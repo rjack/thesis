@@ -2,13 +2,15 @@
 ;;; SCENARIO
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(add-access-point :essid "almawifi")
-(add-access-point :essid "csnet")
+(add *sim* (new access-point :essid "almawifi"))
+(add *sim* (new access-point :essid "csnet"))
 
-(add-wifi-interface :id "eth0" :firmware-capabilities "ACK")
-(add-wifi-interface :id "eth1" :firmware-capabilities "NAK")
+(add *kernel* (new kernel-wifi-interface
+		   :id "eth0" :firmware-capabilities "ACK"))
+(add *kernel* (new kernel-wifi-interface
+		   :id "eth1" :firmware-capabilities "NAK"))
 
-(generate-net-links)
+(generate-scenario)
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -16,9 +18,8 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
-(add-events
+(add *sim*
      (list
-
        (set-link-status-event
 	 :exec-at (msecs 0)
 	 :action-arguments (list :essid "almawifi" :to "proxy"

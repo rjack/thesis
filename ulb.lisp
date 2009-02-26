@@ -279,9 +279,9 @@
 
 
 (defclass udp-load-balancer ()
-   (wifi-interfaces
+   (active-wifi-interfaces
      :initform (make-hash-table :test #'equal)
-     :accessor wifi-interfaces
+     :accessor active-wifi-interfaces
      :documentation "Hash table di riferimenti a istanze di
      ulb-wifi-interface, con gli id delle interfacce come chiavi.")
 
@@ -456,15 +456,6 @@
   (setf (gethash (id wi) (wifi-interfaces sim)) wi))
 
 
-(defmethod generate-net-links ((sim simulator))
-  (loop for ap being the hash-values in (access-points sim)
-	do (loop for wi being the hash-values in (wifi-interfaces sim)
-		 do (setf (gethash (id wi) (net-links ap))
-			  (new net-link :to (id wi))))
-	(setf (gethash "proxy" (net-links ap))
-	      (new net-link :to "proxy"))))
-
-
 (defmethod fire ((sim simulator) (ev event))
   ;; FIXME dio che schifo
   (cond
@@ -556,6 +547,21 @@
 	while current-event
 	do (fire sim current-event)))
 
+
+(defun generate-scenario ()
+  "Genera lo scenario a partire dalle impostazioni dello script."
+  ;; TODO
+  ;; alla chiamata ci sono:
+  ;; - le kernel-wifi-interface nel kernel
+  ;; - gli access-point nel simulator
+  ;;
+  ;; per ogni access-point
+  ;;  per ogni kernel-wifi-interface
+  ;;   crea il net-link a quella interfaccia e aggiungilo all'ap corrente
+  ;;
+  ;; NOTA: i net-link sono vuoti, sono gli eventi a impostarne i valori.
+  ;; NOTA: ulb sta a secco, sono gli eventi ad attivare le sue interfacce.
+  )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Inizializzazione
