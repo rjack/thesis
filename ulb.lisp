@@ -1,10 +1,10 @@
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Variabili globali.
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defparameter *kernel* nil)
+(defparameter *wifi-interfaces* (make-hash-table))
+(defparameter *access-points* (make-hash-table))
+(defparameter *events* ())
 (defparameter *ulb* nil)
-(defparameter *sim* nil)
+(defparameter *proxy* nil)
 
 (defparameter *codec-kbs* 16)
 
@@ -19,44 +19,70 @@
   venire attivata.")
 
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Funzioni per lo script di configurazione
+
+(defun generate-access-points (&rest aps)
+  (dolist (essid aps)
+    (setf (gethash essid *access-points*)
+	  (new access-point :essid essid))))
+
+
+(defun generate-wifi-interfaces (&rest wis)
+  (loop for id in wis by #'cddr
+	and cap in (rest wis) by #'cddr
+	do (setf (gethash id *wifi-interfaces*)
+		 (new wifi-interface :firmware-capabilities cap))))
+
+
+(defun generate-links ()
+  "Genera i link tra ap e wi e tra ap e proxy"
+  (loop for ap being the hash-values in *access-points*
+	do (loop for wi
+		 being the hash-values in *wifi-interfaces*
+		 using (hash-key id)
+		 do (setf (gethash id (net-links ap))
+			  (new net-link)))
+	(setf (gethash :proxy (net-links ap))
+	      (new net-link))))
+
+
+;;; Accesso alle variabili globali
+
+(defun add-events (&rest new-events)
+  "Aggiunge i new-events agli *events* e riordina il tutto per istante di
+  esecuzione."
+  (setf *events* (nconc new-events *events*))
+  (sort	*events* #'< :key #'exec-at))
+
+
+(defun access-point (essid)
+  (gethash essid *access-points*))
+
+
+(defun wifi-interface (id)
+  (gethash id *wifi-interfaces*))
+
+
+(defun net-link (essid id)
+  (gethash id (net-links (access-point essid))))
+
+
 ;;; Utilita'
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun percentp (n)
   (and (>= n 0) (<= n 100)))
 
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Macro
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defmacro new (name &rest body)
   "Per scrivere (new class) invece di (make-instance 'class)"
   `(make-instance ',name ,@body))
 
 
-;; Usate nello script di configurazione
-
-(defmacro set-link-status-event (&rest body)
-  `(new event :action #'set-link-status :needs-sim-ref t ,@body))
-
-
-(defmacro talk-local-event (&rest body)
-  `(new event :action #'talk-local
-	:needs-sim-ref t :needs-itself-ref t ,@body))
-
-
-(defmacro talk-remote-event (&rest body)
-  `(new event :action #'talk-remote
-	:needs-sim-ref t :needs-itself-ref t ,@body))
-
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Unita' di misura
+;;; Funzioni per mantenere coerenza nelle unita' di misura:
 ;;; temporali: tutte in millisecondi.
 ;;; di banda: tutte in bytes per millisecondi.
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun msecs (ms)
   ms)
@@ -86,9 +112,7 @@
   (/ nbytes bandwidth))
 
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Pacchetti
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;;; Queste classi rappresentano pacchetti veri, ovvero pacchetti che
 ;;; transitano sulla rete.
@@ -181,70 +205,66 @@
   (payload data))
 
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; ULB
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Classi per l'Udp Load Balancer
 
 (defclass first-hop-outcome ()
   ((dgram-id
      :initarg :dgram-id
-     :initform (error ":dgram-id missing")
+     :initform (error ":dgram-id mancante")
      :reader dgram-id
-     :documentation "Datagram ID, as returned by sendmsg_getID()")
+     :documentation "ID del datagram, sarebbe assegnato da sendmsg_getID()")
 
    (dgram-type
      :initarg :dgram-type
-     :initform (error ":dgram-type missing")
+     :initform (error ":dgram-type mancante")
      :reader dgram-type
-     :documentation "Datagram type, 'DATA' or 'PROBE'")
+     :documentation "Tipo del datagram, :data oppure :ping")
 
    (timestamp
      :initarg :timestamp
-     :initform (error ":timestamp missing")
+     :initform (error ":timestamp mancante")
      :reader timestamp
-     :documentation "Outcome timestamp, i.e. when this outcome was logged")
+     :documentation "L'istante di creazione di questo first-hop-outcome")
 
    (value
      :initarg :value
-     :initform (error ":value missing")
+     :initform (error ":value mancante")
      :reader value
-     :documentation "'ACK' if the datagram was acked, 'NAK' otherwise")))
+     :documentation "Valore dell'outcome: :ack oppure :nak")
+   ;; TODO :ack se TED dice ack oppure se ulb sa che ifaccia dice solo NAK ed
+   ;; e' scaduto un timeout.
+   ;; TODO :nak se TED dice nak oppure se ulb sa che ifaccia dice solo ACK ed
+   ;; e' scaduto un timeout.
 
 
 (defclass full-path-outcome ()
-  ((probe-seqnum
-     :initarg :probe-seqnum
-     :initform (error ":probe-seqnum missing")
+  ((ping-seqnum
+     :initarg :ping-seqnum
+     :initform (error ":ping-seqnum mancante")
      :reader probe-seqnum
-     :documentation "Probe incremental seqnum, *NOT* the sendmsg_getID id")
+     :documentation "Numero di sequenza del ping di cui si riferisce questo
+     full-path-outcome.")
 
-   (probe-sent-at
-     :initarg :probe-sent-at
-     :initform (error ":probe-sent-at missing")
-     :reader probe-sent-at
-     :documentation "When the probe was sent")
+   (ping-sent-at
+     :initarg :ping-sent-at
+     :initform (error ":ping-sent-at mancante")
+     :reader ping-sent-at
+     :documentation "Istante di spedizione del ping.")
 
-   (probe-recv-at
-     :initarg :probe-recv-at
-     :initform (error ":probe-recv-at missing")
-     :reader probe-recv-at
-     :documentation "When the response was received")))
+   (ping-recv-at
+     :initarg :ping-recv-at
+     :initform (error ":ping-recv-at mancante")
+     :reader ping-recv-at
+     :documentation "Istante di ricezione del ping di risposta.")))
 
 
 (defclass ulb-wifi-interface ()
-  ((id
-     :initarg :id
-     :initform (error ":id mancante")
-     :reader id
-     :documentation "id univoco, es. eth0, wlan1, etc.")
-
-   (firmware-detected-capabilities
+  ((firmware-detected-capabilities
      :initarg :firmware-detected-capabilities
      :initform (error ":firmware-detected-capabilities mancante")
      :accessor firmware-detected-capabilities
-     :documentation "string che puo' valere ACK, NAK or FULL. Indica cio' che
-     l'ULB ha dedotto del firmware della scheda, osservando il comportamento
-     del TED.")
+     :documentation ":ack, :nak oppure :full. Indica cio' che ULB ha dedotto
+     del firmware della scheda, osservando le notifiche e i ping ricevuti.")
 
    (sent-datagrams
      :documentation "Gli ulb-struct-datagram spediti da un'interfaccia vengono
@@ -256,9 +276,9 @@
      questa interfaccia. L'evento deve venire procrastinato ogni volta che
      l'interfaccia spedisce un datagram dati.")
 
-   (ping-seqnum
-     :initform 0
-     :accessor ping-seqnum
+   (next-ping-seqnum
+     :initform -1
+     :accessor next-ping-seqnum
      :documentation "Numero di sequenza del prossimo ping da spedire su questa
      interfaccia.")
 
@@ -280,7 +300,7 @@
 
 (defclass udp-load-balancer ()
   ((active-wifi-interfaces
-     :initform (make-hash-table :test #'equal)
+     :initform (make-hash-table)
      :accessor active-wifi-interfaces
      :documentation "Hash table di riferimenti a istanze di
      ulb-wifi-interface, con gli id delle interfacce come chiavi.")
@@ -290,29 +310,20 @@
      sull'interfaccia con voto migliore.")))
 
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; NET-LINK
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Net link
 
 (defclass net-link ()
-  ((to
-     :initarg :to
-     :initform (error ":to missing")
-     :reader to
-     :documentation "Id of the endpoint of this net-link (e.g. wifi-interface
-     id or access-point essid")
-
-   (delay
+  ((delay
      :accessor delay
-     :documentation "Delay of this link, e.g. rtt / 2")
+     :documentation "Latenza di questo link, cioe' rtt / 2.")
 
    (bandwidth
      :accessor bandwidth
-     :documentation "Bandwidth of this link, in bytes per second")
+     :documentation "Banda di questo link.")
 
    (error-rate
      :accessor error-rate
-     :documentation "Integer between 0 and 100")))
+     :documentation "Percentuale d'errore su questo link, da 0 a 100")))
 
 
 (defmethod wpa-supplicant-would-activate ((nl net-link))
@@ -320,23 +331,24 @@
        (< (error-rate nl)
 	  *wpa-supplicant-error-rate-activation-threshold*)))
 
+;;; Access point
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Kernel
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defclass access-point ()
+   (net-links
+     :initform (make-hash-table)
+     :reader net-links
+     :documentation "Hash table di net-link, con id della destinazione come
+     chiave."))
 
-(defclass kernel-wifi-interface ()
-  ((id
-     :initarg :id
-     :initform (error ":id mancante")
-     :reader id
-     :documentation "Id univoco, es. nome eth0, eth1, etc.")
 
-   (firmware-capabilities
+;;; Interfaccia wireless
+
+(defclass wifi-interface ()
+  ((firmware-capabilities
      :initarg :firmware-capabilities
      :initform (error ":firmware-capabilities mancante")
      :reader firmware-capabilities
-     :documentation "Stringa: ACK, NAK oppure FULL. Rappresenta le effettive
+     :documentation ":ack, :nak oppure :full. Rappresenta le effettive
      capacita' del firmware della sheda wireless.")
 
    (socket-send-buffer
@@ -348,159 +360,45 @@
    (associated
      :initform nil
      :accessor associated
-     :documentation "ESSID dell'access point associato, nil se l'interfaccia
-     e' inattiva.")))
+     :documentation "Riferimento all'access-point associato, nil se
+     l'interfaccia e' inattiva.")))
 
 
-(defclass kernel ()
-  ((wifi-interfaces
-     :initform (make-hash-table :test #'equal)
-     :reader socket-send-buffers
-     :documentation "Una hash table di riferimenti a instanze di
-     kernel-wifi-interface, indicizzati sui rispettivi id.")))
-
-
-(defmethod add ((k kernel) (kwi kernel-wifi-interface))
-  (setf (gethash (id kwi) (wifi-interfaces k)) kwi))
-
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; SOFTPHONE
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Proxy-server
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Proxy server
 
 (defclass proxy-server ()
   ())
 
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; SIMULATOR
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-
-(defclass access-point ()
-  ((essid
-     :initarg :essid
-     :initform (error ":id missing")
-     :reader essid
-     :documentation "Access point unique essid")
-
-   (net-links
-     :initform (make-hash-table :test #'equal)
-     :reader net-links
-     :documentation "Hash table of net-link instances, with to as key, one for
-     wifi-interface and only one for proxy")))
-
+;;; Evento
 
 (defclass event ()
   ((exec-at
      :initarg :exec-at
      :initform (error ":exec-at missing")
      :reader exec-at
-     :documentation "Time at which this event must be executed (absolute)")
-
-   (needs-sim-ref
-     :initarg :needs-sim-ref
-     :initform nil
-     :reader needs-sim-ref
-     :documentation "True if action needs the reference to the simulator instance")
-
-   (needs-itself-ref
-     :initarg :needs-itself-ref
-     :initform nil
-     :reader needs-itself-ref
-     :documentation "True if action needs the reference to this event")
+     :documentation "Istante in cui deve essere eseguito.")
 
    (action
      :initarg :action
-     :initform (error ":action missing")
+     :initform (error ":action mancante")
      :reader action
-     :documentation "Function that must be called to execute this event: must
-     return nil or a list of events generated by this event. When called,
-     will receive this event as the first argument and then
-     action-arguments.")
-
-   (action-arguments
-     :initarg :action-arguments
-     :initform (error ":action-arguments missing")
-     :reader action-arguments
-     :documentation "List of arguments to be passed to action")))
+     :documentation "Funzione da chiamare per eseguire l'evento.")))
 
 
-(defclass simulator ()
-  ((kernel
-     :initform (new kernel)
-     :reader kernel
-     :documentation "Rappresenta cio' che accade nel kernel del sistema che
-     esegue ULB.")
-
-   (ulb
-     :initform (new udp-load-balancer)
-     :reader ulb
-     :documentation "Rappresenta l'ulb.")
-
-   (proxy-server
-     :initform (new proxy-server)
-     :reader proxy-server
-     :documentation "Rappresenta il proxy server.")
-
-   (access-points
-     :initform (make-hash-table :test #'equal)
-     :reader access-points
-     :documentation "Hash table di access-points, le chiavi sono gli essid.")
-
-   (events
-     :initform nil
-     :accessor events
-     :documentation "Lista di eventi, ordinati per ordine di esecuzione.")))
+(defmethod fire ((ev event))
+    (funcall (action ev)))
 
 
-(defmethod add ((sim simulator) (evs list))
-  "Add the evs event list to the events of sim, in order of execution time"
-  (assert (not (null evs)) nil
-	  "evs must not be nil")
-  (setf (events sim) (nconc evs (events sim)))
-  (sort	(events sim) #'< :key #'exec-at))
-
-
-(defmethod add ((sim simulator) (ap access-point))
-  "Add ap to the access points of the simulator"
-  (assert (not (null ap)) nil "ap must not be nil")
-  (setf (gethash (essid ap) (access-points sim)) ap))
-
-
-(defmethod fire ((sim simulator) (ev event))
-  ;; FIXME dio che schifo
-  (cond
-    ((and (needs-sim-ref ev)
-	  (needs-itself-ref ev))
-     (apply (action ev) sim ev (action-arguments ev)))
-
-    ((and (needs-sim-ref ev)
-	  (not (needs-itself-ref ev)))
-     (apply (action ev) sim (action-arguments ev)))
-
-    ((and (not (needs-sim-ref ev))
-	  (needs-itself-ref ev))
-     (apply (action ev) ev (action-arguments ev)))
-
-    (t (apply (action ev) (action-arguments ev)))))
-
-
-(defmethod set-link-status ((sim simulator) &key essid to
-			    (error-rate nil error-rate-provided-p)
-			    (delay nil delay-provided-p)
-			    (bandwidth nil bandwidth-provided-p))
-  "Simula un cambiamento di delay, error-rate o bandwidth nel link da essid a
-   to. Come conseguenza, una interfaccia wireless non attiva puo' essere
-   attivata, una attiva puo' essere disattivata"
-  (let* ((ap (gethash essid (access-points sim)))
-	 (wi (gethash to (wifi-interfaces sim)))
-	 (link (gethash to (net-links ap))))
+(defun set-link (essid to &key
+		 (error-rate nil error-rate-provided-p)
+		 (delay nil delay-provided-p)
+		 (bandwidth nil bandwidth-provided-p))
+  "Simula un cambiamento di delay, error-rate o bandwidth nel link
+   dall'access-point con l'essid specificato a to. Come conseguenza, una
+   interfaccia wireless non attiva puo' essere attivata, una attiva puo'
+   essere disattivata"
+  (let ((link (net-link essid to)))
 
     ; Impostazione parametri specificati.
     (if error-rate-provided-p
@@ -512,18 +410,19 @@
 
     ; Se link wifi, wpa-supplicant potrebbe attivare o disattivare l'interfaccia.
     ; Altrimenti altrimenti e' link wired con proxy, e non c'e' altro da fare.
-    (when wi
-      (if (and (associated wi)
+    ; TODO DA QUI
+    (when (wifi-interface to)
+      (if (and (associated kwi)
 	       (not (wpa-supplicant-would-activate link)))
-	(iface-down sim wi))
-      (if (and (not (associated wi))
+	(iface-down sim kwi))
+      (if (and (not (associated kwi))
 	       (wpa-supplicant-would-activate link))
-	(iface-up sim wi essid)))))
+	(iface-up sim kwi essid)))))
 
 
-(defmethod flush-socket-send-buffer ((sim simulator) (wi kernel-wifi-interface))
-  (let* ((ap (gethash (associated wi) (access-points sim)))
-	 (link (gethash (id wi) (net-links ap))))
+(defmethod flush-socket-send-buffer ((sim simulator) (kwi kernel-wifi-interface))
+  (let* ((ap (gethash (associated kwi) (access-points sim)))
+	 (link (gethash (id kwi) (net-links ap))))
     (if (deliver-success link)
       (error "TODO calcola quando arriva all'access point e aggiungi evento"))))
 
@@ -536,7 +435,7 @@
       (nconc buf pkt)
       (progn
 	(setf buf (list pkt))
-	(flush-socket-send-buffer sim wi)))))
+	(flush-socket-send-buffer sim kwi)))))
 
 
 
@@ -552,42 +451,19 @@
   (error "TODO iface-down"))
 
 
-(defmethod iface-up ((sim simulator) (uwi ulb-wifi-interface) (essid string))
-  (setf (associated uwi) essid)
-  (loop repeat *ping-burst-length*
-	do (send sim uwi (make-ping uwi))))
+;(defmethod iface-up ((sim simulator) (kwi kernel-wifi-interface) (essid string))
+;  (setf (associated kwi) essid)
 
 
-(defmethod run ((sim simulator))
-  "Execute all of the events in the simulator."
-  (loop for current-event = (when (events sim) (pop (events sim)))
+(defun run ()
+  "Esegue tutti gli eventi"
+  (loop for current-event = (when *events* (pop *events*))
 	while current-event
-	do (fire sim current-event)))
-
-
-(defmethod generate-scenario ((sim simulator))
-  "Genera lo scenario a partire dalle impostazioni dello script."
-  (loop for ap being the hash-values in (access-points sim)
-	do (loop for kwi being the hash-values in (wifi-interfaces (kernel sim))
-		 do (setf (gethash (id kwi) (net-links ap))
-			  (new net-link :to (id kwi))))
-	(setf (gethash "proxy" (net-links ap))
-	      (new net-link :to "proxy"))))
-
-  ;; TODO
-  ;; alla chiamata ci sono:
-  ;; - le kernel-wifi-interface nel kernel
-  ;; - gli access-point nel simulator
-  ;;
-  ;; per ogni access-point
-  ;;  per ogni kernel-wifi-interface
-  ;;   crea il net-link a quella interfaccia e aggiungilo all'ap corrente
-  ;;
-  ;; NOTA: i net-link sono vuoti, sono gli eventi a impostarne i valori.
-  ;; NOTA: ulb sta a secco, sono gli eventi ad attivare le sue interfacce.
+	do (fire current-event)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Inizializzazione
+;;; Instanziazione classi globali
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(setf *sim* (new simulator))
+(setf *proxy* (new proxy))
+(setf *ulb* (new udp-load-balancer))
