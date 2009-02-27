@@ -273,8 +273,7 @@
   ;; id rappresenta il nome dell'interfaccia.
 
   ((firmware-detected
-     :initarg :firmware-detected
-     :initform (error ":firmware-detected mancante")
+     :initform nil
      :accessor firmware-detected
      :documentation ":ack, :nak oppure :full. Indica cio' che ULB ha dedotto
      del firmware della scheda, osservando le notifiche e i ping ricevuti.")
@@ -287,6 +286,8 @@
      oppure di un NAK o di un send-again-event che li ritrasmetta.")
 
    (send-ping-event
+     :initform nil
+     :accessor send-ping-event
      :documentation "Riferimento all'evento che spedira' il prossimo ping su
      questa interfaccia. L'evento deve venire procrastinato ogni volta che
      l'interfaccia spedisce un datagram dati.")
@@ -385,6 +386,21 @@
      :accessor associated-ap
      :documentation "Riferimento all'access-point associato, nil se
      l'interfaccia e' inattiva.")))
+
+
+(defmethod activate ((ulb udp-load-balancer) (wi wifi-interface))
+  ;; TODO ping-burst
+  (let ((id (id wi)))
+    (setf (gethash id (active-wifi-interfaces ulb))
+	  (new ulb-wifi-interface :id id))))
+
+
+(defmethod deactivate ((ulb udp-load-balancer) (wi wifi-interface))
+  (let ((id (id wi)))
+    ;; TODO dirottare pacchetti
+    ;; TODO cancellare eventi pendenti
+    (setf (gethash id (active-wifi-interfaces ulb))
+	  nil)))
 
 
 ;;; Proxy server
@@ -486,7 +502,8 @@
 
 (defmethod iface-up ((wi wifi-interface) (ap access-point))
   (format t "~&iface-up ~a ~a" (id wi) (id ap))
-  (setf (associated-ap wi) ap))
+  (setf (associated-ap wi) ap)
+  (activate *ulb* wi))
 
 
 (defun run ()
