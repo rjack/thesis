@@ -269,14 +269,10 @@
      :documentation "Istante di ricezione del ping di risposta.")))
 
 
-(defclass ulb-wifi-interface ()
-  ((id
-     :initarg :id
-     :initform (error ":id mancante")
-     :reader id
-     :documentation "Id univoco dell'interfaccia, di tipo keyword (es. :eth0)")
+(defclass ulb-wifi-interface (identified)
+  ;; id rappresenta il nome dell'interfaccia.
 
-   (firmware-detected
+  ((firmware-detected
      :initarg :firmware-detected
      :initform (error ":firmware-detected mancante")
      :accessor firmware-detected
@@ -284,6 +280,8 @@
      del firmware della scheda, osservando le notifiche e i ping ricevuti.")
 
    (sent-datagrams
+     :initform nil
+     :accessor sent-datagrams
      :documentation "Gli ulb-struct-datagram spediti da un'interfaccia vengono
      accodati qui in attesa di un ACK o di un end-of-life-event che li scarti,
      oppure di un NAK o di un send-again-event che li ritrasmetta.")
