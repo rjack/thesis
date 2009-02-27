@@ -440,11 +440,9 @@
 
 
 (defmethod activate ((ulb udp-load-balancer) (wi wifi-interface))
-  ;; TODO ping-burst
   (let* ((id (id wi))
-         (uwi (gethash id (active-wifi-interfaces ulb))))
-    (setf uwi (new ulb-wifi-interface :id id))
-    (break)
+         (uwi (setf (gethash id (active-wifi-interfaces ulb))
+		    (new ulb-wifi-interface :id id))))
     (send uwi (new ulb-struct-ping :wifi-interface uwi))))
 
 
