@@ -421,7 +421,7 @@
    (socket-send-buffer
      :initform nil
      :accessor socket-send-buffer
-     :documentation "Lista di wifi-frame spediti dall'ulb su questa
+     :documentation "Lista di udp-packet spediti dall'ulb su questa
      interfaccia.")
 
    (associated-ap
@@ -435,8 +435,9 @@
   (error "TODO send ulb-wifi-interface ulb-struct-datagram"))
 
 
-(defmethod send ((uwi ulb-wifi-interface) (dgram ulb-struct-ping))
-  (error "TODO send ulb-wifi-interface ulb-struct-ping"))
+(defmethod send ((uwi ulb-wifi-interface) (dgram ulb-struct-ping)))
+  ;(let ((wi (wifi-interface-by (id uwi))))
+
 
 
 (defmethod activate ((ulb udp-load-balancer) (wi wifi-interface))
