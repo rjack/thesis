@@ -19,33 +19,6 @@
   venire attivata.")
 
 
-;;; Funzioni per lo script di configurazione
-
-(defun generate-access-points (&rest aps)
-  (dolist (essid aps)
-    (setf (gethash essid *access-points*)
-	  (new access-point :essid essid))))
-
-
-(defun generate-wifi-interfaces (&rest wis)
-  (loop for id in wis by #'cddr
-	and cap in (rest wis) by #'cddr
-	do (setf (gethash id *wifi-interfaces*)
-		 (new wifi-interface :firmware-capabilities cap))))
-
-
-(defun generate-links ()
-  "Genera i link tra ap e wi e tra ap e proxy"
-  (loop for ap being the hash-values in *access-points*
-	do (loop for wi
-		 being the hash-values in *wifi-interfaces*
-		 using (hash-key id)
-		 do (setf (gethash id (net-links ap))
-			  (new net-link)))
-	(setf (gethash :proxy (net-links ap))
-	      (new net-link))))
-
-
 ;;; Accesso alle variabili globali
 
 (defun add-events (&rest new-events)
@@ -55,16 +28,12 @@
   (sort	*events* #'< :key #'exec-at))
 
 
-(defun access-point (essid)
+(defun access-point-by (essid)
   (gethash essid *access-points*))
 
 
-(defun wifi-interface (id)
+(defun wifi-interface-by (id)
   (gethash id *wifi-interfaces*))
-
-
-(defun net-link (essid id)
-  (gethash id (net-links (access-point essid))))
 
 
 ;;; Utilita'
@@ -110,6 +79,32 @@
 
 (defun transmission-time (nbytes bandwidth)
   (/ nbytes bandwidth))
+
+
+;;; Funzioni per lo script di configurazione
+
+(defun add-access-points (&rest access-points)
+  (dolist (ap access-points)
+    (setf (gethash (essid ap) *access-points*)
+	  ap)))
+
+
+(defun add-wifi-interfaces (&rest wifi-interfaces)
+  (dolist (wi wifi-interfaces)
+    (setf (gethash (id wi) *wifi-interfaces*)
+	  wi)))
+
+
+(defun generate-links ()
+  "Genera i link tra ap e wi e tra ap e proxy"
+  (loop for ap being the hash-values in *access-points*
+	do (loop for wi
+		 being the hash-values in *wifi-interfaces*
+		 using (hash-key id)
+		 do (setf (gethash id (net-links ap))
+			  (new net-link :destination (wifi-interface-by id))))
+	(setf (gethash :proxy (net-links ap))
+	      (new net-link :destination *proxy*))))
 
 
 ;;; Pacchetti
@@ -230,7 +225,7 @@
      :initarg :value
      :initform (error ":value mancante")
      :reader value
-     :documentation "Valore dell'outcome: :ack oppure :nak")
+     :documentation "Valore dell'outcome: :ack oppure :nak")))
    ;; TODO :ack se TED dice ack oppure se ulb sa che ifaccia dice solo NAK ed
    ;; e' scaduto un timeout.
    ;; TODO :nak se TED dice nak oppure se ulb sa che ifaccia dice solo ACK ed
@@ -259,10 +254,16 @@
 
 
 (defclass ulb-wifi-interface ()
-  ((firmware-detected-capabilities
-     :initarg :firmware-detected-capabilities
-     :initform (error ":firmware-detected-capabilities mancante")
-     :accessor firmware-detected-capabilities
+  ((id
+     :initarg :id
+     :initform (error ":id mancante")
+     :reader id
+     :documentation "Id univoco dell'interfaccia, di tipo keyword (es. :eth0)")
+
+   (firmware-detected
+     :initarg :firmware-detected
+     :initform (error ":firmware-detected mancante")
+     :accessor firmware-detected
      :documentation ":ack, :nak oppure :full. Indica cio' che ULB ha dedotto
      del firmware della scheda, osservando le notifiche e i ping ricevuti.")
 
@@ -313,7 +314,14 @@
 ;;; Net link
 
 (defclass net-link ()
-  ((delay
+  ((destination
+     :initarg :destination
+     :initform (error ":destination mancante")
+     :reader destination
+     :documentation "Riferimento all'istanza della destinazione: puo' essere
+     una wifi-interface o il proxy-server.")
+   
+   (delay
      :accessor delay
      :documentation "Latenza di questo link, cioe' rtt / 2.")
 
@@ -331,23 +339,36 @@
        (< (error-rate nl)
 	  *wpa-supplicant-error-rate-activation-threshold*)))
 
+
 ;;; Access point
 
 (defclass access-point ()
+  ((essid
+     :initarg :essid
+     :initform (error ":essid mancante")
+     :reader essid
+     :documentation "Essid dell'access point, come keyword (es. :csnet)")
+
    (net-links
      :initform (make-hash-table)
      :reader net-links
      :documentation "Hash table di net-link, con id della destinazione come
-     chiave."))
+     chiave.")))
 
 
 ;;; Interfaccia wireless
 
 (defclass wifi-interface ()
-  ((firmware-capabilities
-     :initarg :firmware-capabilities
-     :initform (error ":firmware-capabilities mancante")
-     :reader firmware-capabilities
+  ((id
+     :initarg :id
+     :initform (error ":id mancante")
+     :reader id
+     :documentation "nome dell'interfaccia (es. :eth0)")
+ 
+   (firmware
+     :initarg :firmware
+     :initform (error ":firmware mancante")
+     :reader firmware
      :documentation ":ack, :nak oppure :full. Rappresenta le effettive
      capacita' del firmware della sheda wireless.")
 
@@ -357,9 +378,9 @@
      :documentation "Lista di wifi-frame spediti dall'ulb su questa
      interfaccia.")
 
-   (associated
+   (associated-ap
      :initform nil
-     :accessor associated
+     :accessor associated-ap
      :documentation "Riferimento all'access-point associato, nil se
      l'interfaccia e' inattiva.")))
 
@@ -368,6 +389,14 @@
 
 (defclass proxy-server ()
   ())
+
+
+(defmethod link-between ((ap access-point) (wi wifi-interface))
+  (gethash (id wi) (net-links ap)))
+
+
+(defmethod link-between ((ap access-point) (px proxy-server))
+  (gethash :proxy (net-links ap)))
 
 
 ;;; Evento
@@ -390,15 +419,16 @@
     (funcall (action ev)))
 
 
-(defun set-link (essid to &key
-		 (error-rate nil error-rate-provided-p)
-		 (delay nil delay-provided-p)
-		 (bandwidth nil bandwidth-provided-p))
+(defmethod set-link ((ap access-point) dest
+                     &key (error-rate nil error-rate-provided-p)
+		          (delay nil delay-provided-p)
+			  (bandwidth nil bandwidth-provided-p))
   "Simula un cambiamento di delay, error-rate o bandwidth nel link
    dall'access-point con l'essid specificato a to. Come conseguenza, una
    interfaccia wireless non attiva puo' essere attivata, una attiva puo'
    essere disattivata"
-  (let ((link (net-link essid to)))
+  (format t "set-link")
+  (let ((link (link-between ap dest)))
 
     ; Impostazione parametri specificati.
     (if error-rate-provided-p
@@ -408,23 +438,22 @@
     (if bandwidth-provided-p
       (setf (bandwidth link) bandwidth))
 
-    ; Se link wifi, wpa-supplicant potrebbe attivare o disattivare l'interfaccia.
-    ; Altrimenti altrimenti e' link wired con proxy, e non c'e' altro da fare.
-    ; TODO DA QUI
-    (when (wifi-interface to)
-      (if (and (associated kwi)
+    ; wpa-supplicant potrebbe attivare o disattivare l'interfaccia wireless.
+    (when (typep dest 'wifi-interface)
+      (if (and (associated-ap dest)
 	       (not (wpa-supplicant-would-activate link)))
-	(iface-down sim kwi))
-      (if (and (not (associated kwi))
+	(iface-down dest))
+      (if (and (not (associated-ap dest))
 	       (wpa-supplicant-would-activate link))
-	(iface-up sim kwi essid)))))
+	(iface-up dest ap)))))
 
 
-(defmethod flush-socket-send-buffer ((sim simulator) (kwi kernel-wifi-interface))
-  (let* ((ap (gethash (associated kwi) (access-points sim)))
-	 (link (gethash (id kwi) (net-links ap))))
+#|
+(defmethod flush-socket-send-buffer (wi wifi-interface)
+  (let ((link (net-link )))
     (if (deliver-success link)
-      (error "TODO calcola quando arriva all'access point e aggiungi evento"))))
+      (error "TODO calcola quando arriva all'access point e aggiungi
+	     evento"))))
 
 
 (defmethod send ((sim simulator) (kwi kernel-wifi-interface) (pkt packet))
@@ -436,34 +465,34 @@
       (progn
 	(setf buf (list pkt))
 	(flush-socket-send-buffer sim kwi)))))
+|#
 
 
-
-(defmethod talk-local ((sim simulator) (ev event) &key duration)
-  (format t "~&talk-local, at ~a, duration ~a~%" (exec-at ev) duration))
-
-
-(defmethod talk-remote ((sim simulator) (ev event) &key duration)
-  (format t "~&talk-remote, at ~a, duration ~a~%" (exec-at ev) duration))
+(defun talk-local (&key duration)
+  (format t "talk-local, duration ~a~%" duration))
 
 
-(defmethod iface-down ((sim simulator) (uwi ulb-wifi-interface))
+(defun talk-remote (&key duration)
+  (format t "talk-remote, duration ~a~%" duration))
+
+
+(defmethod iface-down ((wi wifi-interface))
   (error "TODO iface-down"))
 
 
-;(defmethod iface-up ((sim simulator) (kwi kernel-wifi-interface) (essid string))
-;  (setf (associated kwi) essid)
+(defmethod iface-up ((wi wifi-interface) (ap access-point))
+  (setf (associated-ap wi) ap))
 
 
 (defun run ()
   "Esegue tutti gli eventi"
   (loop for current-event = (when *events* (pop *events*))
 	while current-event
-	do (fire current-event)))
+	do (format t "~&~D " (exec-at current-event))
+	(fire current-event)))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Instanziazione classi globali
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(setf *proxy* (new proxy))
+;;; Instanziazione oggetti globali
+
+(setf *proxy* (new proxy-server))
 (setf *ulb* (new udp-load-balancer))
