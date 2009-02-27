@@ -475,11 +475,11 @@
 
 
 (defun talk-local (&key duration)
-  (format t "talk-local, duration ~a~%" duration))
+  (format t "talk-local, duration ~a" duration))
 
 
 (defun talk-remote (&key duration)
-  (format t "talk-remote, duration ~a~%" duration))
+  (format t "talk-remote, duration ~a" duration))
 
 
 (defmethod iface-down ((wi wifi-interface))
@@ -495,7 +495,7 @@
   "Esegue tutti gli eventi"
   (loop for current-event = (when *events* (pop *events*))
 	while current-event
-	do (format t "~%~%[~D] " (exec-at current-event))
+	do (format t "~%~%~D: " (exec-at current-event))
 	(fire current-event)))
 
 
