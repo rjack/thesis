@@ -25,7 +25,7 @@
   "Aggiunge i new-events agli *events* e riordina il tutto per istante di
   esecuzione."
   (setf *events* (nconc new-events *events*))
-  (sort	*events* #'< :key #'exec-at))
+  (sort *events* #'< :key #'exec-at))
 
 
 (defun access-point-by (id)
@@ -38,9 +38,9 @@
 
 (defun wifi-interface-associated-with (ap)
   (loop for wi being the hash-values in *wifi-interfaces*
-	do (if (eql (associated-ap wi) ap)
-	     (return wi))
-	finally (return nil)))
+        do (if (eql (associated-ap wi) ap)
+             (return wi))
+        finally (return nil)))
 
 
 ;;; Utilita'
@@ -93,25 +93,25 @@
 (defun add-access-points (&rest access-points)
   (dolist (ap access-points)
     (setf (gethash (id ap) *access-points*)
-	  ap)))
+          ap)))
 
 
 (defun add-wifi-interfaces (&rest wifi-interfaces)
   (dolist (wi wifi-interfaces)
     (setf (gethash (id wi) *wifi-interfaces*)
-	  wi)))
+          wi)))
 
 
 (defun generate-links ()
   "Genera i link tra ap e wi e tra ap e proxy"
   (loop for ap being the hash-values in *access-points*
-	do (loop for wi
-		 being the hash-values in *wifi-interfaces*
-		 using (hash-key id)
-		 do (setf (gethash id (net-links ap))
-			  (new net-link :id (wifi-interface-by id))))
-	(setf (gethash :proxy (net-links ap))
-	      (new net-link :id *proxy*))))
+        do (loop for wi
+                 being the hash-values in *wifi-interfaces*
+                 using (hash-key id)
+                 do (setf (gethash id (net-links ap))
+                          (new net-link :id (wifi-interface-by id))))
+        (setf (gethash :proxy (net-links ap))
+              (new net-link :id *proxy*))))
 
 
 ;;; Classe base degli oggetti simulati.
@@ -172,7 +172,11 @@
 
 
 (defclass ping-packet (udp-packet)
-  ((score
+  ((payload
+     :initarg nil
+     :initform nil)
+
+   (score
      :initarg :score
      :initform (error ":score mancante")
      :reader score
@@ -194,16 +198,49 @@
   ;; lo slot id rappresenta l'identificativo assegnato da sendmsg_getID()
 
   ((end-of-life-event
+     :initarg :end-of-life-event
+     :initform (error ":end-of-life-event mancante")
+     :accessor end-of-life-event
      :documentation "Riferimento all'evento che rimuove questo pacchetto
      dall'ULB")
 
    (send-again-event
+     :initarg :send-again-event
+     :initform (error ":send-again-event mancante")
+     :accessor send-again-event
      :documentation "Riferimento all'evento che pone questo pacchetto
      nuovamente nella coda di spedizione dall'ULB")
 
    (data
-     :documentation "Riferimento al pacchetto vero e proprio: un udp-packet o
-     un ping-packet.")))
+     :initarg :data
+     :initform (error ":data mancante")
+     :reader data
+     :documentation "Riferimento al pacchetto vero e proprio.")))
+
+
+(defclass ulb-struct-ping (ulb-struct-datagram)
+  ;; Lo slot id rappresenta l'identificativo assegnato da sendmsg_getID()
+  ;; Lo slot data punta a un istanza ping-packet che contiene ping-seqnum e
+  ;; score.
+  
+  ((end-of-life-event
+     :initarg nil
+     :initform nil)
+
+   (send-again-event
+     :initarg nil
+     :initform nil)
+
+   (data
+     :initarg nil
+     :initform nil)))
+
+
+(defmethod initialize-instance :after ((ping ulb-struct-ping) &key wifi-interface)
+  (let ((seq (incf (next-ping-seqnum wifi-interface))))
+    (setf (slot-value ping 'data)
+	  (new ping-packet :score (score wifi-interface)
+                           :sequence-number seq))))
 
 
 ;; Metodi sui pacchetti
@@ -211,6 +248,12 @@
 (defmethod size ((pkt packet))
   (+ (overhead-size pkt)
      (size (payload pkt))))
+
+
+(defmethod size ((ping ping-packet))
+  (+ (overhead-size ping)
+     8))    ;; contiene score e seqnum, due interi da 4 byte.
+
 
 (defmethod size ((data data-packet))
   (payload data))
@@ -252,7 +295,7 @@
   ((ping-seqnum
      :initarg :ping-seqnum
      :initform (error ":ping-seqnum mancante")
-     :reader probe-seqnum
+     :reader ping-seqnum
      :documentation "Numero di sequenza del ping di cui si riferisce questo
      full-path-outcome.")
 
@@ -360,7 +403,7 @@
   (and (bandwidth nl)
        (> (bandwidth nl) 0)
        (< (error-rate nl)
-	  *wpa-supplicant-error-rate-activation-threshold*)))
+          *wpa-supplicant-error-rate-activation-threshold*)))
 
 
 ;;; Interfaccia wireless
@@ -388,11 +431,21 @@
      l'interfaccia e' inattiva.")))
 
 
+(defmethod send ((uwi ulb-wifi-interface) (dgram ulb-struct-datagram))
+  (error "TODO send ulb-wifi-interface ulb-struct-datagram"))
+
+
+(defmethod send ((uwi ulb-wifi-interface) (dgram ulb-struct-ping))
+  (error "TODO send ulb-wifi-interface ulb-struct-ping"))
+
+
 (defmethod activate ((ulb udp-load-balancer) (wi wifi-interface))
   ;; TODO ping-burst
-  (let ((id (id wi)))
-    (setf (gethash id (active-wifi-interfaces ulb))
-	  (new ulb-wifi-interface :id id))))
+  (let* ((id (id wi))
+         (uwi (gethash id (active-wifi-interfaces ulb))))
+    (setf uwi (new ulb-wifi-interface :id id))
+    (break)
+    (send uwi (new ulb-struct-ping :wifi-interface uwi))))
 
 
 (defmethod deactivate ((ulb udp-load-balancer) (wi wifi-interface))
@@ -400,7 +453,7 @@
     ;; TODO dirottare pacchetti
     ;; TODO cancellare eventi pendenti
     (setf (gethash id (active-wifi-interfaces ulb))
-	  nil)))
+          nil)))
 
 
 ;;; Proxy server
@@ -440,8 +493,8 @@
 
 (defmethod set-link ((ap access-point) dest
                      &key (error-rate nil error-rate-provided-p)
-		          (delay nil delay-provided-p)
-			  (bandwidth nil bandwidth-provided-p))
+                          (delay nil delay-provided-p)
+                          (bandwidth nil bandwidth-provided-p))
   "Simula un cambiamento di delay, error-rate o bandwidth nel link
    dall'access-point con l'essid specificato a to. Come conseguenza, una
    interfaccia wireless non attiva puo' essere attivata, una attiva puo'
@@ -460,12 +513,12 @@
     ; wpa-supplicant potrebbe attivare o disattivare l'interfaccia wireless.
     (when (typep dest 'wifi-interface)
       (if (and (associated-ap dest)
-	       (not (wpa-supplicant-would-activate link ap)))
-	(iface-down dest))
+               (not (wpa-supplicant-would-activate link ap)))
+        (iface-down dest))
       (if (and (not (associated-ap dest))
-	       (not (wifi-interface-associated-with ap))
-	       (wpa-supplicant-would-activate link ap))
-	(iface-up dest ap)))))
+               (not (wifi-interface-associated-with ap))
+               (wpa-supplicant-would-activate link ap))
+        (iface-up dest ap)))))
 
 
 #|
@@ -473,18 +526,7 @@
   (let ((link (net-link )))
     (if (deliver-success link)
       (error "TODO calcola quando arriva all'access point e aggiungi
-	     evento"))))
-
-
-(defmethod send ((sim simulator) (kwi kernel-wifi-interface) (pkt packet))
-  "Accoda pkt nel socket-send-buffer di kwi.
-  Se il buffer era vuoto, scatena l'evento flush."
-  (with-accessors ((buf socket-send-buffer)) kwi
-    (if buf
-      (nconc buf pkt)
-      (progn
-	(setf buf (list pkt))
-	(flush-socket-send-buffer sim kwi)))))
+             evento"))))
 |#
 
 
@@ -509,9 +551,9 @@
 (defun run ()
   "Esegue tutti gli eventi"
   (loop for current-event = (when *events* (pop *events*))
-	while current-event
-	do (format t "~%~%~D: " (exec-at current-event))
-	(fire current-event)))
+        while current-event
+        do (format t "~%~%~D: " (exec-at current-event))
+        (fire current-event)))
 
 
 ;;; Instanziazione oggetti globali
