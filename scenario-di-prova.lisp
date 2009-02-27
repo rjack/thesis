@@ -34,6 +34,18 @@
 		  :error-rate 10 :delay (msecs 23)
 		  :bandwidth (megabits-per-second 10))
 
+  (set-link-event (msecs 0) *csnet* *proxy*
+		  :error-rate 10 :delay (msecs 23)
+		  :bandwidth (megabits-per-second 27))
+
+  (set-link-event (msecs 0) *csnet* *eth0*
+		  :error-rate 10 :delay (msecs 23)
+		  :bandwidth (megabits-per-second 27))
+
+  (set-link-event (msecs 0) *csnet* *eth1*
+		  :error-rate 10 :delay (msecs 23)
+		  :bandwidth (megabits-per-second 10))
+
   (new event :exec-at (secs 2)
        :action (lambda ()
 		 (talk-local :duration (secs 2))))
