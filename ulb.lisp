@@ -28,12 +28,19 @@
   (sort	*events* #'< :key #'exec-at))
 
 
-(defun access-point-by (essid)
-  (gethash essid *access-points*))
+(defun access-point-by (id)
+  (gethash id *access-points*))
 
 
 (defun wifi-interface-by (id)
   (gethash id *wifi-interfaces*))
+
+
+(defun wifi-interface-associated-with (ap)
+  (loop for wi being the hash-values in *wifi-interfaces*
+	do (if (eql (associated-ap wi) ap)
+	     (return wi))
+	finally (return nil)))
 
 
 ;;; Utilita'
@@ -85,7 +92,7 @@
 
 (defun add-access-points (&rest access-points)
   (dolist (ap access-points)
-    (setf (gethash (essid ap) *access-points*)
+    (setf (gethash (id ap) *access-points*)
 	  ap)))
 
 
@@ -102,9 +109,19 @@
 		 being the hash-values in *wifi-interfaces*
 		 using (hash-key id)
 		 do (setf (gethash id (net-links ap))
-			  (new net-link :destination (wifi-interface-by id))))
+			  (new net-link :id (wifi-interface-by id))))
 	(setf (gethash :proxy (net-links ap))
-	      (new net-link :destination *proxy*))))
+	      (new net-link :id *proxy*))))
+
+
+;;; Classe base degli oggetti simulati.
+(defclass identified ()
+  ((id
+     :initarg :id
+     :initform (gensym)
+     :reader id
+     :documentation "Identificativo dell'oggetto. Per ogni sottoclasse ha un
+     diverso significato.")))
 
 
 ;;; Pacchetti
@@ -173,11 +190,10 @@
 ;;; Queste classi sono la rappresentazione software dei pacchetti da parte dei
 ;;; programmi.
 
-(defclass ulb-struct-datagram ()
-  ((id
-     :documentation "Assegnato da sendmsg_getID.")
+(defclass ulb-struct-datagram (identified)
+  ;; lo slot id rappresenta l'identificativo assegnato da sendmsg_getID()
 
-   (end-of-life-event
+  ((end-of-life-event
      :documentation "Riferimento all'evento che rimuove questo pacchetto
      dall'ULB")
 
@@ -313,15 +329,10 @@
 
 ;;; Net link
 
-(defclass net-link ()
-  ((destination
-     :initarg :destination
-     :initform (error ":destination mancante")
-     :reader destination
-     :documentation "Riferimento all'istanza della destinazione: puo' essere
-     una wifi-interface o il proxy-server.")
-   
-   (delay
+(defclass net-link (identified)
+  ;; Id rappresenta l'id della destinazione
+
+  ((delay
      :accessor delay
      :documentation "Latenza di questo link, cioe' rtt / 2.")
 
@@ -334,38 +345,31 @@
      :documentation "Percentuale d'errore su questo link, da 0 a 100")))
 
 
-(defmethod wpa-supplicant-would-activate ((nl net-link))
-  (and (bandwidth nl)
-       (< (error-rate nl)
-	  *wpa-supplicant-error-rate-activation-threshold*)))
-
-
 ;;; Access point
 
-(defclass access-point ()
-  ((essid
-     :initarg :essid
-     :initform (error ":essid mancante")
-     :reader essid
-     :documentation "Essid dell'access point, come keyword (es. :csnet)")
+(defclass access-point (identified)
+  ;; Id rappresenta l'essid dell'access point
 
-   (net-links
+  ((net-links
      :initform (make-hash-table)
      :reader net-links
      :documentation "Hash table di net-link, con id della destinazione come
      chiave.")))
 
 
+(defmethod wpa-supplicant-would-activate ((nl net-link) (ap access-point))
+  (and (bandwidth nl)
+       (> (bandwidth nl) 0)
+       (< (error-rate nl)
+	  *wpa-supplicant-error-rate-activation-threshold*)))
+
+
 ;;; Interfaccia wireless
 
-(defclass wifi-interface ()
-  ((id
-     :initarg :id
-     :initform (error ":id mancante")
-     :reader id
-     :documentation "nome dell'interfaccia (es. :eth0)")
- 
-   (firmware
+(defclass wifi-interface (identified)
+  ;; id rappresenta il nome dell'interfaccia
+
+  ((firmware
      :initarg :firmware
      :initform (error ":firmware mancante")
      :reader firmware
@@ -387,8 +391,9 @@
 
 ;;; Proxy server
 
-(defclass proxy-server ()
-  ())
+(defclass proxy-server (identified)
+  ((id
+     :initform :proxy)))
 
 
 (defmethod link-between ((ap access-point) (wi wifi-interface))
@@ -427,7 +432,7 @@
    dall'access-point con l'essid specificato a to. Come conseguenza, una
    interfaccia wireless non attiva puo' essere attivata, una attiva puo'
    essere disattivata"
-  (format t "set-link")
+  (format t "set-link ~a ~a" (id ap) (id dest))
   (let ((link (link-between ap dest)))
 
     ; Impostazione parametri specificati.
@@ -441,10 +446,11 @@
     ; wpa-supplicant potrebbe attivare o disattivare l'interfaccia wireless.
     (when (typep dest 'wifi-interface)
       (if (and (associated-ap dest)
-	       (not (wpa-supplicant-would-activate link)))
+	       (not (wpa-supplicant-would-activate link ap)))
 	(iface-down dest))
       (if (and (not (associated-ap dest))
-	       (wpa-supplicant-would-activate link))
+	       (not (wifi-interface-associated-with ap))
+	       (wpa-supplicant-would-activate link ap))
 	(iface-up dest ap)))))
 
 
@@ -481,6 +487,7 @@
 
 
 (defmethod iface-up ((wi wifi-interface) (ap access-point))
+  (format t "~&iface-up ~a ~a" (id wi) (id ap))
   (setf (associated-ap wi) ap))
 
 
@@ -488,7 +495,7 @@
   "Esegue tutti gli eventi"
   (loop for current-event = (when *events* (pop *events*))
 	while current-event
-	do (format t "~&~D " (exec-at current-event))
+	do (format t "~%~%[~D] " (exec-at current-event))
 	(fire current-event)))
 
 
