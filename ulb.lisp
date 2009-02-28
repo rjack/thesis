@@ -88,33 +88,8 @@
   (/ nbytes bandwidth))
 
 
-;;; Funzioni per lo script di configurazione
-
-(defun add-access-points (&rest access-points)
-  (dolist (ap access-points)
-    (setf (gethash (id ap) *access-points*)
-          ap)))
-
-
-(defun add-wifi-interfaces (&rest wifi-interfaces)
-  (dolist (wi wifi-interfaces)
-    (setf (gethash (id wi) *wifi-interfaces*)
-          wi)))
-
-
-(defun generate-links ()
-  "Genera i link tra ap e wi e tra ap e proxy"
-  (loop for ap being the hash-values in *access-points*
-        do (loop for wi
-                 being the hash-values in *wifi-interfaces*
-                 using (hash-key id)
-                 do (setf (gethash id (net-links ap))
-                          (new net-link :id (wifi-interface-by id))))
-        (setf (gethash :proxy (net-links ap))
-              (new net-link :id *proxy*))))
-
-
 ;;; Classe base degli oggetti simulati.
+
 (defclass identified ()
   ((id
      :initarg :id
@@ -122,6 +97,11 @@
      :reader id
      :documentation "Identificativo dell'oggetto. Per ogni sottoclasse ha un
      diverso significato.")))
+
+
+(defmethod add ((ht hash-table) (obj identified))
+  "Aggiunge obj all'hash table ht usando il suo id come chiave."
+  (setf (gethash (id obj) ht) obj))
 
 
 ;;; Pacchetti
@@ -195,9 +175,12 @@
 ;;; programmi.
 
 (defclass ulb-struct-datagram (identified)
-  ;; lo slot id rappresenta l'identificativo assegnato da sendmsg_getID()
+  ((id
+     :initarg nil
+     :accessor id
+     :documentation "assegnato da sendmsg-getid")
 
-  ((end-of-life-event
+   (end-of-life-event
      :initarg :end-of-life-event
      :initform (error ":end-of-life-event mancante")
      :accessor end-of-life-event
@@ -222,8 +205,12 @@
   ;; Lo slot id rappresenta l'identificativo assegnato da sendmsg_getID()
   ;; Lo slot data punta a un istanza ping-packet che contiene ping-seqnum e
   ;; score.
-  
-  ((end-of-life-event
+
+  ((notification
+     :initarg nil
+     :documentation ":ack o :nak a seconda se e' stato ackato o nakato.")
+
+   (end-of-life-event
      :initarg nil
      :initform nil)
 
@@ -292,37 +279,40 @@
 
 
 (defclass full-path-outcome ()
-  ((ping-seqnum
-     :initarg :ping-seqnum
-     :initform (error ":ping-seqnum mancante")
+  ((seqnum
+     :initarg :seqnum
+     :initform (error ":seqnum mancante")
      :reader ping-seqnum
-     :documentation "Numero di sequenza del ping di cui si riferisce questo
+     :documentation "Numero di sequenza del ping a cui si riferisce questo
      full-path-outcome.")
 
    (ping-sent-at
-     :initarg :ping-sent-at
-     :initform (error ":ping-sent-at mancante")
+     :initform (gettime)
      :reader ping-sent-at
      :documentation "Istante di spedizione del ping.")
 
    (ping-recv-at
-     :initarg :ping-recv-at
-     :initform (error ":ping-recv-at mancante")
-     :reader ping-recv-at
+     :accessor ping-recv-at
      :documentation "Istante di ricezione del ping di risposta.")))
 
 
 (defclass ulb-wifi-interface (identified)
   ;; id rappresenta il nome dell'interfaccia.
 
-  ((firmware-detected
+  ((wifi-interface
+     :initarg :wifi-interface
+     :initform (error "wifi-interface mancante")
+     :reader wifi-interface
+     :documentation "Riferimento all'interfaccia wifi.")
+
+   (firmware-detected
      :initform nil
      :accessor firmware-detected
      :documentation ":ack, :nak oppure :full. Indica cio' che ULB ha dedotto
      del firmware della scheda, osservando le notifiche e i ping ricevuti.")
 
    (sent-datagrams
-     :initform nil
+     :initform (make-hash-table)
      :accessor sent-datagrams
      :documentation "Gli ulb-struct-datagram spediti da un'interfaccia vengono
      accodati qui in attesa di un ACK o di un end-of-life-event che li scarti,
@@ -431,20 +421,24 @@
      l'interfaccia e' inattiva.")))
 
 
-(defmethod send ((uwi ulb-wifi-interface) (dgram ulb-struct-datagram))
+(defmethod send ((uwi ulb-wifi-interface) (struct ulb-struct-datagram))
   (error "TODO send ulb-wifi-interface ulb-struct-datagram"))
 
 
-(defmethod send ((uwi ulb-wifi-interface) (dgram ulb-struct-ping)))
-  ;(let ((wi (wifi-interface-by (id uwi))))
-
+(defmethod send ((uwi ulb-wifi-interface) (struct ulb-struct-ping))
+  (setf (id struct)
+	(sendmsg-getid (wifi-interface uwi) (data struct)))
+  (add (full-path-log)
+       (new full-path-outcome :seqnum (seqnum struct)))
+  (
 
 
 (defmethod activate ((ulb udp-load-balancer) (wi wifi-interface))
   (let* ((id (id wi))
          (uwi (setf (gethash id (active-wifi-interfaces ulb))
-		    (new ulb-wifi-interface :id id))))
-    (send uwi (new ulb-struct-ping :wifi-interface uwi))))
+		    (new ulb-wifi-interface :id id :wifi-interface wi))))
+    (send uwi
+	  (new ulb-struct-ping :wifi-interface uwi))))
 
 
 (defmethod deactivate ((ulb udp-load-balancer) (wi wifi-interface))
@@ -553,6 +547,30 @@
         while current-event
         do (format t "~%~%~D: " (exec-at current-event))
         (fire current-event)))
+
+
+;;; Funzioni per lo script di configurazione
+
+(defun add-access-points (&rest access-points)
+  (dolist (ap access-points)
+    (add *access-points* ap)))
+
+
+(defun add-wifi-interfaces (&rest wifi-interfaces)
+  (dolist (wi wifi-interfaces)
+    (add *wifi-interfaces* wi)))
+
+
+(defun generate-links ()
+  "Genera i link tra ap e wi e tra ap e proxy"
+  (loop for ap being the hash-values in *access-points*
+        do (loop for wi
+                 being the hash-values in *wifi-interfaces*
+                 using (hash-key id)
+                 do (setf (gethash id (net-links ap))
+                          (new net-link :id (wifi-interface-by id))))
+        (setf (gethash :proxy (net-links ap))
+              (new net-link :id *proxy*))))
 
 
 ;;; Instanziazione oggetti globali
