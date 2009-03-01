@@ -5,6 +5,8 @@
 (defparameter *events* ())
 (defparameter *ulb* nil)
 (defparameter *proxy* nil)
+(defparameter *sendmsg-current-id* -1)
+(defparameter *now* nil)
 
 (defparameter *codec-kbs* 16)
 
@@ -47,6 +49,10 @@
 
 (defun percentp (n)
   (and (>= n 0) (<= n 100)))
+
+
+(defun generate-sendmsg-id ()
+  (format nil "sendmsg-id-~d" (incf *sendmsg-current-id*)))
 
 
 ;;; Macro
@@ -93,7 +99,7 @@
 (defclass identified ()
   ((id
      :initarg :id
-     :initform (gensym)
+     :initform (error ":id mancante")
      :reader id
      :documentation "Identificativo dell'oggetto. Per ogni sottoclasse ha un
      diverso significato.")))
@@ -109,8 +115,12 @@
 ;;; Queste classi rappresentano pacchetti veri, ovvero pacchetti che
 ;;; transitano sulla rete.
 
-(defclass packet ()
-  ((payload
+(defclass packet (identified)
+  ((id
+     :initarg nil
+     :initform nil)
+
+   (payload
      :initarg :payload
      :initform (error ":payload mancante")
      :accessor payload
@@ -137,7 +147,12 @@
 
 
 (defclass udp-packet (packet)
-  ((overhead-size
+  ((id
+     :accessor id
+     :documentation "Campo ID nell'header UDP che sarebbe usato per la
+     frammentazione dei datagram ma che viene sfruttato d sendmsg-getid")
+
+   (overhead-size
      :initform 8)))
 
 
@@ -202,11 +217,16 @@
 
 
 (defclass ulb-struct-ping (ulb-struct-datagram)
-  ;; Lo slot id rappresenta l'identificativo assegnato da sendmsg_getID()
   ;; Lo slot data punta a un istanza ping-packet che contiene ping-seqnum e
   ;; score.
 
-  ((notification
+  ((id
+     :initarg nil
+     :initform nil
+     :accessor id
+     :documentation "Assegnato da sendmsg_getID()")
+
+   (notification
      :initarg nil
      :documentation ":ack o :nak a seconda se e' stato ackato o nakato.")
 
@@ -224,9 +244,9 @@
 
 
 (defmethod initialize-instance :after ((ping ulb-struct-ping) &key wifi-interface)
-  (let ((seq (incf (next-ping-seqnum wifi-interface))))
+  (let ((seq (incf (current-ping-seqnum wifi-interface))))
     (setf (slot-value ping 'data)
-	  (new ping-packet :score (score wifi-interface)
+          (new ping-packet :score (score wifi-interface)
                            :sequence-number seq))))
 
 
@@ -312,7 +332,7 @@
      del firmware della scheda, osservando le notifiche e i ping ricevuti.")
 
    (sent-datagrams
-     :initform (make-hash-table)
+     :initform (make-hash-table)     ;; di oggetti di tipo identified
      :accessor sent-datagrams
      :documentation "Gli ulb-struct-datagram spediti da un'interfaccia vengono
      accodati qui in attesa di un ACK o di un end-of-life-event che li scarti,
@@ -325,10 +345,10 @@
      questa interfaccia. L'evento deve venire procrastinato ogni volta che
      l'interfaccia spedisce un datagram dati.")
 
-   (next-ping-seqnum
+   (current-ping-seqnum
      :initform -1
-     :accessor next-ping-seqnum
-     :documentation "Numero di sequenza del prossimo ping da spedire su questa
+     :accessor current-ping-seqnum
+     :documentation "Numero di sequenza dell'ultimo ping spedito su questa
      interfaccia.")
 
    (score
@@ -421,24 +441,45 @@
      l'interfaccia e' inattiva.")))
 
 
+(defmethod add ((wi wifi-interface) (pkt udp-packet))
+  (with-accessors ((buf socket-send-buffer)) wi
+    (if buf
+      (nconc buf (list pkt))
+      (progn
+        (setf buf (list pkt))
+        (flush wi)))))
+
+
+(defmethod sendmsg-getid ((wi wifi-interface) (pkt udp-packet))
+  (let ((sym (generate-sendmsg-id)))
+    (setf (id pkt) sym)
+    (add wi pkt)
+    (sym)))
+
+
 (defmethod send ((uwi ulb-wifi-interface) (struct ulb-struct-datagram))
   (error "TODO send ulb-wifi-interface ulb-struct-datagram"))
 
 
 (defmethod send ((uwi ulb-wifi-interface) (struct ulb-struct-ping))
+  "Comportamento dell'ULB"
+  ;; sendmsg-getid
   (setf (id struct)
-	(sendmsg-getid (wifi-interface uwi) (data struct)))
+        (sendmsg-getid (wifi-interface uwi) (data struct)))
+  ;; registra spedizione ping
   (add (full-path-log)
        (new full-path-outcome :seqnum (seqnum struct)))
-  (
+  ;; aggiunge il ping tra i datagram spediti
+  (add (sent-datagrams uwi)
+       ulb-struct-ping))
 
 
 (defmethod activate ((ulb udp-load-balancer) (wi wifi-interface))
   (let* ((id (id wi))
          (uwi (setf (gethash id (active-wifi-interfaces ulb))
-		    (new ulb-wifi-interface :id id :wifi-interface wi))))
+                    (new ulb-wifi-interface :id id :wifi-interface wi))))
     (send uwi
-	  (new ulb-struct-ping :wifi-interface uwi))))
+          (new ulb-struct-ping :wifi-interface uwi))))
 
 
 (defmethod deactivate ((ulb udp-load-balancer) (wi wifi-interface))
@@ -480,6 +521,18 @@
      :documentation "Funzione da chiamare per eseguire l'evento.")))
 
 
+(defmethod flush ((wi wifi-interface))
+  (let* ((pkt (pop (socket-send-buffer wi)))
+         (ap (associated-ap wi))
+         (link (link-between ap wi))
+         (transmit-time-taken (deliver pkt wi link ap)))
+    (when (and fully-transmitted-time
+               (socket-send-buffer wi))
+      (add-events (new event :exec-at (+ *now* transmit-time-taken)
+                             :action (lambda ()
+                                       (flush wi)))))))
+
+
 (defmethod fire ((ev event))
     (funcall (action ev)))
 
@@ -514,15 +567,6 @@
         (iface-up dest ap)))))
 
 
-#|
-(defmethod flush-socket-send-buffer (wi wifi-interface)
-  (let ((link (net-link )))
-    (if (deliver-success link)
-      (error "TODO calcola quando arriva all'access point e aggiungi
-             evento"))))
-|#
-
-
 (defun talk-local (&key duration)
   (format t "talk-local, duration ~a" duration))
 
@@ -545,7 +589,8 @@
   "Esegue tutti gli eventi"
   (loop for current-event = (when *events* (pop *events*))
         while current-event
-        do (format t "~%~%~D: " (exec-at current-event))
+        do (setf *now* (exec-at current-event))
+        (format t "~%~%~D: " (exec-at current-event))
         (fire current-event)))
 
 
