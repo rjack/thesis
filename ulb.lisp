@@ -1,7 +1,7 @@
 ;;; Variabili globali.
 
-(defparameter *wifi-interfaces* (make-hash-table))
-(defparameter *access-points* (make-hash-table))
+(defparameter *wifi-interfaces* (make-hash-table :test #'equal))
+(defparameter *access-points* (make-hash-table :test #'equal))
 (defparameter *events* ())
 (defparameter *ulb* nil)
 (defparameter *proxy* nil)
@@ -11,6 +11,7 @@
 (defparameter *codec-kbs* 16)
 
 (defparameter *ping-burst-length* 5)
+(defparameter *ping-interval* 250) ;; millisecondi
 
 ;; TODO controllare
 (defparameter *rtp-payload-min-size* 300)
@@ -90,8 +91,8 @@
   (* mbps (kilobits-per-second (expt 10 3))))
 
 
-(defun transmission-time (nbytes bandwidth)
-  (/ nbytes bandwidth))
+(defun transmission-delta-time (nbytes bandwidth)
+  (floor (float (/ nbytes bandwidth))))
 
 
 ;;; Classe base degli oggetti simulati.
@@ -99,7 +100,7 @@
 (defclass identified ()
   ((id
      :initarg :id
-     :initform (error ":id mancante")
+     ;; no initform, deve essere unbound
      :reader id
      :documentation "Identificativo dell'oggetto. Per ogni sottoclasse ha un
      diverso significato.")))
@@ -116,11 +117,7 @@
 ;;; transitano sulla rete.
 
 (defclass packet (identified)
-  ((id
-     :initarg nil
-     :initform nil)
-
-   (payload
+  ((payload
      :initarg :payload
      :initform (error ":payload mancante")
      :accessor payload
@@ -217,18 +214,12 @@
 
 
 (defclass ulb-struct-ping (ulb-struct-datagram)
-  ;; Lo slot data punta a un istanza ping-packet che contiene ping-seqnum e
-  ;; score.
+  ;; Lo slot data punta a un istanza ping-packet che contiene numero di
+  ;; sequenza e voto.
 
-  ((id
+  ((notification
      :initarg nil
-     :initform nil
-     :accessor id
-     :documentation "Assegnato da sendmsg_getID()")
-
-   (notification
-     :initarg nil
-     :documentation ":ack o :nak a seconda se e' stato ackato o nakato.")
+     :documentation "ack o nak a seconda se e' stato ackato o nakato.")
 
    (end-of-life-event
      :initarg nil
@@ -275,12 +266,6 @@
      :reader dgram-id
      :documentation "ID del datagram, sarebbe assegnato da sendmsg_getID()")
 
-   (dgram-type
-     :initarg :dgram-type
-     :initform (error ":dgram-type mancante")
-     :reader dgram-type
-     :documentation "Tipo del datagram, :data oppure :ping")
-
    (timestamp
      :initarg :timestamp
      :initform (error ":timestamp mancante")
@@ -291,23 +276,23 @@
      :initarg :value
      :initform (error ":value mancante")
      :reader value
-     :documentation "Valore dell'outcome: :ack oppure :nak")))
-   ;; TODO :ack se TED dice ack oppure se ulb sa che ifaccia dice solo NAK ed
+     :documentation "Valore dell'outcome: ack oppure nak")))
+   ;; TODO ack se TED dice ack oppure se ulb sa che ifaccia dice solo NAK ed
    ;; e' scaduto un timeout.
-   ;; TODO :nak se TED dice nak oppure se ulb sa che ifaccia dice solo ACK ed
+   ;; TODO nak se TED dice nak oppure se ulb sa che ifaccia dice solo ACK ed
    ;; e' scaduto un timeout.
 
 
 (defclass full-path-outcome ()
-  ((seqnum
-     :initarg :seqnum
-     :initform (error ":seqnum mancante")
-     :reader ping-seqnum
+  ((sequence-number
+     :initarg :sequence-number
+     :initform (error ":sequence-number mancante")
+     :reader sequence-number
      :documentation "Numero di sequenza del ping a cui si riferisce questo
      full-path-outcome.")
 
    (ping-sent-at
-     :initform (gettime)
+     :initform *now*
      :reader ping-sent-at
      :documentation "Istante di spedizione del ping.")
 
@@ -328,11 +313,11 @@
    (firmware-detected
      :initform nil
      :accessor firmware-detected
-     :documentation ":ack, :nak oppure :full. Indica cio' che ULB ha dedotto
+     :documentation "ack, nak oppure full. Indica cio' che ULB ha dedotto
      del firmware della scheda, osservando le notifiche e i ping ricevuti.")
 
    (sent-datagrams
-     :initform (make-hash-table)     ;; di oggetti di tipo identified
+     :initform (make-hash-table :test #'equal) ;; di oggetti di tipo identified
      :accessor sent-datagrams
      :documentation "Gli ulb-struct-datagram spediti da un'interfaccia vengono
      accodati qui in attesa di un ACK o di un end-of-life-event che li scarti,
@@ -369,7 +354,7 @@
 
 (defclass udp-load-balancer ()
   ((active-wifi-interfaces
-     :initform (make-hash-table)
+     :initform (make-hash-table :test #'equal)
      :accessor active-wifi-interfaces
      :documentation "Hash table di riferimenti a istanze di
      ulb-wifi-interface, con gli id delle interfacce come chiavi.")
@@ -403,7 +388,7 @@
   ;; Id rappresenta l'essid dell'access point
 
   ((net-links
-     :initform (make-hash-table)
+     :initform (make-hash-table :test #'equal)
      :reader net-links
      :documentation "Hash table di net-link, con id della destinazione come
      chiave.")))
@@ -425,7 +410,7 @@
      :initarg :firmware
      :initform (error ":firmware mancante")
      :reader firmware
-     :documentation ":ack, :nak oppure :full. Rappresenta le effettive
+     :documentation "ack, nak oppure full. Rappresenta le effettive
      capacita' del firmware della sheda wireless.")
 
    (socket-send-buffer
@@ -441,6 +426,35 @@
      l'interfaccia e' inattiva.")))
 
 
+(defmethod notify-nak ((uwi ulb-wifi-interface) (pkt udp-packet))
+  ;; Ora sappiamo che interfaccia riceve nak: annotiamolo.
+  (nak-firmware-detected uwi)
+  ;; Recupera datagram.
+  (let ((struct-dgram (gethash (id pkt) (sent-datagrams uwi))))
+    ;; Rimuovilo dalla lista di quelli spediti.
+    (remhash (id pkt) (sent-datagrams uwi))
+    ;; Se non e' un ping va rispedito.
+    (if (not (typep struct-dgram 'ulb-struct-ping))
+      (add (outgoing-datagrams *ulb*) struct-dgram))
+    ;; Log dell'accaduto.
+    (add (first-hop-log uwi)
+	 (new first-hop-outcome :dgram-id (id struct-dgram)
+	                        :timestamp *now*
+				:value "nak"))))
+
+
+(defmethod firmware-ack-p ((wi wifi-interface))
+  (with-accessors ((fw firmware)) wi
+    (or (equal fw "full")
+	(equal fw "ack"))))
+
+
+(defmethod firmware-nak-p ((wi wifi-interface))
+  (with-accessors ((fw firmware)) wi
+    (or (equal fw "full")
+	(equal fw "nak"))))
+
+
 (defmethod add ((wi wifi-interface) (pkt udp-packet))
   (with-accessors ((buf socket-send-buffer)) wi
     (if buf
@@ -450,11 +464,84 @@
         (flush wi)))))
 
 
+(defmethod add ((uwi ulb-wifi-interface) (fpo full-path-outcome))
+  "Aggiunge un full-path-outcome al full-path-log dell'ulb-wifi-interface."
+  (setf (full-path-log uwi)
+	(nconc (full-path-log uwi) (list fpo)))
+  (assert (apply #'<= (mapcar #'sequence-number (full-path-log uwi)))
+	  nil "full-path-log non e' ordinato per numero di sequenza dei ping!")
+  (assert (apply #'<= (mapcar #'ping-sent-at (full-path-log uwi)))
+	  nil "full-path-log non e' ordinato per istante di invio dei ping!"))
+
+
+(defmethod add ((uwi ulb-wifi-interface) (fio first-hop-outcome))
+  (error "TODO"))
+
+
+;;; Proxy server
+
+(defclass proxy-server (identified)
+  ((id
+     :initform :proxy)))
+
+
+;; Metodi deliver: ritornano il tempo impiegato ad INVIARE il pacchetto
+;; (istante invio primo bit - istante invio ultimo bit)
+
+(defmethod deliver ((pkt udp-packet) ;; TODO controllare che sia un udp-packet
+		    (wi wifi-interface) (link net-link) (ap access-point))
+  "Da wifi-interface ad access-point"
+  (let* ((send-delta-time (transmission-delta-time (size pkt) (bandwidth link)))
+	 (arrival-time (+ *now* send-delta-time (delay link)))
+	 (success-p (> (random 101) (error-rate link))))
+    (when success-p
+      ;; access-point riceve
+      (add-events (new event :exec-at arrival-time
+		             :action (lambda ()
+				       (recv pkt ap wi))))
+      (when (firmware-ack-p wi)
+	;; Se il firmware notifica gli ack, l'ulb riceve una notifica
+	;; sull'interfaccia quando l'ACK a livello MAC torna indietro dopo che
+	;; l'access point ha ricevuto il pacchetto.
+	(add-events
+	  (new event :exec-at (+ (delay link) arrival-time)
+	             :action (lambda ()
+			       (notify-ack (gethash (id wi)
+						    (active-wifi-interfaces *ulb*))
+					   pkt))))))
+    (when (not success-p)
+      (when (firmware-nak-p wi)
+	(add-events
+	  (new event :exec-at (delay link)
+	             :action (lambda ()
+			       (notify-nak (gethash (id wi)
+						    (active-wifi-interfaces *ulb*))
+					   pkt))))))))
+
+
+(defmethod deliver ((pkt packet)
+		    (ap access-point) (link net-link) (wi wifi-interface))
+  "Da access-point a wifi-interface"
+  (error "TODO deliver access-point access-point"))
+
+
+(defmethod deliver ((pkt packet)
+		    (ap access-point) (link net-link) (px proxy-server))
+  "Da access-point a proxy-server"
+  (error "TODO deliver access-point proxy-server"))
+
+
+(defmethod deliver ((pkt packet)
+		    (px proxy-server) (link net-link) (ap access-point))
+  "Da proxy-server ad access-point"
+  (error "TODO deliver proxy-server access-point"))
+
+
 (defmethod sendmsg-getid ((wi wifi-interface) (pkt udp-packet))
   (let ((sym (generate-sendmsg-id)))
     (setf (id pkt) sym)
     (add wi pkt)
-    (sym)))
+    sym))
 
 
 (defmethod send ((uwi ulb-wifi-interface) (struct ulb-struct-datagram))
@@ -462,16 +549,29 @@
 
 
 (defmethod send ((uwi ulb-wifi-interface) (struct ulb-struct-ping))
-  "Comportamento dell'ULB"
+  "ULB spedisce un ping"
   ;; sendmsg-getid
   (setf (id struct)
         (sendmsg-getid (wifi-interface uwi) (data struct)))
   ;; registra spedizione ping
-  (add (full-path-log)
-       (new full-path-outcome :seqnum (seqnum struct)))
+  (add uwi (new full-path-outcome
+		:sequence-number (sequence-number (data struct))))
   ;; aggiunge il ping tra i datagram spediti
   (add (sent-datagrams uwi)
-       ulb-struct-ping))
+       struct)
+  ;; impostazione prossimo ping
+  (add-events
+    (setf (send-ping-event uwi)
+	  (new event :exec-at (if (< (current-ping-seqnum uwi)
+				     *ping-burst-length*)
+				*now*
+				(+ *now* *ping-interval*))
+	             :action #'(lambda ()
+				 (send uwi (new ulb-struct-ping :wifi-interface uwi)))))))
+
+
+(defmethod recv ((pkt udp-packet) (ap access-point) (wi wifi-interface))
+  (format t "recv ~a ~a ~a" (id pkt) (id ap) (id wi)))
 
 
 (defmethod activate ((ulb udp-load-balancer) (wi wifi-interface))
@@ -486,15 +586,7 @@
   (let ((id (id wi)))
     ;; TODO dirottare pacchetti
     ;; TODO cancellare eventi pendenti
-    (setf (gethash id (active-wifi-interfaces ulb))
-          nil)))
-
-
-;;; Proxy server
-
-(defclass proxy-server (identified)
-  ((id
-     :initform :proxy)))
+    (remhash id (active-wifi-interfaces ulb))))
 
 
 (defmethod link-between ((ap access-point) (wi wifi-interface))
@@ -525,10 +617,9 @@
   (let* ((pkt (pop (socket-send-buffer wi)))
          (ap (associated-ap wi))
          (link (link-between ap wi))
-         (transmit-time-taken (deliver pkt wi link ap)))
-    (when (and fully-transmitted-time
-               (socket-send-buffer wi))
-      (add-events (new event :exec-at (+ *now* transmit-time-taken)
+         (delta-time (deliver pkt wi link ap)))
+    (when (socket-send-buffer wi)
+      (add-events (new event :exec-at (+ *now* delta-time)
                              :action (lambda ()
                                        (flush wi)))))))
 
