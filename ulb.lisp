@@ -6,7 +6,7 @@
 (defparameter *ulb* nil)
 (defparameter *proxy* nil)
 (defparameter *sendmsg-current-id* -1)
-(defparameter *now* nil)
+(defparameter *now* 0)
 
 (defparameter *codec-kbs* 16)
 
@@ -536,7 +536,7 @@
     (when (not success-p)
       (when (firmware-nak-p wi)
 	(add-events
-	  (new event :exec-at (delay link)
+	  (new event :exec-at (+ (delay link) arrival-time)
 	             :action (lambda ()
 			       (notify-nak (gethash (id wi)
 						    (active-wifi-interfaces *ulb*))
@@ -704,7 +704,8 @@
   "Esegue tutti gli eventi"
   (loop for current-event = (when *events* (pop *events*))
         while current-event
-        do (setf *now* (exec-at current-event))
+        do (assert (<= *now* (exec-at current-event)) nil "Eventi disordinati!")
+	(setf *now* (exec-at current-event))
         (format t "~%~%~D: " (exec-at current-event))
         (fire current-event)))
 
