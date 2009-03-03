@@ -217,11 +217,7 @@
   ;; Lo slot data punta a un istanza ping-packet che contiene numero di
   ;; sequenza e voto.
 
-  ((notification
-     :initarg nil
-     :documentation "ack o nak a seconda se e' stato ackato o nakato.")
-
-   (end-of-life-event
+  ((end-of-life-event
      :initarg nil
      :initform nil)
 
@@ -264,7 +260,7 @@
      :initarg :dgram-id
      :initform (error ":dgram-id mancante")
      :reader dgram-id
-     :documentation "ID del datagram, sarebbe assegnato da sendmsg_getID()")
+     :documentation "ID del datagram, sarebbe assegnato da sendmsg-getid")
 
    (timestamp
      :initarg :timestamp
@@ -352,6 +348,20 @@
      :documentation "Lista di full-path-outcome.")))
 
 
+(defmethod nak-firmware-detected ((uwi ulb-wifi-interface))
+  (with-accessors ((fw firmware-detected)) uwi
+    (cond ((null fw) (setf fw "nak"))
+	  ((equal "ack" fw) (setf fw "full"))
+	  (t nil))))
+
+
+(defmethod ack-firmware-detected ((uwi ulb-wifi-interface))
+  (with-accessors ((fw firmware-detected)) uwi
+    (cond ((null fw) (setf fs "ack"))
+	  ((equal "nak" fw) (setf fw "full"))
+	  (t nil))))
+
+
 (defclass udp-load-balancer ()
   ((active-wifi-interfaces
      :initform (make-hash-table :test #'equal)
@@ -437,10 +447,22 @@
     (if (not (typep struct-dgram 'ulb-struct-ping))
       (add (outgoing-datagrams *ulb*) struct-dgram))
     ;; Log dell'accaduto.
-    (add (first-hop-log uwi)
+    (add uwi
 	 (new first-hop-outcome :dgram-id (id struct-dgram)
 	                        :timestamp *now*
 				:value "nak"))))
+
+(defmethod notify-ack ((uwi ulb-wifi-interface) (pkt udp-packet))
+  ;; Segnamo che interfaccia riceve ack
+  (ack-firmware-detected uwi)
+  ;; Recupera datagram.
+  (let ((struct-dgram (gethash (id pkt) (sent-datagrams uwi))))
+    ;; Rimuovilo dalla lista di quelli spediti
+    (remhash (id pkt) (sent-datagrams uwi))
+    (add uwi
+	 (new first-hop-outcome :dgram-id (id struct-dgram)
+	                        :timestamp *now*
+				:value "ack"))))
 
 
 (defmethod firmware-ack-p ((wi wifi-interface))
@@ -466,16 +488,18 @@
 
 (defmethod add ((uwi ulb-wifi-interface) (fpo full-path-outcome))
   "Aggiunge un full-path-outcome al full-path-log dell'ulb-wifi-interface."
-  (setf (full-path-log uwi)
-	(nconc (full-path-log uwi) (list fpo)))
-  (assert (apply #'<= (mapcar #'sequence-number (full-path-log uwi)))
-	  nil "full-path-log non e' ordinato per numero di sequenza dei ping!")
-  (assert (apply #'<= (mapcar #'ping-sent-at (full-path-log uwi)))
-	  nil "full-path-log non e' ordinato per istante di invio dei ping!"))
+  (with-accessors ((fp-log full-path-log)) uwi
+    (setf fp-log (nconc fp-log (list fpo)))
+    (assert (apply #'<= (mapcar #'sequence-number fp-log))
+	    nil "full-path-log non e' ordinato per numero di sequenza dei ping!")
+    (assert (apply #'<= (mapcar #'ping-sent-at fp-log))
+	    nil "full-path-log non e' ordinato per istante di invio dei ping!")))
 
 
 (defmethod add ((uwi ulb-wifi-interface) (fio first-hop-outcome))
-  (error "TODO"))
+  "Aggiunge un first-hop-outcome al first-hop-log dell'ulb-wifi-interface"
+  (with-accessors ((fh-log first-hop-log)) uwi
+    (setf fh-log (nconc fh-log (list fio)))))
 
 
 ;;; Proxy server

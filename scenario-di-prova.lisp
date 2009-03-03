@@ -4,6 +4,11 @@
 	:action (lambda ()
 		  (set-link ,ap ,dest ,@args))))
 
+(defmacro quit-event (exec-at)
+  `(new event :exec-at ,exec-at
+	:action (lambda ()
+		  (quit))))
+
 
 ;;; Scenario
 
@@ -52,7 +57,9 @@
 
   (new event :exec-at (secs 3)
        :action (lambda ()
-		 (talk-remote :duration (secs 1)))))
+		 (talk-remote :duration (secs 1))))
+
+  (quit-event (secs 10)))
 
 
 ;;; Via!
