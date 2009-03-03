@@ -557,23 +557,23 @@
 (defmethod deliver ((pkt packet)
 		    (ap access-point) (link net-link) (wi wifi-interface))
   "Da access-point a wifi-interface"
-  (let* ((send-delta-time (transmission-delta-time (size pkt) (bandwidth link)))
-	 (arrival-time (+ *now* send-delta-time (delay link)))
-	 (success-p (> (random 101) (error-rate link))))
-    (if success-p
-      (progn
-	(format t "~&deliver success ~a ~a ~a" (id pkt) (id wi) (id ap))
-	(add-events
-	  (new event :exec-at arrival-time
-	             :action (lambda ()
-			       (recv pkt *proxy* ap)))))
-      (format t "~&deliver fail ~a ~a ~a" (id pkt) (id wi) (id ap)))))
+  (error "TODO deliver access-point wifi-interface"))
 
 
 (defmethod deliver ((pkt packet)
 		    (ap access-point) (link net-link) (px proxy-server))
   "Da access-point a proxy-server"
-  (error "TODO deliver access-point proxy-server"))
+  (let* ((send-delta-time (transmission-delta-time (size pkt) (bandwidth link)))
+	 (arrival-time (+ *now* send-delta-time (delay link)))
+	 (success-p (> (random 101) (error-rate link))))
+    (if success-p
+      (progn
+	(format t "~&deliver success ~a ~a ~a" (id pkt) (id ap) (id px))
+	(add-events
+	  (new event :exec-at arrival-time
+	             :action (lambda ()
+			       (recv pkt *proxy* ap)))))
+      (format t "~&deliver fail ~a ~a ~a" (id pkt) (id ap) (id px)))))
 
 
 (defmethod deliver ((pkt packet)
@@ -619,6 +619,10 @@
   "Access point riceve un pacchetto da interfaccia wifi e lo spedisce al proxy."
   (format t "~&recv ~a ~a ~a" (id pkt) (id ap) (id wi))
   (deliver pkt ap (link-between ap *proxy*) *proxy*))
+
+
+(defmethod recv ((pkt udp-packet) (px proxy-server) (ap access-point))
+  (format t "recv ~a ~a ~a" (id pkt) (id px) (id ap)))
 
 
 (defmethod activate ((ulb udp-load-balancer) (wi wifi-interface))
