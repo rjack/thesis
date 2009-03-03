@@ -357,7 +357,7 @@
 
 (defmethod ack-firmware-detected ((uwi ulb-wifi-interface))
   (with-accessors ((fw firmware-detected)) uwi
-    (cond ((null fw) (setf fs "ack"))
+    (cond ((null fw) (setf fw "ack"))
 	  ((equal "nak" fw) (setf fw "full"))
 	  (t nil))))
 
@@ -550,7 +550,7 @@
 (defmethod deliver ((pkt packet)
 		    (ap access-point) (link net-link) (wi wifi-interface))
   "Da access-point a wifi-interface"
-  (error "TODO deliver access-point access-point"))
+  (error "TODO deliver access-point wifi-interface"))
 
 
 (defmethod deliver ((pkt packet)
@@ -711,7 +711,7 @@
         while current-event
         do (assert (<= *now* (exec-at current-event)) nil "Eventi disordinati!")
 	(setf *now* (exec-at current-event))
-        (format t "~&~d " (exec-at current-event))
+        (format t "~&~%~d " (exec-at current-event))
         (fire current-event)))
 
 
