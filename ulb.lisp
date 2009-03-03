@@ -149,6 +149,12 @@
      :documentation "Campo ID nell'header UDP che sarebbe usato per la
      frammentazione dei datagram ma che viene sfruttato d sendmsg-getid")
 
+   (source
+     :initarg :source
+     :initform (error ":source mancante")
+     :accessor source
+     :documentation "Il mittente del pacchetto.")
+
    (overhead-size
      :initform 8)))
 
@@ -233,7 +239,8 @@
 (defmethod initialize-instance :after ((ping ulb-struct-ping) &key wifi-interface)
   (let ((seq (incf (current-ping-seqnum wifi-interface))))
     (setf (slot-value ping 'data)
-          (new ping-packet :score (score wifi-interface)
+          (new ping-packet :source (id wifi-interface)
+	                   :score (score wifi-interface)
                            :sequence-number seq))))
 
 
@@ -550,7 +557,17 @@
 (defmethod deliver ((pkt packet)
 		    (ap access-point) (link net-link) (wi wifi-interface))
   "Da access-point a wifi-interface"
-  (error "TODO deliver access-point wifi-interface"))
+  (let* ((send-delta-time (transmission-delta-time (size pkt) (bandwidth link)))
+	 (arrival-time (+ *now* send-delta-time (delay link)))
+	 (success-p (> (random 101) (error-rate link))))
+    (if success-p
+      (progn
+	(format t "~&deliver success ~a ~a ~a" (id pkt) (id wi) (id ap))
+	(add-events
+	  (new event :exec-at arrival-time
+	             :action (lambda ()
+			       (recv pkt *proxy* ap)))))
+      (format t "~&deliver fail ~a ~a ~a" (id pkt) (id wi) (id ap)))))
 
 
 (defmethod deliver ((pkt packet)
@@ -599,7 +616,9 @@
 
 
 (defmethod recv ((pkt udp-packet) (ap access-point) (wi wifi-interface))
-  (format t "~&recv ~a ~a ~a" (id pkt) (id ap) (id wi)))
+  "Access point riceve un pacchetto da interfaccia wifi e lo spedisce al proxy."
+  (format t "~&recv ~a ~a ~a" (id pkt) (id ap) (id wi))
+  (deliver pkt ap (link-between ap *proxy*) *proxy*))
 
 
 (defmethod activate ((ulb udp-load-balancer) (wi wifi-interface))
