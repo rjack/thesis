@@ -437,6 +437,7 @@
 
 
 (defmethod notify-nak ((uwi ulb-wifi-interface) (pkt udp-packet))
+  (format t "notify-nak ~a ~a" (id uwi) (id pkt))
   ;; Ora sappiamo che interfaccia riceve nak: annotiamolo.
   (nak-firmware-detected uwi)
   ;; Recupera datagram.
@@ -453,6 +454,7 @@
 				:value "nak"))))
 
 (defmethod notify-ack ((uwi ulb-wifi-interface) (pkt udp-packet))
+  (format t "~%notify-ack ~a ~a" (id uwi) (id pkt))
   ;; Segnamo che interfaccia riceve ack
   (ack-firmware-detected uwi)
   ;; Recupera datagram.
@@ -519,6 +521,7 @@
 	 (arrival-time (+ *now* send-delta-time (delay link)))
 	 (success-p (> (random 101) (error-rate link))))
     (when success-p
+      (format t "~&deliver success ~a ~a ~a" (id pkt) (id wi) (id ap))
       ;; access-point riceve
       (add-events (new event :exec-at arrival-time
 		             :action (lambda ()
@@ -534,6 +537,7 @@
 						    (active-wifi-interfaces *ulb*))
 					   pkt))))))
     (when (not success-p)
+      (format t "~&deliver fail ~a ~a ~a" (id pkt) (id wi) (id ap))
       (when (firmware-nak-p wi)
 	(add-events
 	  (new event :exec-at (+ (delay link) arrival-time)
@@ -595,7 +599,7 @@
 
 
 (defmethod recv ((pkt udp-packet) (ap access-point) (wi wifi-interface))
-  (format t "recv ~a ~a ~a" (id pkt) (id ap) (id wi)))
+  (format t "~&recv ~a ~a ~a" (id pkt) (id ap) (id wi)))
 
 
 (defmethod activate ((ulb udp-load-balancer) (wi wifi-interface))
@@ -641,6 +645,7 @@
   (let* ((pkt (pop (socket-send-buffer wi)))
          (ap (associated-ap wi))
          (link (link-between ap wi))
+	 ;; consegna pkt
          (delta-time (deliver pkt wi link ap)))
     (when (socket-send-buffer wi)
       (add-events (new event :exec-at (+ *now* delta-time)
@@ -660,7 +665,7 @@
    dall'access-point con l'essid specificato a to. Come conseguenza, una
    interfaccia wireless non attiva puo' essere attivata, una attiva puo'
    essere disattivata"
-  (format t "set-link ~a ~a" (id ap) (id dest))
+  (format t "~&set-link ~a ~a" (id ap) (id dest))
   (let ((link (link-between ap dest)))
 
     ; Impostazione parametri specificati.
@@ -683,11 +688,11 @@
 
 
 (defun talk-local (&key duration)
-  (format t "talk-local, duration ~a" duration))
+  (format t "~&talk-local, duration ~a" duration))
 
 
 (defun talk-remote (&key duration)
-  (format t "talk-remote, duration ~a" duration))
+  (format t "~&talk-remote, duration ~a" duration))
 
 
 (defmethod iface-down ((wi wifi-interface))
@@ -706,7 +711,7 @@
         while current-event
         do (assert (<= *now* (exec-at current-event)) nil "Eventi disordinati!")
 	(setf *now* (exec-at current-event))
-        (format t "~%~%~D: " (exec-at current-event))
+        (format t "~&~d " (exec-at current-event))
         (fire current-event)))
 
 

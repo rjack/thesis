@@ -7,6 +7,7 @@
 (defmacro quit-event (exec-at)
   `(new event :exec-at ,exec-at
 	:action (lambda ()
+		  (format t "~&quit")
 		  (quit))))
 
 
@@ -60,8 +61,3 @@
 		 (talk-remote :duration (secs 1))))
 
   (quit-event (secs 10)))
-
-
-;;; Via!
-
-(run)
