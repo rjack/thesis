@@ -622,6 +622,14 @@
 
 
 (defmethod recv ((pkt udp-packet) (px proxy-server) (ap access-point))
+  "Proxy riceve un datagram"
+  ;; TODO
+  (format t "recv ~a ~a ~a" (id pkt) (id px) (id ap)))
+
+
+(defmethod recv ((ping ping-packet) (px proxy-server) (ap access-point))
+  "Proxy riceve un ping"
+  ;; TODO
   (format t "recv ~a ~a ~a" (id pkt) (id px) (id ap)))
 
 
