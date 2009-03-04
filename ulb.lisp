@@ -1,5 +1,6 @@
 ;;; Variabili globali.
 
+(defparameter *log* t)
 (defparameter *wifi-interfaces* (make-hash-table :test #'equal))
 (defparameter *access-points* (make-hash-table :test #'equal))
 (defparameter *events* ())
@@ -456,7 +457,7 @@
 
 
 (defmethod notify-nak ((uwi ulb-wifi-interface) (pkt udp-packet))
-  (format t "notify-nak ~a ~a" (id uwi) (id pkt))
+  (format *log* "notify-nak ~a ~a" (id uwi) (id pkt))
   ;; Ora sappiamo che interfaccia riceve nak: annotiamolo.
   (nak-firmware-detected uwi)
   ;; Recupera datagram.
@@ -473,7 +474,7 @@
 				:value "nak"))))
 
 (defmethod notify-ack ((uwi ulb-wifi-interface) (pkt udp-packet))
-  (format t "~%notify-ack ~a ~a" (id uwi) (id pkt))
+  (format *log* "~%notify-ack ~a ~a" (id uwi) (id pkt))
   ;; Segnamo che interfaccia riceve ack
   (ack-firmware-detected uwi)
   ;; Recupera datagram.
@@ -526,7 +527,6 @@
 
 ;;; Proxy server
 
-
 (defclass proxy-source (identified)
   ((pings-received
      :initform ()
@@ -548,6 +548,7 @@
 
 
 (defmethod initialize-instance :after ((ps proxy-source) &key)
+  (format *log* "~&new proxy-source ~a" (id ps))
   (setf (slot-value ps 'expire-event)
 	(new event :exec-at (+ *now* *proxy-source-expiring-time*)
 	           :action (lambda ()
@@ -595,7 +596,7 @@
 	 (arrival-time (+ *now* send-delta-time (delay link)))
 	 (success-p (> (random 101) (error-rate link))))
     (when success-p
-      (format t "~&deliver success ~a ~a ~a" (id pkt) (id wi) (id ap))
+      (format *log* "~&deliver success ~a ~a ~a" (id pkt) (id wi) (id ap))
       ;; access-point riceve
       (add-events (new event :exec-at arrival-time
 		             :action (lambda ()
@@ -611,7 +612,7 @@
 						    (active-wifi-interfaces *ulb*))
 					   pkt))))))
     (when (not success-p)
-      (format t "~&deliver fail ~a ~a ~a" (id pkt) (id wi) (id ap))
+      (format *log* "~&deliver fail ~a ~a ~a" (id pkt) (id wi) (id ap))
       (when (firmware-nak-p wi)
 	(add-events
 	  (new event :exec-at (+ (delay link) arrival-time)
@@ -635,12 +636,12 @@
 	 (success-p (> (random 101) (error-rate link))))
     (if success-p
       (progn
-	(format t "~&deliver success ~a ~a ~a" (id pkt) (id ap) (id px))
+	(format *log* "~&deliver success ~a ~a ~a" (id pkt) (id ap) (id px))
 	(add-events
 	  (new event :exec-at arrival-time
 	             :action (lambda ()
 			       (recv pkt *proxy* ap)))))
-      (format t "~&deliver fail ~a ~a ~a" (id pkt) (id ap) (id px)))))
+      (format *log* "~&deliver fail ~a ~a ~a" (id pkt) (id ap) (id px)))))
 
 
 (defmethod deliver ((pkt packet)
@@ -674,7 +675,7 @@
   ;; impostazione prossimo ping
   (add-events
     (setf (send-ping-event uwi)
-	  (new event :exec-at (if (< (current-ping-seqnum uwi)
+	  (new event :exec-at (if (< (1+ (current-ping-seqnum uwi))
 				     *ping-burst-length*)
 				*now*
 				(+ *now* *ping-interval*))
@@ -684,13 +685,13 @@
 
 (defmethod recv ((pkt udp-packet) (ap access-point) (wi wifi-interface))
   "Access point riceve un pacchetto da interfaccia wifi e lo spedisce al proxy."
-  (format t "~&recv ~a ~a ~a" (id pkt) (id ap) (id wi))
+  (format *log* "~&recv ~a ~a ~a" (id pkt) (id ap) (id wi))
   (deliver pkt ap (link-between ap *proxy*) *proxy*))
 
 
 (defmethod recv ((pkt udp-packet) (px proxy-server) (ap access-point))
   "Proxy riceve un datagram"
-  (format t "recv ~a ~a ~a" (id pkt) (id px) (id ap))
+  (format *log* "recv ~a ~a ~a" (id pkt) (id px) (id ap))
   (let ((src (active-source px (source pkt))))
     (setf (last-datagram-at src) *now*)))
 ;; NB: da qui bisognerebbe spedire al softphone remoto, ma non è necessario ai
@@ -699,7 +700,7 @@
 
 (defmethod recv ((ping ping-packet) (px proxy-server) (ap access-point))
   "Proxy riceve un ping"
-  (format t "recv ~a ~a ~a" (id ping) (id px) (id ap))
+  (format *log* "recv ~a ~a ~a" (id ping) (id px) (id ap))
   (let ((src (active-source px (source ping))))
     (add src ping)))
 
@@ -767,7 +768,7 @@
    dall'access-point con l'essid specificato a to. Come conseguenza, una
    interfaccia wireless non attiva puo' essere attivata, una attiva puo'
    essere disattivata"
-  (format t "~&set-link ~a ~a" (id ap) (id dest))
+  (format *log* "~&set-link ~a ~a" (id ap) (id dest))
   (let ((link (link-between ap dest)))
 
     ; Impostazione parametri specificati.
@@ -790,11 +791,11 @@
 
 
 (defun talk-local (&key duration)
-  (format t "~&talk-local, duration ~a" duration))
+  (format *log* "~&talk-local, duration ~a" duration))
 
 
 (defun talk-remote (&key duration)
-  (format t "~&talk-remote, duration ~a" duration))
+  (format *log* "~&talk-remote, duration ~a" duration))
 
 
 (defmethod iface-down ((wi wifi-interface))
@@ -802,7 +803,7 @@
 
 
 (defmethod iface-up ((wi wifi-interface) (ap access-point))
-  (format t "~&iface-up ~a ~a" (id wi) (id ap))
+  (format *log* "~&iface-up ~a ~a" (id wi) (id ap))
   (setf (associated-ap wi) ap)
   (activate *ulb* wi))
 
@@ -813,8 +814,13 @@
         while current-event
         do (assert (<= *now* (exec-at current-event)) nil "Eventi disordinati!")
 	(setf *now* (exec-at current-event))
-        (format t "~&~%~d " (exec-at current-event))
+        (format *log* "~&~%~d " (exec-at current-event))
         (fire current-event)))
+
+
+(defun do-logging (fn file-name)
+  (with-open-file (*log* file-name :direction :output)
+    (funcall fn)))
 
 
 ;;; Funzioni per lo script di configurazione
