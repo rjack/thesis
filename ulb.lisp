@@ -499,6 +499,7 @@
   "Aggiunge un full-path-outcome al full-path-log dell'ulb-wifi-interface."
   (with-accessors ((fp-log full-path-log)) uwi
     (setf fp-log (nconc fp-log (list fpo)))
+    ;; Controlli di coerenza
     (assert (apply #'<= (mapcar #'sequence-number fp-log))
 	    nil "full-path-log non e' ordinato per numero di sequenza dei ping!")
     (assert (apply #'<= (mapcar #'ping-sent-at fp-log))
@@ -515,11 +516,20 @@
 
 (defclass proxy-server (identified)
   ((id
-     :initform "proxy")))
+     :initform "proxy")
+
+   (active-sources
+     :initform (make-hash-table :test #'equal))
+
+   (outgoing-datagrams
+     :initform ())
+
+   (incoming-datagrams
+     :initform ())))
 
 
-;; Metodi deliver: ritornano il tempo impiegato ad INVIARE il pacchetto
-;; (istante invio primo bit - istante invio ultimo bit)
+;;; Metodi deliver: ritornano il tempo impiegato ad INVIARE il pacchetto
+;;; (istante invio primo bit - istante invio ultimo bit)
 
 (defmethod deliver ((pkt udp-packet) ;; TODO controllare che sia un udp-packet
 		    (wi wifi-interface) (link net-link) (ap access-point))
