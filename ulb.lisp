@@ -515,7 +515,7 @@
 
 (defclass proxy-server (identified)
   ((id
-     :initform :proxy)))
+     :initform "proxy")))
 
 
 ;; Metodi deliver: ritornano il tempo impiegato ad INVIARE il pacchetto
@@ -630,7 +630,7 @@
 (defmethod recv ((ping ping-packet) (px proxy-server) (ap access-point))
   "Proxy riceve un ping"
   ;; TODO
-  (format t "recv ~a ~a ~a" (id pkt) (id px) (id ap)))
+  (format t "recv ~a ~a ~a" (id ping) (id px) (id ap)))
 
 
 (defmethod activate ((ulb udp-load-balancer) (wi wifi-interface))
@@ -653,7 +653,7 @@
 
 
 (defmethod link-between ((ap access-point) (px proxy-server))
-  (gethash :proxy (net-links ap)))
+  (gethash "proxy" (net-links ap)))
 
 
 ;;; Evento
@@ -766,7 +766,7 @@
                  using (hash-key id)
                  do (setf (gethash id (net-links ap))
                           (new net-link :id (wifi-interface-by id))))
-        (setf (gethash :proxy (net-links ap))
+        (setf (gethash "proxy" (net-links ap))
               (new net-link :id *proxy*))))
 
 
