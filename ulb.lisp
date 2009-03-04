@@ -12,6 +12,7 @@
 
 (defparameter *ping-burst-length* 5)
 (defparameter *ping-interval* 250) ;; millisecondi
+(defparameter *proxy-source-expiring-time* (* 2 *ping-interval*))
 
 ;; TODO controllare
 (defparameter *rtp-payload-min-size* 300)
@@ -29,6 +30,17 @@
   esecuzione."
   (setf *events* (nconc new-events *events*))
   (sort *events* #'< :key #'exec-at))
+
+
+(defun reschedule (event at)
+  (delete event *events*)
+  (setf (exec-at event) at)
+  (add-events event))
+
+
+(defun cancel (&rest events)
+  (dolist (ev events)
+    (delete ev *events*)))
 
 
 (defun access-point-by (id)
@@ -514,18 +526,63 @@
 
 ;;; Proxy server
 
+
+(defclass proxy-source (identified)
+  ((pings-received
+     :initform ()
+     :accessor pings-received
+     :documentation "Lista dei ping ricevuti")
+
+   (score
+     :initform 0
+     :documentation "Valutazione.")
+
+   (expire-event
+     :reader expire-event
+     :documentation "Riferimento all'evento che disattiva questa sorgente")
+
+   (last-datagram-at
+     :initform nil
+     :accessor last-datagram-at
+     :documentation "Istante in cui e' stato ricevuto l'ultimo dgram dati")))
+
+
+(defmethod initialize-instance :after ((ps proxy-source) &key)
+  (setf (slot-value ps 'expire-event)
+	(new event :exec-at (+ *now* *proxy-source-expiring-time*)
+	           :action (lambda ()
+			     (remhash (id ps) (active-sources *proxy*))))))
+
+
+(defmethod add ((src proxy-source) (ping ping-packet))
+  "Aggiunge ping alla lista dei ping."
+  (with-accessors ((pr pings-received)) src
+    (setf pr (nconc (list ping) pr))
+    (sort pr #'< :key #'sequence-number)))
+
+
 (defclass proxy-server (identified)
   ((id
      :initform "proxy")
 
    (active-sources
-     :initform (make-hash-table :test #'equal))
+     :initform (make-hash-table :test #'equal)
+     :accessor active-sources)
 
    (outgoing-datagrams
      :initform ())
 
    (incoming-datagrams
      :initform ())))
+
+
+(defmethod active-source ((px proxy-server) (id string))
+  (multiple-value-bind (src src-present-p) (gethash id (active-sources px))
+    (if src-present-p
+      (progn
+	(reschedule (expire-event src) (+ *now* *proxy-source-expiring-time*))
+	src)
+      (add (active-sources px) (new proxy-source :id id)))))
 
 
 ;;; Metodi deliver: ritornano il tempo impiegato ad INVIARE il pacchetto
@@ -633,14 +690,18 @@
 
 (defmethod recv ((pkt udp-packet) (px proxy-server) (ap access-point))
   "Proxy riceve un datagram"
-  ;; TODO
-  (format t "recv ~a ~a ~a" (id pkt) (id px) (id ap)))
+  (format t "recv ~a ~a ~a" (id pkt) (id px) (id ap))
+  (let ((src (active-source px (source pkt))))
+    (setf (last-datagram-at src) *now*)))
+;; NB: da qui bisognerebbe spedire al softphone remoto, ma non è necessario ai
+;; fini della simulazione.
 
 
 (defmethod recv ((ping ping-packet) (px proxy-server) (ap access-point))
   "Proxy riceve un ping"
-  ;; TODO
-  (format t "recv ~a ~a ~a" (id ping) (id px) (id ap)))
+  (format t "recv ~a ~a ~a" (id ping) (id px) (id ap))
+  (let ((src (active-source px (source ping))))
+    (add src ping)))
 
 
 (defmethod activate ((ulb udp-load-balancer) (wi wifi-interface))
@@ -672,7 +733,7 @@
   ((exec-at
      :initarg :exec-at
      :initform (error ":exec-at missing")
-     :reader exec-at
+     :accessor exec-at
      :documentation "Istante in cui deve essere eseguito.")
 
    (action
