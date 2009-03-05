@@ -660,14 +660,24 @@
 	(add-events
 	  (new event :exec-at arrival-time
 	             :action (lambda ()
-			       (recv pkt *proxy* ap)))))
+			       (recv pkt px ap)))))
       (format *log* "~&deliver fail ~a ~a ~a" (id pkt) (id ap) (id px)))))
 
 
 (defmethod deliver ((pkt packet)
 		    (px proxy-server) (link net-link) (ap access-point))
   "Da proxy-server ad access-point"
-  (error "TODO deliver proxy-server access-point"))
+  (let* ((send-delta-time (transmission-delta-time (size pkt) (bandwidth link)))
+	 (arrival-time (+ *now* send-delta-time (delay link)))
+	 (success-p (> (random 101) (error-rate link))))
+    (if success-p
+      (progn
+	(format *log* "~&deliver success ~a ~a ~a" (id pkt) (id px) (id ap))
+	(add-events
+	  (new event :exec-at arrival-time
+	             :action (lambda ()
+			       (recv pkt ap px)))))
+      (format *log* "~&deliver fail ~a ~a ~a" (id pkt) (id px) (id ap)))))
 
 
 (defmethod sendmsg-getid ((wi wifi-interface) (pkt udp-packet))
@@ -709,6 +719,11 @@
   (deliver pkt ap (link-between ap *proxy*) *proxy*))
 
 
+(defmethod recv ((pkt udp-packet) (ap access-point) (px proxy-server))
+  "Access point riceve pacchetto da proxy e lo inoltra all'interfaccia."
+  (error "TODO recv pkt ap px"))
+
+
 (defmethod recv ((pkt udp-packet) (px proxy-server) (ap access-point))
   "Proxy riceve un datagram"
   (format *log* "recv ~a ~a ~a" (id pkt) (id px) (id ap))
@@ -723,7 +738,8 @@
   (format *log* "recv ~a ~a ~a" (id ping) (id px) (id ap))
   (let ((src (active-source px (source ping))))
     (add src ping)
-    (deliver (new ping-packet :source (source ping)
+    (deliver (new ping-packet :id (id ping)
+                              :source (source ping)
 		              :sequence-number (sequence-number ping)
 		              :score nil)  ;; non necessario
 	     px (link-between ap px) ap)))
