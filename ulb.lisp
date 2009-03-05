@@ -407,11 +407,11 @@
   (let ((lists (cons (outgoing-datagrams ulb)
 		     (loop for uwi
 			   being the hash-values in (active-wifi-interfaces ulb)
-			   collecting (sent-datagrams uwi))))))
-  (dolist (lst lists)
-    (break "purge: prima di delete ~a da ~a" id lst)
-    (delete id lst :key #'id :test #'equal)
-    (break "purge: dopo delete ~a da ~a" id lst)))
+			   collecting (sent-datagrams uwi)))))
+    (dolist (lst lists)
+      (break "purge: prima di delete ~a da ~a" id lst)
+      (delete id lst :key #'id :test #'equal)
+      (break "purge: dopo delete ~a da ~a" id lst))))
 
 
 ;;; Net link
@@ -722,7 +722,11 @@
   "Proxy riceve un ping"
   (format *log* "recv ~a ~a ~a" (id ping) (id px) (id ap))
   (let ((src (active-source px (source ping))))
-    (add src ping)))
+    (add src ping)
+    (deliver (new ping-packet :source (source ping)
+		              :sequence-number (sequence-number ping)
+		              :score nil)  ;; non necessario
+	     px (link-between ap px) ap)))
 
 
 (defmethod activate ((ulb udp-load-balancer) (wi wifi-interface))
