@@ -28,9 +28,11 @@
 
 (defun add-events (&rest new-events)
   "Aggiunge i new-events agli *events* e riordina il tutto per istante di
-  esecuzione."
+  esecuzione.
+  Ritorna gli eventi come multiple-values."
   (setf *events* (nconc new-events *events*))
-  (sort *events* #'< :key #'exec-at))
+  (sort *events* #'< :key #'exec-at)
+  (values-list new-events))
 
 
 (defun reschedule (event at)
@@ -212,8 +214,6 @@
      :documentation "assegnato da sendmsg-getid")
 
    (end-of-life-event
-     :initarg :end-of-life-event
-     :initform (error ":end-of-life-event mancante")
      :accessor end-of-life-event
      :documentation "Riferimento all'evento che rimuove questo pacchetto
      dall'ULB")
@@ -247,6 +247,14 @@
    (data
      :initarg nil
      :initform nil)))
+
+
+(defmethod initialize-instance :after ((dgram ulb-struct-datagram) &key)
+  (when (not (slot-boundp dgram 'end-of-life-event))
+    (setf (end-of-life-event dgram)
+	  (add-events (new event :exec-at (+ *now* (msecs 2)) ;; TODO non 2, ma 150!
+			         :action (lambda ()
+					   (purge *ulb* (id dgram))))))))
 
 
 (defmethod initialize-instance :after ((ping ulb-struct-ping) &key wifi-interface)
@@ -392,6 +400,18 @@
    (outgoing-datagrams
      :documentation "Coda di ulb-struct-datagram rtp (no ping!) da spedire
      sull'interfaccia con voto migliore.")))
+
+
+(defmethod purge ((ulb udp-load-balancer) (id string))
+  "Cerca il datagram con il dato id in tutte le strutture dati di ulb e lo rimuove."
+  (let ((lists (cons (outgoing-datagrams ulb)
+		     (loop for uwi
+			   being the hash-values in (active-wifi-interfaces ulb)
+			   collecting (sent-datagrams uwi))))))
+  (dolist (lst lists)
+    (break "purge: prima di delete ~a da ~a" id lst)
+    (delete id lst :key #'id :test #'equal)
+    (break "purge: dopo delete ~a da ~a" id lst)))
 
 
 ;;; Net link
