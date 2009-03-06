@@ -29,27 +29,27 @@
 
 (add-events
   (set-link-event (msecs 0) *almawifi* *proxy*
-		  :error-rate 10 :delay (msecs 10)
+		  :error-rate 10 :delay (msecs 40)
 		  :bandwidth (megabits-per-second 10))
 
   (set-link-event (msecs 0) *almawifi* *eth0*
-		  :error-rate 10 :delay (msecs 50)
+		  :error-rate 10 :delay (msecs 1)
 		  :bandwidth (megabits-per-second 1))
 
   (set-link-event (msecs 0) *almawifi* *eth1*
-		  :error-rate 10 :delay (msecs 50)
+		  :error-rate 10 :delay (msecs 5)
 		  :bandwidth (megabits-per-second 1))
 
   (set-link-event (msecs 0) *csnet* *proxy*
-		  :error-rate 10 :delay (msecs 10)
+		  :error-rate 10 :delay (msecs 30)
 		  :bandwidth (megabits-per-second 10))
 
   (set-link-event (msecs 0) *csnet* *eth0*
-		  :error-rate 10 :delay (msecs 65)
+		  :error-rate 10 :delay (msecs 2)
 		  :bandwidth (megabits-per-second 1))
 
   (set-link-event (msecs 0) *csnet* *eth1*
-		  :error-rate 10 :delay (msecs 65)
+		  :error-rate 10 :delay (msecs 3)
 		  :bandwidth (megabits-per-second 1))
 
   (new event :exec-at (secs 2)

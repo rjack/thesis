@@ -645,7 +645,17 @@
 (defmethod deliver ((pkt packet)
 		    (ap access-point) (link net-link) (wi wifi-interface))
   "Da access-point a wifi-interface"
-  (error "TODO deliver access-point wifi-interface"))
+  (let* ((send-delta-time (transmission-delta-time (size pkt) (bandwidth link)))
+	 (arrival-time (+ *now* send-delta-time (delay link)))
+	 (success-p (> (random 101) (error-rate link))))
+    (if success-p
+      (progn
+	(format *log* "~&deliver success ~a ~a ~a" (id pkt) (id ap) (id wi))
+	(add-events
+	  (new event :exec-at arrival-time
+	             :action (lambda ()
+			       (recv pkt wi ap)))))
+      (format *log* "~&deliver fail ~a ~a ~a" (id pkt) (id ap) (id wi)))))
 
 
 (defmethod deliver ((pkt packet)
@@ -721,7 +731,9 @@
 
 (defmethod recv ((pkt udp-packet) (ap access-point) (px proxy-server))
   "Access point riceve pacchetto da proxy e lo inoltra all'interfaccia."
-  (error "TODO recv pkt ap px"))
+  (let ((dest-wi (wifi-interface-by (addr pkt))))
+    (deliver pkt ap (link-between ap dest-wi) dest-wi)))
+
 
 
 (defmethod recv ((pkt udp-packet) (px proxy-server) (ap access-point))
@@ -743,6 +755,25 @@
 		              :sequence-number (sequence-number ping)
 		              :score nil)  ;; non necessario
 	     px (link-between ap px) ap)))
+
+
+(defmethod recv ((pkt udp-packet) (wi wifi-interface) (ap access-point))
+  "Interfaccia wifi riceve un pacchetto udp"
+  (multiple-value-bind (uwi uwi-present-p) (gethash (id wi) (active-wifi-interfaces *ulb*))
+    (if uwi-present-p
+      (recv pkt uwi ap)
+      (format *log* "recv fail ~a ~a ~a: ulb interface not active"
+	      (id pkt) (id wi) (id ap)))))
+
+
+(defmethod recv ((pkt udp-packet) (uwi ulb-wifi-interface) (ap access-point))
+  "Interfaccia ulb riceve pacchetto udp"
+  (error "TODO recv pkt uwi ap"))
+
+
+(defmethod recv ((ping ping-packet) (uwi ulb-wifi-interface) (ap access-point))
+  "Interfaccia ulb riceve ping di risposta."
+  (error "TODO recv ping uwi ap"))
 
 
 (defmethod activate ((ulb udp-load-balancer) (wi wifi-interface))
