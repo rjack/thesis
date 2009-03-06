@@ -30,7 +30,9 @@
   "Aggiunge i new-events agli *events* e riordina il tutto per istante di
   esecuzione.
   Ritorna gli eventi come multiple-values."
-  (setf *events* (nconc new-events *events*))
+  (if (null *events*)
+    (setf *events* new-events)
+    (nconc *events* new-events))
   (sort *events* #'< :key #'exec-at)
   (values-list new-events))
 
@@ -43,7 +45,7 @@
 
 (defun cancel (&rest events)
   (dolist (ev events)
-    (delete ev *events*)))
+    (setf *events* (remove ev *events*))))
 
 
 (defun access-point-by (id)
@@ -69,6 +71,16 @@
 
 (defun generate-sendmsg-id ()
   (format nil "sendmsg-id-~d" (incf *sendmsg-current-id*)))
+
+
+(defun firmware-ack-p (fw)
+  (or (equal fw "full")
+      (equal fw "ack")))
+
+
+(defun firmware-nak-p (fw)
+  (or (equal fw "full")
+      (equal fw "nak")))
 
 
 ;;; Macro
@@ -341,11 +353,12 @@
      del firmware della scheda, osservando le notifiche e i ping ricevuti.")
 
    (sent-datagrams
-     :initform (make-hash-table :test #'equal) ;; di oggetti di tipo identified
+     :initform ()
      :accessor sent-datagrams
-     :documentation "Gli ulb-struct-datagram spediti da un'interfaccia vengono
-     accodati qui in attesa di un ACK o di un end-of-life-event che li scarti,
-     oppure di un NAK o di un send-again-event che li ritrasmetta.")
+     :documentation "Gli ulb-struct-datagram (ping compresi) spediti da
+     un'interfaccia vengono accodati qui in attesa di un ACK o di un
+     end-of-life-event che li scarti, oppure di un NAK o di un
+     send-again-event che li ritrasmetta.")
 
    (send-ping-event
      :initform nil
@@ -377,6 +390,7 @@
 
 
 (defmethod nak-firmware-detected ((uwi ulb-wifi-interface))
+  "Quando ulb riceve un nak, ricorda che il firmware può spedire nak"
   (with-accessors ((fw firmware-detected)) uwi
     (cond ((null fw) (setf fw "nak"))
 	  ((equal "ack" fw) (setf fw "full"))
@@ -384,6 +398,7 @@
 
 
 (defmethod ack-firmware-detected ((uwi ulb-wifi-interface))
+  "Quando ulb riceve un ack, ricorda che il firmware può spedire ack"
   (with-accessors ((fw firmware-detected)) uwi
     (cond ((null fw) (setf fw "ack"))
 	  ((equal "nak" fw) (setf fw "full"))
@@ -398,20 +413,21 @@
      ulb-wifi-interface, con gli id delle interfacce come chiavi.")
 
    (outgoing-datagrams
-     :documentation "Coda di ulb-struct-datagram rtp (no ping!) da spedire
-     sull'interfaccia con voto migliore.")))
+     :initform ()
+     :accessor outgoing-datagrams
+     :documentation "Coda di ulb-struct-datagram (no ping!) da spedire
+     sull'interfaccia con voto migliore.")
+
+   (urgent-datagrams
+     :initform ()
+     :accessor urgent-datagrams
+     :documentation "Idem come outgoing-datagrams, ma ospita i datagram da
+     rispedire")))
 
 
 (defmethod purge ((ulb udp-load-balancer) (id string))
   "Cerca il datagram con il dato id in tutte le strutture dati di ulb e lo rimuove."
-  (let ((lists (cons (outgoing-datagrams ulb)
-		     (loop for uwi
-			   being the hash-values in (active-wifi-interfaces ulb)
-			   collecting (sent-datagrams uwi)))))
-    (dolist (lst lists)
-      (break "purge: prima di delete ~a da ~a" id lst)
-      (delete id lst :key #'id :test #'equal)
-      (break "purge: dopo delete ~a da ~a" id lst))))
+  (error "TODO purge"))
 
 
 ;;; Net link
@@ -477,16 +493,18 @@
 
 
 (defmethod notify-nak ((uwi ulb-wifi-interface) (pkt udp-packet))
-  (format *log* "notify-nak ~a ~a" (id uwi) (id pkt))
+  (format *log* "~&notify-nak ~a ~a" (id uwi) (id pkt))
   ;; Ora sappiamo che interfaccia riceve nak: annotiamolo.
   (nak-firmware-detected uwi)
   ;; Recupera datagram.
-  (let ((struct-dgram (gethash (id pkt) (sent-datagrams uwi))))
+  (let ((struct-dgram (find (id pkt) (sent-datagrams uwi) :key #'id)))
     ;; Rimuovilo dalla lista di quelli spediti.
-    (remhash (id pkt) (sent-datagrams uwi))
+    (setf (sent-datagrams uwi)
+	  (remove (id pkt) (sent-datagrams uwi) :key #'id))
     ;; Se non e' un ping va rispedito.
     (if (not (typep struct-dgram 'ulb-struct-ping))
-      (add (outgoing-datagrams *ulb*) struct-dgram))
+      (setf (urgent-datagrams *ulb*)
+	    (append (urgent-datagrams *ulb*) struct-dgram)))
     ;; Log dell'accaduto.
     (add uwi
 	 (new first-hop-outcome :dgram-id (id struct-dgram)
@@ -494,29 +512,18 @@
 				:value "nak"))))
 
 (defmethod notify-ack ((uwi ulb-wifi-interface) (pkt udp-packet))
-  (format *log* "~%notify-ack ~a ~a" (id uwi) (id pkt))
+  (format *log* "~&notify-ack ~a ~a" (id uwi) (id pkt))
   ;; Segnamo che interfaccia riceve ack
   (ack-firmware-detected uwi)
   ;; Recupera datagram.
-  (let ((struct-dgram (gethash (id pkt) (sent-datagrams uwi))))
+  (let ((struct-dgram (find (id pkt) (sent-datagrams uwi) :key #'id)))
     ;; Rimuovilo dalla lista di quelli spediti
-    (remhash (id pkt) (sent-datagrams uwi))
+    (setf (sent-datagrams uwi)
+	  (remove (id pkt) (sent-datagrams uwi) :key #'id))
     (add uwi
 	 (new first-hop-outcome :dgram-id (id struct-dgram)
 	                        :timestamp *now*
 				:value "ack"))))
-
-
-(defmethod firmware-ack-p ((wi wifi-interface))
-  (with-accessors ((fw firmware)) wi
-    (or (equal fw "full")
-	(equal fw "ack"))))
-
-
-(defmethod firmware-nak-p ((wi wifi-interface))
-  (with-accessors ((fw firmware)) wi
-    (or (equal fw "full")
-	(equal fw "nak"))))
 
 
 (defmethod add ((wi wifi-interface) (pkt udp-packet))
@@ -578,7 +585,7 @@
 (defmethod add ((src proxy-source) (ping ping-packet))
   "Aggiunge ping alla lista dei ping."
   (with-accessors ((pr pings-received)) src
-    (setf pr (nconc (list ping) pr))
+    (push ping pr)
     (sort pr #'< :key #'sequence-number)))
 
 
@@ -621,7 +628,7 @@
       (add-events (new event :exec-at arrival-time
 		             :action (lambda ()
 				       (recv pkt ap wi))))
-      (when (firmware-ack-p wi)
+      (when (firmware-ack-p (firmware wi))
 	;; Se il firmware notifica gli ack, l'ulb riceve una notifica
 	;; sull'interfaccia quando l'ACK a livello MAC torna indietro dopo che
 	;; l'access point ha ricevuto il pacchetto.
@@ -633,13 +640,14 @@
 					   pkt))))))
     (when (not success-p)
       (format *log* "~&deliver fail ~a ~a ~a" (id pkt) (id wi) (id ap))
-      (when (firmware-nak-p wi)
+      (when (firmware-nak-p (firmware wi))
 	(add-events
 	  (new event :exec-at (+ (delay link) arrival-time)
 	             :action (lambda ()
 			       (notify-nak (gethash (id wi)
 						    (active-wifi-interfaces *ulb*))
-					   pkt))))))))
+					   pkt))))))
+    send-delta-time))
 
 
 (defmethod deliver ((pkt packet)
@@ -655,7 +663,8 @@
 	  (new event :exec-at arrival-time
 	             :action (lambda ()
 			       (recv pkt wi ap)))))
-      (format *log* "~&deliver fail ~a ~a ~a" (id pkt) (id ap) (id wi)))))
+      (format *log* "~&deliver fail ~a ~a ~a" (id pkt) (id ap) (id wi)))
+    send-delta-time))
 
 
 (defmethod deliver ((pkt packet)
@@ -671,7 +680,8 @@
 	  (new event :exec-at arrival-time
 	             :action (lambda ()
 			       (recv pkt px ap)))))
-      (format *log* "~&deliver fail ~a ~a ~a" (id pkt) (id ap) (id px)))))
+      (format *log* "~&deliver fail ~a ~a ~a" (id pkt) (id ap) (id px)))
+    send-delta-time))
 
 
 (defmethod deliver ((pkt packet)
@@ -687,7 +697,8 @@
 	  (new event :exec-at arrival-time
 	             :action (lambda ()
 			       (recv pkt ap px)))))
-      (format *log* "~&deliver fail ~a ~a ~a" (id pkt) (id px) (id ap)))))
+      (format *log* "~&deliver fail ~a ~a ~a" (id pkt) (id px) (id ap)))
+    send-delta-time))
 
 
 (defmethod sendmsg-getid ((wi wifi-interface) (pkt udp-packet))
@@ -710,8 +721,7 @@
   (add uwi (new full-path-outcome
 		:sequence-number (sequence-number (data struct))))
   ;; aggiunge il ping tra i datagram spediti
-  (add (sent-datagrams uwi)
-       struct)
+  (push struct (sent-datagrams uwi))
   ;; impostazione prossimo ping
   (add-events
     (setf (send-ping-event uwi)
@@ -733,7 +743,6 @@
   "Access point riceve pacchetto da proxy e lo inoltra all'interfaccia."
   (let ((dest-wi (wifi-interface-by (addr pkt))))
     (deliver pkt ap (link-between ap dest-wi) dest-wi)))
-
 
 
 (defmethod recv ((pkt udp-packet) (px proxy-server) (ap access-point))
@@ -773,7 +782,38 @@
 
 (defmethod recv ((ping ping-packet) (uwi ulb-wifi-interface) (ap access-point))
   "Interfaccia ulb riceve ping di risposta."
-  (error "TODO recv ping uwi ap"))
+  ;; Manutenzione full-path-log: imposta ping-recv-at in full-path-outcome
+  (let ((outcome (find (sequence-number ping)
+		       (full-path-log uwi)
+		       :key #'sequence-number)))
+    (assert (not (null outcome)) nil
+	    "recv ping uwi ap: outcome non trovato!")
+    (assert (not (slot-boundp outcome 'ping-recv-at)) nil
+	    "recv ping-recv-at uwi ap: ping-recv-at bound!")
+    (setf (ping-recv-at outcome) *now*))
+
+  ;; controlla firmware detected
+  (with-accessors ((fw firmware-detected)) uwi
+    (labels ((ping-by-seqnum-p (struct)
+                 (and (typep struct 'ulb-struct-ping)
+		      (equal (sequence-number (data struct))
+			     (sequence-number ping)))))
+      (let ((ping-sent (find-if #'ping-by-seqnum-p (sent-datagrams uwi))))
+	(delete-if #'ping-by-seqnum-p (sent-datagrams uwi))
+	(cond
+	  ((firmware-ack-p fw)
+	   (assert (null ping-sent) nil
+		   "Ping ha ricevuto risposta, firmware rilevato come ACK ma
+		   ping-sent ancora tra i sent-datagrams!"))
+
+	  ((equal "nak" fw)
+	   (assert (not (null ping-sent)) nil
+		   "Ping ha ricevuto risposta, firmware rilevato come NAK ma
+		   ping-sent non trovato tra i sent-datagrams!"))
+
+	  (t (assert (null fw) nil "Valore firmware-detected incasinato!")
+	     (when (not (null ping-sent))
+	       (setf fw "ack"))))))))
 
 
 (defmethod activate ((ulb udp-load-balancer) (wi wifi-interface))
@@ -816,15 +856,17 @@
 
 
 (defmethod flush ((wi wifi-interface))
-  (let* ((pkt (pop (socket-send-buffer wi)))
-         (ap (associated-ap wi))
-         (link (link-between ap wi))
-	 ;; consegna pkt
-         (delta-time (deliver pkt wi link ap)))
-    (when (socket-send-buffer wi)
-      (add-events (new event :exec-at (+ *now* delta-time)
-                             :action (lambda ()
-                                       (flush wi)))))))
+  (with-accessors ((buf socket-send-buffer)) wi
+    (when buf
+      (let* ((pkt (first buf))
+	     (ap (associated-ap wi))
+	     (link (link-between ap wi))
+	     ;; deliver del pacchetto
+	     (delta-time (deliver pkt wi link ap)))
+	(add-events (new event :exec-at (+ *now* delta-time)
+			       :action (lambda ()
+					 (pop buf)
+					 (flush wi))))))))
 
 
 (defmethod fire ((ev event))
@@ -886,7 +928,8 @@
         do (assert (<= *now* (exec-at current-event)) nil "Eventi disordinati!")
 	(setf *now* (exec-at current-event))
         (format *log* "~&~%~d " (exec-at current-event))
-        (fire current-event)))
+        (fire current-event)
+	(break)))
 
 
 (defun do-logging (fn file-name)
