@@ -164,10 +164,10 @@
      :documentation "Campo ID nell'header UDP che sarebbe usato per la
      frammentazione dei datagram ma che viene sfruttato d sendmsg-getid")
 
-   (source
-     :initarg :source
-     :initform (error ":source mancante")
-     :accessor source
+   (addr
+     :initarg :addr
+     :initform (error ":addr mancante")
+     :accessor addr
      :documentation "Il mittente del pacchetto.")
 
    (overhead-size
@@ -260,7 +260,7 @@
 (defmethod initialize-instance :after ((ping ulb-struct-ping) &key wifi-interface)
   (let ((seq (incf (current-ping-seqnum wifi-interface))))
     (setf (slot-value ping 'data)
-          (new ping-packet :source (id wifi-interface)
+          (new ping-packet :addr (id wifi-interface)
 	                   :score (score wifi-interface)
                            :sequence-number seq))))
 
@@ -727,7 +727,7 @@
 (defmethod recv ((pkt udp-packet) (px proxy-server) (ap access-point))
   "Proxy riceve un datagram"
   (format *log* "recv ~a ~a ~a" (id pkt) (id px) (id ap))
-  (let ((src (active-source px (source pkt))))
+  (let ((src (active-source px (addr pkt))))
     (setf (last-datagram-at src) *now*)))
 ;; NB: da qui bisognerebbe spedire al softphone remoto, ma non è necessario ai
 ;; fini della simulazione.
@@ -736,10 +736,10 @@
 (defmethod recv ((ping ping-packet) (px proxy-server) (ap access-point))
   "Proxy riceve un ping"
   (format *log* "recv ~a ~a ~a" (id ping) (id px) (id ap))
-  (let ((src (active-source px (source ping))))
+  (let ((src (active-source px (addr ping))))
     (add src ping)
     (deliver (new ping-packet :id (id ping)
-                              :source (source ping)
+                              :addr (addr ping)
 		              :sequence-number (sequence-number ping)
 		              :score nil)  ;; non necessario
 	     px (link-between ap px) ap)))
