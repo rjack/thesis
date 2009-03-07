@@ -42,4 +42,4 @@
        :action (lambda ()
 		 (talk-remote :duration (secs 1))))
 
-  (quit-event (secs 100)))
+  (quit-event (secs 10)))

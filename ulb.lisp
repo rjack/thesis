@@ -30,22 +30,23 @@
   "Aggiunge i new-events agli *events* e riordina il tutto per istante di
   esecuzione.
   Ritorna gli eventi come multiple-values."
-  (if (null *events*)
-    (setf *events* new-events)
-    (nconc *events* new-events))
+  (setf *events*
+	(nconc *events* new-events))
   (sort *events* #'< :key #'exec-at)
   (values-list new-events))
 
 
 (defun reschedule (event at)
-  (delete event *events*)
+  (setf *events*
+	(remove event *events*))
   (setf (exec-at event) at)
   (add-events event))
 
 
 (defun cancel (&rest events)
   (dolist (ev events)
-    (setf *events* (remove ev *events*))))
+    (setf *events*
+	  (remove ev *events*))))
 
 
 (defun access-point-by (id)
@@ -252,6 +253,10 @@
      :documentation "Riferimento al pacchetto vero e proprio.")))
 
 
+(defmethod print-object ((struct ulb-struct-datagram) (s stream))
+  (format s "[ulb-struct-datagram id:~a]" (id struct)))
+
+
 (defclass ulb-struct-ping (ulb-struct-datagram)
   ;; Lo slot data punta a un istanza ping-packet che contiene numero di
   ;; sequenza e voto.
@@ -267,6 +272,10 @@
    (data
      :initarg nil
      :initform nil)))
+
+
+(defmethod print-object ((struct ulb-struct-ping) (s stream))
+  (format s "[ulb-struct-ping id:~a data:~a]" (id struct) (data struct)))
 
 
 (defmethod initialize-instance :after ((dgram ulb-struct-datagram) &key)
@@ -327,6 +336,11 @@
    ;; e' scaduto un timeout.
 
 
+(defmethod print-object ((fho first-hop-outcome) (s stream))
+  (format s "[first-hop-outcome dgram-id:~a timestamp:~a value:~a]"
+	  (dgram-id fho) (timestamp fho) (value fho)))
+
+
 (defclass full-path-outcome ()
   ((sequence-number
      :initarg :sequence-number
@@ -343,6 +357,11 @@
    (ping-recv-at
      :accessor ping-recv-at
      :documentation "Istante di ricezione del ping di risposta.")))
+
+
+(defmethod print-object ((fpo full-path-outcome) (s stream))
+  (format s "[full-path-outcome sequence-number:~a ping-sent-at:~a ping-recv-at:~a]"
+	  (sequence-number fpo) (ping-sent-at fpo) (ping-recv-at fpo)))
 
 
 (defclass ulb-wifi-interface (identified)
@@ -395,6 +414,11 @@
      :initform nil
      :accessor full-path-log
      :documentation "Lista di full-path-outcome.")))
+
+
+(defmethod print-object ((uwi ulb-wifi-interface) (s stream))
+  (format s "[ulb-wifi-interface id:~a fw-det:~a current-ping-seqnum:~a score:~a]"
+	  (id uwi) (firmware-detected uwi) (current-ping-seqnum uwi) (score uwi)))
 
 
 (defmethod nak-firmware-detected ((uwi ulb-wifi-interface))
@@ -468,6 +492,10 @@
      chiave.")))
 
 
+(defmethod print-object ((ap access-point) (s stream))
+  (format s "[access-point id:~a]" (id ap)))
+
+
 (defmethod wpa-supplicant-would-activate ((nl net-link) (ap access-point))
   (and (bandwidth nl)
        (> (bandwidth nl) 0)
@@ -500,8 +528,13 @@
      l'interfaccia e' inattiva.")))
 
 
+(defmethod print-object ((wi wifi-interface) (s stream))
+  (format s "[wifi-interface id:~a fw:~a associated-ap:~a]"
+	  (id wi) (firmware wi) (associated-ap wi)))
+
+
 (defmethod notify-nak ((uwi ulb-wifi-interface) (pkt udp-packet))
-  (format *log* "~&notify-nak ~a ~a" (id uwi) pkt)
+  (format *log* "~&notify-nak ~a ~a" uwi pkt)
   ;; Ora sappiamo che interfaccia riceve nak: annotiamolo.
   (nak-firmware-detected uwi)
   ;; Recupera datagram.
@@ -520,7 +553,7 @@
 				:value "nak"))))
 
 (defmethod notify-ack ((uwi ulb-wifi-interface) (pkt udp-packet))
-  (format *log* "~&notify-ack ~a ~a" (id uwi) pkt)
+  (format *log* "~&notify-ack ~a ~a" uwi pkt)
   ;; Segnamo che interfaccia riceve ack
   (ack-firmware-detected uwi)
   ;; Recupera datagram.
@@ -536,17 +569,17 @@
 
 (defmethod add ((wi wifi-interface) (pkt udp-packet))
   (with-accessors ((buf socket-send-buffer)) wi
-    (if buf
-      (nconc buf (list pkt))
-      (progn
-        (setf buf (list pkt))
-        (flush wi)))))
+    (setf buf
+	  (nconc buf (list pkt)))
+    (when (= 1 (length buf))
+        (flush wi))))
 
 
 (defmethod add ((uwi ulb-wifi-interface) (fpo full-path-outcome))
   "Aggiunge un full-path-outcome al full-path-log dell'ulb-wifi-interface."
   (with-accessors ((fp-log full-path-log)) uwi
-    (setf fp-log (nconc fp-log (list fpo)))
+    (setf fp-log
+	  (nconc fp-log (list fpo)))
     ;; Controlli di coerenza
     (assert (apply #'<= (mapcar #'sequence-number fp-log))
 	    nil "full-path-log non e' ordinato per numero di sequenza dei ping!")
@@ -557,7 +590,8 @@
 (defmethod add ((uwi ulb-wifi-interface) (fio first-hop-outcome))
   "Aggiunge un first-hop-outcome al first-hop-log dell'ulb-wifi-interface"
   (with-accessors ((fh-log first-hop-log)) uwi
-    (setf fh-log (nconc fh-log (list fio)))))
+    (setf fh-log
+	  (nconc fh-log (list fio)))))
 
 
 ;;; Proxy server
@@ -570,6 +604,7 @@
 
    (score
      :initform 0
+     :accessor score
      :documentation "Valutazione.")
 
    (expire-event
@@ -582,8 +617,13 @@
      :documentation "Istante in cui e' stato ricevuto l'ultimo dgram dati")))
 
 
+(defmethod print-object ((ps proxy-source) (s stream))
+  (format s "[proxy-source id:~a score:~a last-datagram-at:~a]"
+	  (id ps) (score ps) (last-datagram-at ps)))
+
+
 (defmethod initialize-instance :after ((ps proxy-source) &key)
-  (format *log* "~&new proxy-source ~a" (id ps))
+  (format *log* "~&new proxy-source ~a" ps)
   (setf (slot-value ps 'expire-event)
 	(new event :exec-at (+ *now* *proxy-source-expiring-time*)
 	           :action (lambda ()
@@ -612,6 +652,10 @@
      :initform ())))
 
 
+(defmethod print-object ((ps proxy-server) (s stream))
+  (format s "[proxy-server id:~a]" (id ps)))
+
+
 (defmethod active-source ((px proxy-server) (id string))
   (multiple-value-bind (src src-present-p) (gethash id (active-sources px))
     (if src-present-p
@@ -631,7 +675,7 @@
 	 (arrival-time (+ *now* send-delta-time (delay link)))
 	 (success-p (> (random 101) (error-rate link))))
     (when success-p
-      (format *log* "~&deliver success ~a ~a ~a" pkt (id wi) (id ap))
+      (format *log* "~&deliver success ~a ~a ~a" pkt wi ap)
       ;; access-point riceve
       (add-events (new event :exec-at arrival-time
 		             :action (lambda ()
@@ -647,7 +691,7 @@
 						    (active-wifi-interfaces *ulb*))
 					   pkt))))))
     (when (not success-p)
-      (format *log* "~&deliver fail ~a ~a ~a" pkt (id wi) (id ap))
+      (format *log* "~&deliver fail ~a ~a ~a" pkt wi ap)
       (when (firmware-nak-p (firmware wi))
 	(add-events
 	  (new event :exec-at (+ (delay link) arrival-time)
@@ -666,12 +710,12 @@
 	 (success-p (> (random 101) (error-rate link))))
     (if success-p
       (progn
-	(format *log* "~&deliver success ~a ~a ~a" pkt (id ap) (id wi))
+	(format *log* "~&deliver success ~a ~a ~a" pkt ap wi)
 	(add-events
 	  (new event :exec-at arrival-time
 	             :action (lambda ()
 			       (recv pkt wi ap)))))
-      (format *log* "~&deliver fail ~a ~a ~a" pkt (id ap) (id wi)))
+      (format *log* "~&deliver fail ~a ~a ~a" pkt ap wi))
     send-delta-time))
 
 
@@ -683,12 +727,12 @@
 	 (success-p (> (random 101) (error-rate link))))
     (if success-p
       (progn
-	(format *log* "~&deliver success ~a ~a ~a" pkt (id ap) (id px))
+	(format *log* "~&deliver success ~a ~a ~a" pkt ap px)
 	(add-events
 	  (new event :exec-at arrival-time
 	             :action (lambda ()
 			       (recv pkt px ap)))))
-      (format *log* "~&deliver fail ~a ~a ~a" pkt (id ap) (id px)))
+      (format *log* "~&deliver fail ~a ~a ~a" pkt ap px))
     send-delta-time))
 
 
@@ -700,12 +744,12 @@
 	 (success-p (> (random 101) (error-rate link))))
     (if success-p
       (progn
-	(format *log* "~&deliver success ~a ~a ~a" pkt (id px) (id ap))
+	(format *log* "~&deliver success ~a ~a ~a" pkt px ap)
 	(add-events
 	  (new event :exec-at arrival-time
 	             :action (lambda ()
 			       (recv pkt ap px)))))
-      (format *log* "~&deliver fail ~a ~a ~a" pkt (id px) (id ap)))
+      (format *log* "~&deliver fail ~a ~a ~a" pkt px ap))
     send-delta-time))
 
 
@@ -743,19 +787,20 @@
 
 (defmethod recv ((pkt udp-packet) (ap access-point) (wi wifi-interface))
   "Access point riceve un pacchetto da interfaccia wifi e lo spedisce al proxy."
-  (format *log* "~&recv ~a ~a ~a" pkt (id ap) (id wi))
+  (format *log* "~&recv ~a ~a ~a" pkt ap wi)
   (deliver pkt ap (link-between ap *proxy*) *proxy*))
 
 
 (defmethod recv ((pkt udp-packet) (ap access-point) (px proxy-server))
   "Access point riceve pacchetto da proxy e lo inoltra all'interfaccia."
+  (format *log* "~&recv ~a ~a ~a" pkt ap px)
   (let ((dest-wi (wifi-interface-by (addr pkt))))
     (deliver pkt ap (link-between ap dest-wi) dest-wi)))
 
 
 (defmethod recv ((pkt udp-packet) (px proxy-server) (ap access-point))
   "Proxy riceve un datagram"
-  (format *log* "recv ~a ~a ~a" pkt (id px) (id ap))
+  (format *log* "recv ~a ~a ~a" pkt px ap)
   (let ((src (active-source px (addr pkt))))
     (setf (last-datagram-at src) *now*)))
 ;; NB: da qui bisognerebbe spedire al softphone remoto, ma non è necessario ai
@@ -764,7 +809,7 @@
 
 (defmethod recv ((ping ping-packet) (px proxy-server) (ap access-point))
   "Proxy riceve un ping"
-  (format *log* "recv ~a ~a ~a" ping (id px) (id ap))
+  (format *log* "recv ~a ~a ~a" ping px ap)
   (let ((src (active-source px (addr ping))))
     (add src ping)
     (deliver (new ping-packet :id (id ping)
@@ -780,7 +825,7 @@
     (if uwi-present-p
       (recv pkt uwi ap)
       (format *log* "recv fail ~a ~a ~a: ulb interface not active"
-	      pkt (id wi) (id ap)))))
+	      pkt wi ap))))
 
 
 (defmethod recv ((pkt udp-packet) (uwi ulb-wifi-interface) (ap access-point))
@@ -800,6 +845,8 @@
 	    "recv ping-recv-at uwi ap: ping-recv-at bound!")
     (setf (ping-recv-at outcome) *now*))
 
+  (format *log* "recv ~a ~a ~a" ping uwi ap)
+
   ;; controlla firmware detected
   (with-accessors ((fw firmware-detected)) uwi
     (labels ((ping-by-seqnum-p (struct)
@@ -807,7 +854,8 @@
 		      (equal (sequence-number (data struct))
 			     (sequence-number ping)))))
       (let ((ping-sent (find-if #'ping-by-seqnum-p (sent-datagrams uwi))))
-	(delete-if #'ping-by-seqnum-p (sent-datagrams uwi))
+	(setf (sent-datagrams uwi)
+	      (remove-if #'ping-by-seqnum-p (sent-datagrams uwi)))
 	(cond
 	  ((firmware-ack-p fw)
 	   (assert (null ping-sent) nil
@@ -864,7 +912,7 @@
 
 
 (defmethod flush ((wi wifi-interface))
-  (format *log* "~&flush ~a" (id wi))
+  (format *log* "~&flush ~a" wi)
   (with-accessors ((buf socket-send-buffer)) wi
     (when buf
       (let* ((pkt (first buf))
@@ -890,7 +938,7 @@
    dall'access-point con l'essid specificato a to. Come conseguenza, una
    interfaccia wireless non attiva puo' essere attivata, una attiva puo'
    essere disattivata"
-  (format *log* "~&set-link ~a ~a" (id ap) (id dest))
+  (format *log* "~&set-link ~a ~a" ap dest)
   (let ((link (link-between ap dest)))
 
     ; Impostazione parametri specificati.
@@ -925,7 +973,7 @@
 
 
 (defmethod iface-up ((wi wifi-interface) (ap access-point))
-  (format *log* "~&iface-up ~a ~a" (id wi) (id ap))
+  (format *log* "~&iface-up ~a ~a" wi ap)
   (setf (associated-ap wi) ap)
   (activate *ulb* wi))
 
@@ -936,6 +984,7 @@
         while current-event
         do (assert (<= *now* (exec-at current-event)) nil "Eventi disordinati!")
 	(setf *now* (exec-at current-event))
+	;;(when (= *now* 9314) (break))
         (format *log* "~&~%~d " (exec-at current-event))
         (fire current-event)
 ;;	(break)
