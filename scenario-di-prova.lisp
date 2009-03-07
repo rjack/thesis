@@ -13,14 +13,12 @@
 
 ;;; Scenario
 
-(defparameter *eth0* (new wifi-interface :id "eth0" :firmware "ack"))
-(defparameter *eth1* (new wifi-interface :id "eth1" :firmware "nak"))
+(defparameter *eth0* (new wifi-interface :id "eth0" :firmware "nak"))
 
 (defparameter *csnet* (new access-point :id "csnet"))
-(defparameter *almawifi* (new access-point :id "almawifi"))
 
-(add-wifi-interfaces *eth0* *eth1*)
-(add-access-points *csnet* *almawifi*)
+(add-wifi-interfaces *eth0*)
+(add-access-points *csnet*)
 
 (generate-links)
 
@@ -28,28 +26,12 @@
 ;;; Eventi
 
 (add-events
-  (set-link-event (msecs 0) *almawifi* *proxy*
-		  :error-rate 10 :delay (msecs 40)
-		  :bandwidth (megabits-per-second 10))
-
-  (set-link-event (msecs 0) *almawifi* *eth0*
-		  :error-rate 10 :delay (msecs 1)
-		  :bandwidth (megabits-per-second 1))
-
-  (set-link-event (msecs 0) *almawifi* *eth1*
-		  :error-rate 10 :delay (msecs 5)
-		  :bandwidth (megabits-per-second 1))
-
   (set-link-event (msecs 0) *csnet* *proxy*
-		  :error-rate 10 :delay (msecs 30)
+		  :error-rate 20 :delay (msecs 30)
 		  :bandwidth (megabits-per-second 10))
 
   (set-link-event (msecs 0) *csnet* *eth0*
 		  :error-rate 10 :delay (msecs 2)
-		  :bandwidth (megabits-per-second 1))
-
-  (set-link-event (msecs 0) *csnet* *eth1*
-		  :error-rate 10 :delay (msecs 3)
 		  :bandwidth (megabits-per-second 1))
 
   (new event :exec-at (secs 2)
@@ -60,4 +42,4 @@
        :action (lambda ()
 		 (talk-remote :duration (secs 1))))
 
-  (quit-event (secs 10)))
+  (quit-event (secs 100)))

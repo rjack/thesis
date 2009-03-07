@@ -185,6 +185,9 @@
    (overhead-size
      :initform 8)))
 
+(defmethod print-object ((pkt udp-packet) (s stream))
+  (format s "[udp-packet id:~a addr:~a]" (id pkt) (addr pkt)))
+
 
 (defclass ipv4-packet (packet)
   ((overhead-size
@@ -214,6 +217,11 @@
      :reader sequence-number
      :documentation "Numero di sequenza del ping. Nella realta' e' contenuto
      nel payload del pacchetto UDP.")))
+
+
+(defmethod print-object ((ping ping-packet) (s stream))
+  (format s "[ping-packet id:~a addr:~a score:~a sequence-number:~a]"
+	  (id ping) (addr ping) (score ping) (sequence-number ping)))
 
 
 ;;; Queste classi sono la rappresentazione software dei pacchetti da parte dei
@@ -264,7 +272,7 @@
 (defmethod initialize-instance :after ((dgram ulb-struct-datagram) &key)
   (when (not (slot-boundp dgram 'end-of-life-event))
     (setf (end-of-life-event dgram)
-	  (add-events (new event :exec-at (+ *now* (msecs 2)) ;; TODO non 2, ma 150!
+	  (add-events (new event :exec-at (+ *now* (msecs 150))
 			         :action (lambda ()
 					   (purge *ulb* (id dgram))))))))
 
@@ -493,7 +501,7 @@
 
 
 (defmethod notify-nak ((uwi ulb-wifi-interface) (pkt udp-packet))
-  (format *log* "~&notify-nak ~a ~a" (id uwi) (id pkt))
+  (format *log* "~&notify-nak ~a ~a" (id uwi) pkt)
   ;; Ora sappiamo che interfaccia riceve nak: annotiamolo.
   (nak-firmware-detected uwi)
   ;; Recupera datagram.
@@ -512,7 +520,7 @@
 				:value "nak"))))
 
 (defmethod notify-ack ((uwi ulb-wifi-interface) (pkt udp-packet))
-  (format *log* "~&notify-ack ~a ~a" (id uwi) (id pkt))
+  (format *log* "~&notify-ack ~a ~a" (id uwi) pkt)
   ;; Segnamo che interfaccia riceve ack
   (ack-firmware-detected uwi)
   ;; Recupera datagram.
@@ -623,7 +631,7 @@
 	 (arrival-time (+ *now* send-delta-time (delay link)))
 	 (success-p (> (random 101) (error-rate link))))
     (when success-p
-      (format *log* "~&deliver success ~a ~a ~a" (id pkt) (id wi) (id ap))
+      (format *log* "~&deliver success ~a ~a ~a" pkt (id wi) (id ap))
       ;; access-point riceve
       (add-events (new event :exec-at arrival-time
 		             :action (lambda ()
@@ -639,7 +647,7 @@
 						    (active-wifi-interfaces *ulb*))
 					   pkt))))))
     (when (not success-p)
-      (format *log* "~&deliver fail ~a ~a ~a" (id pkt) (id wi) (id ap))
+      (format *log* "~&deliver fail ~a ~a ~a" pkt (id wi) (id ap))
       (when (firmware-nak-p (firmware wi))
 	(add-events
 	  (new event :exec-at (+ (delay link) arrival-time)
@@ -658,12 +666,12 @@
 	 (success-p (> (random 101) (error-rate link))))
     (if success-p
       (progn
-	(format *log* "~&deliver success ~a ~a ~a" (id pkt) (id ap) (id wi))
+	(format *log* "~&deliver success ~a ~a ~a" pkt (id ap) (id wi))
 	(add-events
 	  (new event :exec-at arrival-time
 	             :action (lambda ()
 			       (recv pkt wi ap)))))
-      (format *log* "~&deliver fail ~a ~a ~a" (id pkt) (id ap) (id wi)))
+      (format *log* "~&deliver fail ~a ~a ~a" pkt (id ap) (id wi)))
     send-delta-time))
 
 
@@ -675,12 +683,12 @@
 	 (success-p (> (random 101) (error-rate link))))
     (if success-p
       (progn
-	(format *log* "~&deliver success ~a ~a ~a" (id pkt) (id ap) (id px))
+	(format *log* "~&deliver success ~a ~a ~a" pkt (id ap) (id px))
 	(add-events
 	  (new event :exec-at arrival-time
 	             :action (lambda ()
 			       (recv pkt px ap)))))
-      (format *log* "~&deliver fail ~a ~a ~a" (id pkt) (id ap) (id px)))
+      (format *log* "~&deliver fail ~a ~a ~a" pkt (id ap) (id px)))
     send-delta-time))
 
 
@@ -692,12 +700,12 @@
 	 (success-p (> (random 101) (error-rate link))))
     (if success-p
       (progn
-	(format *log* "~&deliver success ~a ~a ~a" (id pkt) (id px) (id ap))
+	(format *log* "~&deliver success ~a ~a ~a" pkt (id px) (id ap))
 	(add-events
 	  (new event :exec-at arrival-time
 	             :action (lambda ()
 			       (recv pkt ap px)))))
-      (format *log* "~&deliver fail ~a ~a ~a" (id pkt) (id px) (id ap)))
+      (format *log* "~&deliver fail ~a ~a ~a" pkt (id px) (id ap)))
     send-delta-time))
 
 
@@ -735,7 +743,7 @@
 
 (defmethod recv ((pkt udp-packet) (ap access-point) (wi wifi-interface))
   "Access point riceve un pacchetto da interfaccia wifi e lo spedisce al proxy."
-  (format *log* "~&recv ~a ~a ~a" (id pkt) (id ap) (id wi))
+  (format *log* "~&recv ~a ~a ~a" pkt (id ap) (id wi))
   (deliver pkt ap (link-between ap *proxy*) *proxy*))
 
 
@@ -747,7 +755,7 @@
 
 (defmethod recv ((pkt udp-packet) (px proxy-server) (ap access-point))
   "Proxy riceve un datagram"
-  (format *log* "recv ~a ~a ~a" (id pkt) (id px) (id ap))
+  (format *log* "recv ~a ~a ~a" pkt (id px) (id ap))
   (let ((src (active-source px (addr pkt))))
     (setf (last-datagram-at src) *now*)))
 ;; NB: da qui bisognerebbe spedire al softphone remoto, ma non è necessario ai
@@ -756,7 +764,7 @@
 
 (defmethod recv ((ping ping-packet) (px proxy-server) (ap access-point))
   "Proxy riceve un ping"
-  (format *log* "recv ~a ~a ~a" (id ping) (id px) (id ap))
+  (format *log* "recv ~a ~a ~a" ping (id px) (id ap))
   (let ((src (active-source px (addr ping))))
     (add src ping)
     (deliver (new ping-packet :id (id ping)
@@ -772,7 +780,7 @@
     (if uwi-present-p
       (recv pkt uwi ap)
       (format *log* "recv fail ~a ~a ~a: ulb interface not active"
-	      (id pkt) (id wi) (id ap)))))
+	      pkt (id wi) (id ap)))))
 
 
 (defmethod recv ((pkt udp-packet) (uwi ulb-wifi-interface) (ap access-point))
@@ -813,7 +821,7 @@
 
 	  (t (assert (null fw) nil "Valore firmware-detected incasinato!")
 	     (when (not (null ping-sent))
-	       (setf fw "ack"))))))))
+	       (setf fw "nak"))))))))
 
 
 (defmethod activate ((ulb udp-load-balancer) (wi wifi-interface))
@@ -856,6 +864,7 @@
 
 
 (defmethod flush ((wi wifi-interface))
+  (format *log* "~&flush ~a" (id wi))
   (with-accessors ((buf socket-send-buffer)) wi
     (when buf
       (let* ((pkt (first buf))
@@ -929,7 +938,8 @@
 	(setf *now* (exec-at current-event))
         (format *log* "~&~%~d " (exec-at current-event))
         (fire current-event)
-	(break)))
+;;	(break)
+  ))
 
 
 (defun do-logging (fn file-name)
