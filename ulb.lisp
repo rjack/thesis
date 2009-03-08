@@ -261,6 +261,7 @@
 (defclass ulb-struct-datagram (identified)
   ((id
      :initarg nil
+     :initform nil
      :accessor id
      :documentation "assegnato da sendmsg-getid")
 
@@ -603,6 +604,19 @@
 	  (nconc buf (list pkt)))
     (when (= 1 (length buf))
         (flush wi))))
+
+
+(defmethod add ((ulb udp-load-balancer) (pkt udp-packet))
+  "Crea uno ulb-struct-datagram e lo aggiunge a outgoing-datagrams"
+  (with-accessors ((outgoing outgoing-datagrams)
+		   (urgent urgent-datagrams)) ulb
+    (let ((struct (new ulb-struct-datagram :send-again-event nil :data pkt))
+	  (queued (+ (length outgoing)
+		     (length urgent))))
+      (setf outgoing
+	    (nconc outgoing (list struct)))
+      (when (= 1 queued)
+	(flush ulb)))))
 
 
 (defmethod add ((uwi ulb-wifi-interface) (fpo full-path-outcome))
@@ -956,6 +970,18 @@
 					 (flush wi))))))))
 
 
+(defmethod flush ((ulb udp-load-balancer))
+  "Dalle code di datagram alla spedizione sulla best interface"
+  (with-accessors ((urgent urgent-datagrams)
+		   (outgoing outgoing-datagrams)) ulb
+    (when (not (and (null urgent)
+		    (null outgoing)))
+      (send (best-interface ulb)
+	    (if (not (null urgent))
+	      (pop urgent)
+	      (pop outgoing))))))
+
+
 (defmethod fire ((ev event))
     (funcall (action ev)))
 
@@ -991,7 +1017,8 @@
 
 
 (defun talk-local (&key duration)
-  (format *log* "~&talk-local, duration ~a" duration))
+  (dolist (pkt (make-udp-packet-list duration))
+    (add *ulb* pkt)))
 
 
 (defun talk-remote (&key duration)
