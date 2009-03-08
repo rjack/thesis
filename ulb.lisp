@@ -90,20 +90,6 @@
       (equal fw "nak")))
 
 
-(defun make-udp-packet-list (duration)
-  (let ((nbytes (* duration *codec-bw*)))
-    (labels ((next-packet-size ()
-		(random-between *rtp-payload-min-size*
-				*rtp-payload-max-size*))
-	     (helper (nbytes-left packet-size ls-acc)
-		(if (>= packet-size nbytes-left)
-		  (cons nbytes-left ls-acc)
-		  (helper (- nbytes-left packet-size)
-			  (next-packet-size)
-			  (cons packet-size ls-acc)))))
-      (helper nbytes (next-packet-size) nil))))
-
-
 ;;; Macro
 
 (defmacro new (name &rest body)
@@ -179,7 +165,8 @@
 
 (defclass data-packet (packet)
   ((payload
-     :initform 0
+     :initarg :payload-size
+     :initform (error ":payload-size mancante")
      :documentation "Dimensione del data-packet, in byte.")
 
    (overhead-size
@@ -193,13 +180,15 @@
 
 (defclass udp-packet (packet)
   ((id
+     :initarg :id
+     :initform nil
      :accessor id
      :documentation "Campo ID nell'header UDP che sarebbe usato per la
      frammentazione dei datagram ma che viene sfruttato d sendmsg-getid")
 
    (addr
      :initarg :addr
-     :initform (error ":addr mancante")
+     :initform nil
      :accessor addr
      :documentation "Il mittente del pacchetto.")
 
@@ -207,7 +196,7 @@
      :initform 8)))
 
 (defmethod print-object ((pkt udp-packet) (s stream))
-  (format s "[udp-packet id:~a addr:~a]" (id pkt) (addr pkt)))
+  (format s "[udp-packet id:~a addr:~a size:~a]" (id pkt) (addr pkt) (size pkt)))
 
 
 (defclass ipv4-packet (packet)
@@ -243,6 +232,27 @@
 (defmethod print-object ((ping ping-packet) (s stream))
   (format s "[ping-packet id:~a addr:~a score:~a sequence-number:~a]"
 	  (id ping) (addr ping) (score ping) (sequence-number ping)))
+
+
+(defun make-udp-packet-list (duration)
+  (let ((nbytes (* duration *codec-bw*)))
+    (labels ((next-packet-size ()
+		(random-between *rtp-payload-min-size*
+				*rtp-payload-max-size*))
+	     (helper (nbytes-left packet-size ls-acc)
+		(if (>= packet-size nbytes-left)
+		  (cons (new udp-packet
+			     :payload (new data-packet
+					   :payload-size nbytes-left))
+			ls-acc)
+		  (helper (- nbytes-left packet-size)
+			  (next-packet-size)
+			  (cons (new udp-packet
+				     :payload (new data-packet
+						   :payload-size packet-size))
+				ls-acc)))))
+      (helper nbytes (next-packet-size) nil))))
+
 
 
 ;;; Queste classi sono la rappresentazione software dei pacchetti da parte dei
