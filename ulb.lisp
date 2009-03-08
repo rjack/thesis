@@ -9,7 +9,7 @@
 (defparameter *sendmsg-current-id* -1)
 (defparameter *now* 0)
 
-(defparameter *codec-kbs* 16)
+(defparameter *codec-bw* nil) ;; assegnato in fondo
 
 (defparameter *ping-burst-length* 5)
 (defparameter *ping-interval* 250) ;; millisecondi
@@ -66,6 +66,12 @@
 
 ;;; Utilita'
 
+
+(defun random-between (a b)
+  "Numero casuale x tale che a <= x <= b"
+  (+ a (random (- (1+ b) a))))
+
+
 (defun percentp (n)
   (and (>= n 0) (<= n 100)))
 
@@ -82,6 +88,20 @@
 (defun firmware-nak-p (fw)
   (or (equal fw "full")
       (equal fw "nak")))
+
+
+(defun make-udp-packet-list (duration)
+  (let ((nbytes (* duration *codec-bw*)))
+    (labels ((next-packet-size ()
+		(random-between *rtp-payload-min-size*
+				*rtp-payload-max-size*))
+	     (helper (nbytes-left packet-size ls-acc)
+		(if (>= packet-size nbytes-left)
+		  (cons nbytes-left ls-acc)
+		  (helper (- nbytes-left packet-size)
+			  (next-packet-size)
+			  (cons packet-size ls-acc)))))
+      (helper nbytes (next-packet-size) nil))))
 
 
 ;;; Macro
@@ -108,7 +128,7 @@
 
 
 (defun bits-per-second (bps)
-  (/ (/ bps 8) 1000))
+  (/ bps 8))
 
 
 (defun kilobits-per-second (kbps)
@@ -1024,3 +1044,4 @@
 
 (setf *proxy* (new proxy-server))
 (setf *ulb* (new udp-load-balancer))
+(setf *codec-bw* (kilobits-per-second 16))
