@@ -13,7 +13,7 @@
 
 ;;; Scenario
 
-(defparameter *eth0* (new wifi-interface :id "eth0" :firmware "nak"))
+(defparameter *eth0* (new wifi-interface :id "eth0" :firmware "ack"))
 
 (defparameter *csnet* (new access-point :id "csnet"))
 
@@ -27,11 +27,11 @@
 
 (add-events
   (set-link-event (msecs 0) *csnet* *proxy*
-		  :error-rate 20 :delay (msecs 30)
+		  :error-rate 0 :delay (msecs 30)
 		  :bandwidth (megabits-per-second 10))
 
   (set-link-event (msecs 0) *csnet* *eth0*
-		  :error-rate 10 :delay (msecs 2)
+		  :error-rate 0 :delay (msecs 2)
 		  :bandwidth (megabits-per-second 1))
 
   (new event :exec-at (secs 2)

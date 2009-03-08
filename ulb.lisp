@@ -72,6 +72,11 @@
   (+ a (random (- (1+ b) a))))
 
 
+(defun hash->list (ht)
+  (loop for v being the hash-values in ht
+	collecting v))
+
+
 (defun percentp (n)
   (and (>= n 0) (<= n 100)))
 
@@ -422,8 +427,7 @@
      :initform nil
      :accessor send-ping-event
      :documentation "Riferimento all'evento che spedira' il prossimo ping su
-     questa interfaccia. L'evento deve venire procrastinato ogni volta che
-     l'interfaccia spedisce un datagram dati.")
+     questa interfaccia."
 
    (current-ping-seqnum
      :initform -1
@@ -450,6 +454,39 @@
 (defmethod print-object ((uwi ulb-wifi-interface) (s stream))
   (format s "[ulb-wifi-interface id:~a fw-det:~a current-ping-seqnum:~a score:~a]"
 	  (id uwi) (firmware-detected uwi) (current-ping-seqnum uwi) (score uwi)))
+
+
+(defmethod weighted-value ((fho first-hop-outcome))
+    (let ((time-ago (- *now* (timestamp fho)))
+	  (value (if (equal "ack" (value fho))
+		   1
+		   -1)))
+      (* value
+	 (cond
+	   ((< time-ago 25) 1)
+	   ((< time-ago 50) (/ 8 10))
+	   ((< time-ago 100) (/ 6 10))
+	   ((< time-ago 200) (/ 4 10))
+	   ((< time-ago 400) (/ 2 10))
+	   (t 0)))))
+
+
+(defmethod weight ((fpo full-path-outcome))
+  (let ((delta (- *now* (ping-sent-at fpo))))
+    (cond ((< delta 250) 1)
+	  ((< delta 500) (/ 1 2))
+	  ((< delta 750) (/ 1 4))
+	  (t 0))))
+
+
+(defmethod compute-score ((uwi ulb-wifi-interface))
+  (inspect uwi)
+  (labels ((first-hop-score (outcomes)
+              (reduce #'+ (mapcar #'weighted-value outcomes)))
+	   (full-path-score (outcomes)
+              ()))
+    (+ (* (/ 6 10) (first-hop-score (first-hop-log uwi)))
+       (* (/ 4 10) (full-path-score (full-path-log uwi))))))
 
 
 (defmethod nak-firmware-detected ((uwi ulb-wifi-interface))
@@ -486,6 +523,19 @@
      :accessor urgent-datagrams
      :documentation "Idem come outgoing-datagrams, ma ospita i datagram da
      rispedire")))
+
+
+(defmethod best-interface ((ulb udp-load-balancer))
+  (with-accessors ((ifaces active-wifi-interfaces)) ulb
+    (let ((lst (hash->list ifaces)))
+      (dolist (iface lst)
+	(setf (score iface)
+	      (compute-score iface)))
+      (find (reduce #'max
+		    lst
+		    :key #'score)
+	    lst
+	    :key #'score))))
 
 
 (defmethod purge ((ulb udp-load-balancer) (id string))
@@ -622,12 +672,11 @@
 (defmethod add ((uwi ulb-wifi-interface) (fpo full-path-outcome))
   "Aggiunge un full-path-outcome al full-path-log dell'ulb-wifi-interface."
   (with-accessors ((fp-log full-path-log)) uwi
-    (setf fp-log
-	  (nconc fp-log (list fpo)))
+    (push fpo fp-log)
     ;; Controlli di coerenza
-    (assert (apply #'<= (mapcar #'sequence-number fp-log))
+    (assert (apply #'>= (mapcar #'sequence-number fp-log))
 	    nil "full-path-log non e' ordinato per numero di sequenza dei ping!")
-    (assert (apply #'<= (mapcar #'ping-sent-at fp-log))
+    (assert (apply #'>= (mapcar #'ping-sent-at fp-log))
 	    nil "full-path-log non e' ordinato per istante di invio dei ping!")))
 
 
