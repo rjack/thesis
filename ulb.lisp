@@ -128,7 +128,7 @@
 
 
 (defun bits-per-second (bps)
-  (/ bps 8))
+  (/ (/ bps 8) 1000))
 
 
 (defun kilobits-per-second (kbps)
