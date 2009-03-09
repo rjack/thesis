@@ -8,6 +8,7 @@
 (defparameter *proxy* nil)
 (defparameter *sendmsg-current-id* -1)
 (defparameter *now* 0)
+(defparameter *wmem* 2048) ;; dimensione dei socket-send-buffer
 
 (defparameter *codec-bw* nil) ;; assegnato in fondo
 
@@ -859,12 +860,15 @@
 (defmethod sendmsg-getid ((wi wifi-interface) (pkt udp-packet))
   (let ((sym (generate-sendmsg-id)))
     (setf (id pkt) sym)
+    (setf (addr pkt) (id wi))
     (add wi pkt)
     sym))
 
 
 (defmethod send ((uwi ulb-wifi-interface) (struct ulb-struct-datagram))
-  (error "TODO send ulb-wifi-interface ulb-struct-datagram"))
+  (setf (id struct)
+	(sendmsg-getid (wifi-interface uwi) (data struct)))
+  (push struct (sent-datagrams uwi)))
 
 
 (defmethod send ((uwi ulb-wifi-interface) (struct ulb-struct-ping))
@@ -1026,6 +1030,7 @@
 	(add-events (new event :exec-at (+ *now* delta-time)
 			       :action (lambda ()
 					 (pop buf)
+					 (flush *ulb*)
 					 (flush wi))))))))
 
 
@@ -1035,10 +1040,25 @@
 		   (outgoing outgoing-datagrams)) ulb
     (when (not (and (null urgent)
 		    (null outgoing)))
-      (send (best-interface ulb)
-	    (if (not (null urgent))
-	      (pop urgent)
-	      (pop outgoing))))))
+      (let ((cur-pkg-size (size
+			    (data
+			      (first
+				(if (not (null urgent))
+					       urgent
+					       outgoing)))))
+	    (best (best-interface *ulb*)))
+	(when (>= (available-send-buffer best)
+		  cur-pkg-size)
+	  (send best (if (not (null urgent))
+		       (pop urgent)
+		       (pop outgoing))))))))
+
+
+(defmethod available-send-buffer ((uwi ulb-wifi-interface))
+  "NB: puo' essere negativo, i ping vengono aggiunti anche se non ci sarebbe spazio."
+  (let ((used (reduce #'+ (mapcar #'size (socket-send-buffer
+					   (wifi-interface uwi))))))
+    (- *wmem* used)))
 
 
 (defmethod fire ((ev event))
