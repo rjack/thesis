@@ -484,7 +484,17 @@
   (labels ((first-hop-score (outcomes)
               (reduce #'+ (mapcar #'weighted-value outcomes)))
 	   (full-path-score (outcomes)
-              0))
+              (let ((forgive t)
+		    (result-score 0))
+		(dolist (fpo outcomes)
+		  (incf result-score
+			(cond
+			  ((slot-boundp fpo 'ping-recv-at) (setf forgive nil)
+							   (weight fpo))
+			  (t (if forgive
+			       0
+			       (- (weight fpo)))))))
+		result-score)))
     (+ (* (/ 6 10) (first-hop-score (first-hop-log uwi)))
        (* (/ 4 10) (full-path-score (full-path-log uwi))))))
 
