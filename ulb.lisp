@@ -326,8 +326,7 @@
 (defmethod initialize-instance :after ((ping ulb-struct-ping) &key wifi-interface)
   (let ((seq (incf (current-ping-seqnum wifi-interface))))
     (setf (slot-value ping 'data)
-          (new ping-packet :addr (id wifi-interface)
-	                   :score (score wifi-interface)
+          (new ping-packet :score (score wifi-interface)
                            :sequence-number seq))))
 
 
@@ -551,7 +550,7 @@
 
 (defmethod purge ((ulb udp-load-balancer) (id string))
   "Cerca il datagram con il dato id in tutte le strutture dati di ulb e lo rimuove."
-  (error "TODO purge"))
+  (error "TODO purge id ~a" id))
 
 
 ;;; Net link
