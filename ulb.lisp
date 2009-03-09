@@ -427,7 +427,7 @@
      :initform nil
      :accessor send-ping-event
      :documentation "Riferimento all'evento che spedira' il prossimo ping su
-     questa interfaccia."
+     questa interfaccia.")
 
    (current-ping-seqnum
      :initform -1
@@ -480,11 +480,11 @@
 
 
 (defmethod compute-score ((uwi ulb-wifi-interface))
-  (inspect uwi)
+  ;;(inspect uwi)
   (labels ((first-hop-score (outcomes)
               (reduce #'+ (mapcar #'weighted-value outcomes)))
 	   (full-path-score (outcomes)
-              ()))
+              0))
     (+ (* (/ 6 10) (first-hop-score (first-hop-log uwi)))
        (* (/ 4 10) (full-path-score (full-path-log uwi))))))
 
